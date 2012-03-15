@@ -78,6 +78,7 @@ if 1:
     print "___ FACTORY ___"
     wrapped= rFactory.resize(photofile=puppy)
     print wrapped.__dict__
+    # we'll pass in a guid.  in your code this would be the id in your database
     saved= rFactory.resize(photofile=puppy,s3_save=True,s3_save_original=True,guid='123',s3_logger=s3Logger)
     print saved.__dict__
 

@@ -12,6 +12,12 @@ This is still in Alpha as it is made to be more 'universal' ( it was originally 
 
 ----
 
+The code is licensed under the BSD license.
+
+The sample image is licensed under the Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported (CC BY-NC-ND 3.0) http://creativecommons.org/licenses/by-nc-nd/3.0/
+
+----
+
 Usage...
 
 Check out the demo.py module - and include some amazon s3 credentials.
@@ -26,7 +32,7 @@ Check out the demo.py module - and include some amazon s3 credentials.
     
 4. If you're saving to S3, create an S3 config object to store your info.  note that you can specify a public and private bucket.
     resized thumbnails are saved to the public bucket
-    the original item is optionally saved to the archive, which is not viewably to the public
+    the original item is optionally saved to the archive, which is not viewably to the public.  this is so you can do different sizing schemes in the future.
     
 5. You can create an S3 logger, a class that provides two methods:
     log_upload( bucket_name , key )
@@ -59,9 +65,15 @@ here's an example photo_resize schema
         'format':'JPEG',
         'constraint-method': 'fit-within',
         's3_bucket_public': 'my-test',
-        'filename_template': '%(guid)s.%(format)s',
+        'filename_template': '%(guid)s-%(suffix)s.%(format)s',
         's3_headers': { 'x-amz-acl' : 'public-read' }
     },
+
+
+this would create a file on amazon s3 with a GUID you supply like 123123123g :
+
+	/my-test/123123123-t120.jpg
+	_bucket_/_guid_-_suffix_._format_
 
 
 
