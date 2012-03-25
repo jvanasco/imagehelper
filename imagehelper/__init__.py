@@ -23,6 +23,7 @@ except:
 import cStringIO
 import Image
 import exceptions
+import types
 
 
 _PIL_type_to_content_type= {
@@ -111,43 +112,43 @@ class ResizerConfig(object):
 
         `photo_resizes` - a dict in this format:
             {   'size_name' : {
-					'width': 120,
-					'height': 120,
-					'constraint-method': 'fit-within',
-					'save_quality': 50,
-					'filename_template': '%(guid)s.%(format)s',
-					'suffix': 't1',
-					'format':'JPEG',
-					's3_bucket_public': 'my-test',
-					's3_headers': { 'x-amz-acl' : 'public-read' }
+                    'width': 120,
+                    'height': 120,
+                    'constraint-method': 'fit-within',
+                    'save_quality': 50,
+                    'filename_template': '%(guid)s.%(format)s',
+                    'suffix': 't1',
+                    'format':'JPEG',
+                    's3_bucket_public': 'my-test',
+                    's3_headers': { 'x-amz-acl' : 'public-read' }
                 }
             }
             
         `photo_resizes_selected` : an array of size names ( see above ) to be resized
         
         width*
-        	in pixels
+            in pixels
         height*
-        	in pixels
+            in pixels
         format
-        	defaults to JPEG
+            defaults to JPEG
         constraint-method
-        	see below for valid constraint methods
+            see below for valid constraint methods
         save_
-	        keys prepended with `save_` are stripped of "save" and passed on to PIL.  
-	        warning: different formats accept different arguments. view the code in 'resize' to see what works.
-	    filename_template 
-	     	defaults to "%(guid)s-%(suffix)s.%(format)s"
-	     	pass in any python string template you desire -- guid, suffix and format are interpolated. 
-	    suffix
-	    	give the size a custom suffix (for filename_template)
-	    	otherwise this defaults to the 'size_name'
-	    s3_bucket_public
-	    	overwrite the bucket that resized items are saved to ( defaults to config object settings )
-	    s3_headers
-	    	overwrite the aws headers this is saved with ( defaults to '{ 'x-amz-acl' : 'public-read' }' + config object settings )
-	    	
-	    
+            keys prepended with `save_` are stripped of "save" and passed on to PIL.  
+            warning: different formats accept different arguments. view the code in 'resize' to see what works.
+        filename_template 
+            defaults to "%(guid)s-%(suffix)s.%(format)s"
+            pass in any python string template you desire -- guid, suffix and format are interpolated. 
+        suffix
+            give the size a custom suffix (for filename_template)
+            otherwise this defaults to the 'size_name'
+        s3_bucket_public
+            overwrite the bucket that resized items are saved to ( defaults to config object settings )
+        s3_headers
+            overwrite the aws headers this is saved with ( defaults to '{ 'x-amz-acl' : 'public-read' }' + config object settings )
+            
+        
         valid constraint methods:
         
             fit-within
@@ -184,21 +185,38 @@ class ResizerFactory(object):
     """This is a conveniece Factory to store application configuration options."""
     resizer_config= None
     s3_config= None
+    s3_logger= None
     
-    def __init__( self , resizer_config=resizer_config , s3_config=s3_config ):
+    def __init__( self , resizer_config=None , s3_config=None , s3_logger=None ):
         self.resizer_config = resizer_config
         self.s3_config = s3_config
+        self.s3_logger = s3_logger
         
     def resize( self , photofile=None , guid=None, s3_save=False , s3_save_original=True , s3_logger=None ):
         """Creates a wrapped object, performs resizing /saving on it, then returns it"""
+        if s3_logger is None:
+            s3_logger= self.s3_logger
         wrapped= ResizerWrapper( resizer_config=self.resizer_config , s3_config=self.s3_config)
         wrapped.register_image_file( photofile=photofile )
         wrapped.resize()
         if s3_save:
             results= wrapped.s3_save( guid=guid, s3_save_original=s3_save_original , s3_logger=s3_logger )
         return wrapped
-
         
+    def s3_generate_filenames( self , guid=None , s3_original_filename=None ):
+        wrapped= ResizerWrapper( resizer_config=self.resizer_config , s3_config=self.s3_config )
+        return wrapped.s3_generate_filenames( guid=guid , s3_original_filename=s3_original_filename )
+        
+    def setup_s3_buckets( self , s3_save_original=True  ):
+        wrapped= ResizerWrapper( resizer_config=self.resizer_config , s3_config=self.s3_config )
+        return wrapped.setup_s3_buckets( s3_config=self.s3_config , s3_save_original=s3_save_original , photo_resizes=self.resizer_config.photo_resizes , photo_resizes_selected=self.resizer_config.photo_resizes_selected )
+
+    def s3_delete_files( self , s3_uploads=None  , s3_save_original=True , s3_logger=None  ):
+        if s3_logger is None:
+            s3_logger= self.s3_logger
+        wrapped= ResizerWrapper( resizer_config=self.resizer_config , s3_config=self.s3_config )
+        wrapped.setup_s3_buckets( s3_config=self.s3_config , s3_save_original=s3_save_original , photo_resizes=self.resizer_config.photo_resizes , photo_resizes_selected=self.resizer_config.photo_resizes_selected )
+        return wrapped.s3_delete_files( s3_buckets=wrapped.s3_buckets , s3_uploads=s3_uploads , s3_config=self.s3_config , s3_logger=s3_logger )
     
 
 class ResizerWrapper(object):
@@ -212,15 +230,22 @@ class ResizerWrapper(object):
     resizer_config= None
     s3_config= None
     s3_saved= None
+    s3_buckets= None
+    s3_connection= None
 
     resized= None
     
     
-    def __init__( self , resizer_config=None , s3_config=None ):
+    
+    def __init__( self , resizer_config=None , s3_config=None , s3_buckets=None , s3_connection=None ):
         self.resizer_config = resizer_config
-        self.s3_config = s3_config
         self.resized= {}
+        self.s3_config = s3_config
         self.s3_saved = {}
+        self.s3_saved_original = {}
+        self.s3_buckets= s3_buckets
+        self.s3_connection= s3_connection
+        
         
         
     
@@ -293,6 +318,8 @@ class ResizerWrapper(object):
         # we'll stash the items here
         resized= {}
         for size in photo_resizes_selected:
+            if size[0] == "@":
+                raise ValueError("@ is a reserved initial character for photo sizes")
             resized_image= self.imageObject.copy()
             if resized_image.palette:
                 resized_image= resized_image.convert()
@@ -436,7 +463,25 @@ class ResizerWrapper(object):
             self.resized[k] = resized[k]
         
         return resized
-        
+    
+    def setup_s3_buckets( self , s3_config=None , s3_save_original=None , photo_resizes=None , photo_resizes_selected=None ):
+        """configures connections to relevant s3 buckets"""
+        s3_connection = boto.connect_s3( s3_config.key_public , s3_config.key_private )
+        self.s3_connection= s3_connection
+        s3_buckets= {}
+        s3_buckets['@public'] = boto.s3.bucket.Bucket( connection=s3_connection , name=s3_config.bucket_public_name )
+        if s3_save_original :
+            s3_buckets['@archive'] = boto.s3.bucket.Bucket( connection=s3_connection , name=s3_config.bucket_archive_name )
+        for size in photo_resizes_selected:
+            if size[0] == "@":
+                raise ValueError("@ is a reserved initial character for photo sizes")
+            if 's3_bucket_public' in photo_resizes[size]:
+                bucket_name= photo_resizes[size]['s3_bucket_public']
+                s3_buckets[bucket_name] = boto.s3.bucket.Bucket( connection=s3_connection , name=bucket_name )
+        self.s3_buckets= s3_buckets
+        return self.s3_buckets
+    
+
 
     def s3_save( self , resized=None , photo_resizes=None , guid=None, photo_resizes_selected=None , s3_config=None ,  s3_save_original=False , s3_logger=None ):
         """
@@ -461,9 +506,6 @@ class ResizerWrapper(object):
            if k not in photo_resizes :
                 raise PhotoError_ConfigError("selected size is not photo_resizes")
         
-        if boto is None:
-            raise ValueError("""boto is not installed""")
-    
         if s3_config is None:
            s3_config= self.s3_config
 
@@ -478,22 +520,15 @@ class ResizerWrapper(object):
                 s3headers_archive_default[k]= s3_config.bucket_archive_headers[k]
         
         # setup the s3 connection
-        s3_connection = boto.connect_s3( s3_config.key_public , s3_config.key_private )
-        s3_buckets= {}
-        s3_buckets['@public'] = boto.s3.bucket.Bucket( connection=s3_connection , name=s3_config.bucket_public_name )
-        if s3_save_original :
-            s3_buckets['@archive'] = boto.s3.bucket.Bucket( connection=s3_connection , name=s3_config.bucket_archive_name )
-            
-        for size in photo_resizes_selected:
-            if 's3_bucket_public' in photo_resizes[size]:
-                bucket_name= photo_resizes[size]['s3_bucket_public']
-                s3_buckets[bucket_name] = boto.s3.bucket.Bucket( connection=s3_connection , name=bucket_name )
+        s3_buckets= self.setup_s3_buckets( s3_config=s3_config , s3_save_original=s3_save_original , photo_resizes=photo_resizes , photo_resizes_selected=photo_resizes_selected )
 
         # log uploads for removal/tracking and return           
         s3_uploads= {}
         try:
             # and then we upload...
             for size in photo_resizes_selected:
+                if size[0] == "@":
+                    raise ValueError("@ is a reserved initial character for photo sizes")
                 filename_template= "%(guid)s-%(suffix)s.%(format)s"
                 if 'filename_template' in photo_resizes[size]:
                     filename_template= photo_resizes[size]['filename_template']
@@ -542,34 +577,110 @@ class ResizerWrapper(object):
                 # log for removal/tracking & return
                 if bucket_name not in s3_uploads:
                     s3_uploads[bucket_name]= {}
-                s3_uploads[bucket_name][size]= target_filename
+                s3_uploads[bucket_name]["@archive"]= target_filename
                 if s3_logger:
                     s3_logger.log_upload( bucket=bucket_name , key=target_filename )
         except:
             # if we have ANY issues, we want to delete everything from amazon s3. otherwise this stuff is just hiding up there
             log.debug("Error uploading... rolling back s3 items")
-            for bucket_name in s3_uploads:
-                if bucket_name == s3_config.bucket_public_name:
-                    bucket= s3_buckets['@archive']
-                elif bucket_name == s3_config.bucket_archive_name:
-                    bucket= s3_buckets['@public']
-                else:
-                    bucket= s3_buckets[bucket_name]
-                for size in s3_uploads[bucket_name]:
-                    target_filename= s3_uploads[bucket_name][size]
-                    removal= boto.s3.key.Key( bucket )
-                    removal.key= target_filename
-                    removal.delete()
-                    if s3_logger:
-                        s3_logger.log_delete( bucket=bucket_name , key=target_filename )
-                    del s3_uploads[bucket_name][size]
-                del s3_uploads[bucket_name]
+            s3_uploads= self.s3_delete_files( s3_buckets=s3_buckets , s3_uploads=s3_uploads , s3_config=s3_config )
+            raise
             raise PhotoError_S3Upload('error uploading')
-        for bucket_name in s3_uploads:
-            if bucket_name not in self.s3_saved :
-               self.s3_saved[bucket_name]= {}
-            for size in s3_uploads[bucket_name]:
-               self.s3_saved[bucket_name][size]= s3_uploads[bucket_name][size]
+            
+        ## migrate the s3uploads into the self.s3saved
+        self._update_s3_saved( s3_uploads=s3_uploads , mode='upload' )
+        return s3_uploads
+
+
+    def _update_s3_saved( self, s3_uploads=None , mode=None ):
+        if mode == 'upload':
+            for bucket_name in s3_uploads.keys():
+                if bucket_name not in self.s3_saved :
+                   self.s3_saved[bucket_name]= {}
+                for size in s3_uploads[bucket_name].keys():
+                    self.s3_saved[bucket_name][size]= s3_uploads[bucket_name][size]
+        elif mode == 'delete':
+            for bucket_name in s3_uploads.keys():
+                if bucket_name not in self.s3_saved :
+                   pass
+                for size in s3_uploads[bucket_name].keys():
+                    if size in self.s3_saved[bucket_name]:
+                        del self.s3_saved[bucket_name][size]
+        
+
+    def s3_delete_files( self , s3_buckets=None , s3_uploads=None , s3_config=None , s3_logger=None ):
+        """workhorse for deletion"""
+        if s3_config is None:
+           s3_config= self.s3_config
+        
+        for bucket_name in s3_uploads.keys():
+            if bucket_name == s3_config.bucket_public_name:
+                bucket= s3_buckets['@public']
+            elif bucket_name == s3_config.bucket_archive_name:
+                bucket= s3_buckets['@archive']
+            else:
+                bucket= s3_buckets[bucket_name]
+                
+            for size in s3_uploads[bucket_name].keys():
+                target_filename= s3_uploads[bucket_name][size]
+                log.debug( "going to delete %s from %s(%s)" % (target_filename,bucket_name,bucket) )
+                bucket.delete_key(target_filename)
+                if s3_logger:
+                    s3_logger.log_delete( bucket=bucket_name , key=target_filename )
+                del s3_uploads[bucket_name][size]
+            del s3_uploads[bucket_name]
+        self._update_s3_saved( s3_uploads=s3_uploads , mode='delete' )
         return s3_uploads
     
-        
+    
+    
+    def s3_generate_filenames( self , guid=None , photo_resizes=None , photo_resizes_selected=None , s3_original_filename=None , s3_config=None ):
+        """generates the filenames s3 would save to; this is useful when you're deleting previously created images"""
+        if guid is None:
+            raise PhotoError_ConfigError("You must supply a `guid` for the image")
+        if photo_resizes is None:
+            photo_resizes= self.resizer_config.photo_resizes
+        if photo_resizes_selected is None:
+            photo_resizes_selected= self.resizer_config.photo_resizes_selected
+            
+        for k in photo_resizes_selected:
+           if k not in photo_resizes :
+                raise PhotoError_ConfigError("selected size is not photo_resizes")
+
+        if s3_config is None:
+           s3_config= self.s3_config
+
+        s3_uploads= {}
+        for size in photo_resizes_selected:
+            if size[0] == "@":
+                raise ValueError("@ is a reserved initial character for photo sizes")
+            filename_template= "%(guid)s-%(suffix)s.%(format)s"
+            if 'filename_template' in photo_resizes[size]:
+                filename_template= photo_resizes[size]['filename_template']
+            if 'suffix' in photo_resizes[ size ]:
+                suffix= photo_resizes[ size ]['suffix']
+            else:
+                suffix= size
+            target_filename=  filename_template % {\
+                    'guid': guid , 
+                    'suffix': suffix , 
+                    'format': PIL_type_to_standardized( photo_resizes[size]['format']) 
+                }
+            if 's3_bucket_public' in photo_resizes[size] :
+                bucket_name = photo_resizes[size]['s3_bucket_public']
+            else:
+                bucket_name = s3_config.bucket_public_name
+            if bucket_name not in s3_uploads:
+                s3_uploads[bucket_name]= {}
+            s3_uploads[bucket_name][size]= target_filename
+        if s3_original_filename :
+            bucket_name= s3_config.bucket_archive_name
+            if bucket_name not in s3_uploads:
+                s3_uploads[bucket_name]= {}
+            target_filename= s3_original_filename
+            s3_uploads[bucket_name]["@archive"]= target_filename
+        return s3_uploads
+    
+            
+
+  

@@ -7,6 +7,7 @@ AWS_KEY_PUBLIC= Config.get('aws','AWS_KEY_PUBLIC')
 AWS_KEY_SECRET= Config.get('aws','AWS_KEY_SECRET')
 AWS_BUCKET_PUBLIC= Config.get('aws','AWS_BUCKET_PUBLIC')
 AWS_BUCKET_SECRET= Config.get('aws','AWS_BUCKET_SECRET')
+AWS_BUCKET_ALT= Config.get('aws','AWS_BUCKET_ALT')
 
 s3Config= imagehelper.S3Config(
     key_public= AWS_KEY_PUBLIC,
@@ -26,7 +27,7 @@ photo_resizes= {
         'suffix': 't1',
         'format':'JPEG',
         'constraint-method': 'fit-within',
-        's3_bucket_public': 'my-test',
+        's3_bucket_public': AWS_BUCKET_ALT,
         'filename_template': '%(guid)s.%(format)s',
         's3_headers': { 'x-amz-acl' : 'public-read' }
     },
@@ -62,10 +63,11 @@ rFactory= imagehelper.ResizerFactory(resizer_config=rConfig,s3_config=s3Config)
 
 puppy= open('tests/henry.jpg','r')
 
+guid= '123'
 
 
 
-if 1:
+if 0:
     # direct route
     print "___ DIRECT ___"
     rWrapper= imagehelper.ResizerWrapper(resizer_config=rConfig)
@@ -76,10 +78,34 @@ if 1:
 if 1:
     # factory way
     print "___ FACTORY ___"
+    
     wrapped= rFactory.resize(photofile=puppy)
     print wrapped.__dict__
     # we'll pass in a guid.  in your code this would be the id in your database
-    saved= rFactory.resize(photofile=puppy,s3_save=True,s3_save_original=True,guid='123',s3_logger=s3Logger)
+    saved= rFactory.resize(photofile=puppy,s3_save=True,s3_save_original=True,guid=guid,s3_logger=s3Logger)
     print saved.__dict__
+    print saved.s3_saved[AWS_BUCKET_SECRET]
 
+    # we'll pass in a guid.  in your code this would be the id in your database
+    s3_filenames= rFactory.s3_generate_filenames( guid=guid , s3_original_filename=saved.s3_saved[AWS_BUCKET_SECRET]['@archive'] )
+    print s3_filenames
 
+if 1 :
+
+    # we'll pass in a guid.  in your code this would be the id in your database
+    s3_filenames= rFactory.s3_generate_filenames( guid=guid , s3_original_filename='123.jpg' )
+    print s3_filenames
+    
+    s3_buckets= rFactory.setup_s3_buckets( s3_save_original=False )
+    print s3_buckets
+
+    s3_buckets= rFactory.setup_s3_buckets( s3_save_original=True )
+    print s3_buckets
+    
+    print "delete..."
+    print rFactory.s3_delete_files( s3_uploads=s3_filenames )
+    
+    print "deleted!"
+    print rFactory.__dict__
+    
+    

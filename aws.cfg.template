@@ -3,3 +3,4 @@ AWS_KEY_PUBLIC= 123
 AWS_KEY_SECRET= 123
 AWS_BUCKET_PUBLIC= mybucket
 AWS_BUCKET_SECRET= mybucket-archive
+AWS_BUCKET_ALT = mybucket-alt

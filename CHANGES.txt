@@ -1,3 +1,39 @@
+0.0.3 (2012-03-25)
+------------------
+- not backwards compatible. sorry.
+
+# Tracking the "archive" image was changed.
+
+1. photo_sizes now reserve an initial @ character for internal usage
+2. archived fullsize images are now tracked as:
+
+	dict[bucket_name]['@archive'][filename]
+
+before there was a dual-use dict, that was just hard to manage
+
+	dict[public_bucket_name][size][filename]
+	dict[archive_bucket_name][filename]
+
+this created issues where you couldn't save the archived image to the same s3 bucket.  now you can.
+
+# added s3_generate_filenames
+
+this call just generates the filenames that would be saved to s3.  
+this is necessary for deletion or external auditing of your uploads
+
+# added s3_delete
+
+you can now delete s3 files
+
+# this still doesn't have proper tests
+
+check the demo.py
+
+
+0.0.2 (2012-03-23)
+------------------
+- corrected error in handling of failed items.  created a check for DictType and StringTypes.
+
 0.0.1 (2012-03-14)
 ------------------
 - initial release

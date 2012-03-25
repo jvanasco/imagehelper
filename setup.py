@@ -4,7 +4,7 @@ from setuptools import setup
 def get_docs():
     result = []
     in_docs = False
-    f = open(os.path.join(os.path.dirname(__file__), 'imagehelper.py'))
+    f = open(os.path.join(os.path.dirname(__file__), 'imagehelper/__init__.py'))
     try:
         for line in f:
             if in_docs:
@@ -21,7 +21,7 @@ setup(
     name='imagehelper',
     author='Jonathan Vanasco',
     author_email='jonathan@findmeon.com',
-    version='0.0.1',
+    version='0.0.3',
     url='http://github.com/jvanasco/imagehelper',
     py_modules=['imagehelper'],
     description='simple utilites for image resizing and uploading and stuff like that',
