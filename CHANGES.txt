@@ -1,3 +1,8 @@
+0.0.4 (2012-06-07)
+------------------
+- fixed setup script
+
+
 0.0.3 (2012-03-25)
 ------------------
 - not backwards compatible. sorry.
@@ -18,7 +23,7 @@ this created issues where you couldn't save the archived image to the same s3 bu
 
 # added s3_generate_filenames
 
-this call just generates the filenames that would be saved to s3.  
+this call just generates the filenames that would be saved to s3.
 this is necessary for deletion or external auditing of your uploads
 
 # added s3_delete
