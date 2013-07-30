@@ -1,3 +1,11 @@
+0.1.0 ( IN PROGRESS )
+------------------
+- simplifying interface
+- splitting code into multiple files with better organization
+- supporting Pillow , as PIL isn't really used
+- cleaning up S3
+
+
 0.0.4 (2012-06-07)
 ------------------
 - fixed setup script

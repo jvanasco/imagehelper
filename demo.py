@@ -1,25 +1,28 @@
 import imagehelper
+import cStringIO
+
 
 import ConfigParser
 Config = ConfigParser.ConfigParser()
 Config.read('aws.cfg')
-AWS_KEY_PUBLIC= Config.get('aws','AWS_KEY_PUBLIC')
-AWS_KEY_SECRET= Config.get('aws','AWS_KEY_SECRET')
-AWS_BUCKET_PUBLIC= Config.get('aws','AWS_BUCKET_PUBLIC')
-AWS_BUCKET_SECRET= Config.get('aws','AWS_BUCKET_SECRET')
-AWS_BUCKET_ALT= Config.get('aws','AWS_BUCKET_ALT')
+AWS_KEY_PUBLIC = Config.get('aws','AWS_KEY_PUBLIC')
+AWS_KEY_SECRET = Config.get('aws','AWS_KEY_SECRET')
+AWS_BUCKET_PUBLIC = Config.get('aws','AWS_BUCKET_PUBLIC')
+AWS_BUCKET_SECRET = Config.get('aws','AWS_BUCKET_SECRET')
+AWS_BUCKET_ALT = Config.get('aws','AWS_BUCKET_ALT')
 
-s3Config= imagehelper.S3Config(
-    key_public= AWS_KEY_PUBLIC,
-    key_private= AWS_KEY_SECRET,
-    bucket_public_name= AWS_BUCKET_PUBLIC,
-    bucket_archive_name= AWS_BUCKET_SECRET,
-    bucket_public_headers= { 'x-amz-acl' : 'public-read' },
-    bucket_archive_headers= { },
+s3Config= imagehelper.s3.S3Config(
+    key_public = AWS_KEY_PUBLIC,
+    key_private = AWS_KEY_SECRET,
+    bucket_public_name = AWS_BUCKET_PUBLIC,
+    bucket_archive_name = AWS_BUCKET_SECRET,
+    bucket_public_headers = { 'x-amz-acl' : 'public-read' },
+    bucket_archive_headers = { },
+    archive_original = True
 )
 
 
-photo_resizes= {
+image_resizes= {
     'thumb1': {
         'width': 120,
         'height': 120,
@@ -55,34 +58,93 @@ photo_resizes= {
         'constraint-method': 'fit-within:crop-to',
     },
 }
-photo_resizes_selected= ['thumb1','t2','thumb3','t4']
+image_resizes_selected = ['thumb1','t2','thumb3','t4']
 
-s3Logger= imagehelper.S3Logger()
-rConfig= imagehelper.ResizerConfig( photo_resizes=photo_resizes , photo_resizes_selected=photo_resizes_selected )
-rFactory= imagehelper.ResizerFactory(resizer_config=rConfig,s3_config=s3Config)
+s3Logger = imagehelper.s3.S3Logger()
+rConfig = imagehelper.resizer.ResizerConfig( image_resizes=image_resizes , image_resizes_selected=image_resizes_selected )
 
-puppy= open('tests/henry.jpg','r')
+# create a wrapper
+resizer = imagehelper.resizer.Resizer( resizer_config=rConfig )
 
+
+_img = None
+def get_imagefile():
+    global _img
+    if _img is  None:
+        img = open('tests/henry.jpg','r')
+        img.seek(0)
+        data = img.read()
+        img.close()
+        img2 = cStringIO.StringIO()
+        img2.write(data)
+        _img = img2
+    _img.seek(0)
+    return _img
+
+    
 guid= '123'
 
 
+def demo_direct():
+    "demo calling direct methods"
+    
+    # try to register the image
+    resizer.register_image_file( imagefile=get_imagefile() )
+    
+    try:
+        # resize the image
+        # this should fail, because we don't want to risk changing the image before registering
+        results = resizer.resize( imagefile=get_imagefile() )
+    except imagehelper.errors.ImageError_DuplicateAction :
+        # expected!
+        pass
+        
+    # reset the resizer
+    resizer.reset()
+    
+    # resize the image
+    results = resizer.resize( imagefile=get_imagefile() )
+    
+    print results
+    
+
+def demo_factory():
+    "demo calling factory methods"
+    
+    # build a factory
+    rFactory= imagehelper.resizer.ResizerFactory( resizer_config=rConfig )
+
+    # resize !
+    results = rFactory.resize( imagefile=get_imagefile() )
+
+
+def demo_s3():
+    "demo s3 uploading"
+    # build a factory & resize
+    rFactory= imagehelper.resizer.ResizerFactory( resizer_config=rConfig )
+    resized = rFactory.resize( imagefile=get_imagefile() )
+    print resized
+    
+    uploader = imagehelper.s3.S3Uploader( s3_config=s3Config , resizer_config=rConfig )
+    print uploader.s3_save( resized , guid=guid )
+
+
+
+if True:
+    pass
+    demo_s3()
+
+if False:
+    pass
+    demo_direct()
+    demo_factory()
+
+
+raise ValueError("ok")
 
 if 0:
-    # direct route
-    print "___ DIRECT ___"
-    rWrapper= imagehelper.ResizerWrapper(resizer_config=rConfig)
-    rWrapper.register_image_file(photofile=puppy)
-    rWrapper.resize(photofile=puppy)
-    print rWrapper.__dict__
-
-if 1:
-    # factory way
-    print "___ FACTORY ___"
-    
-    wrapped= rFactory.resize(photofile=puppy)
-    print wrapped.__dict__
     # we'll pass in a guid.  in your code this would be the id in your database
-    saved= rFactory.resize(photofile=puppy,s3_save=True,s3_save_original=True,guid=guid,s3_logger=s3Logger)
+    #saved= rFactory.resize(photofile=puppy,s3_save=True,s3_save_original=True,guid=guid,s3_logger=s3Logger)
     print saved.__dict__
     print saved.s3_saved[AWS_BUCKET_SECRET]
 
