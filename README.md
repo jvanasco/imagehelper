@@ -18,7 +18,7 @@ This is a barebones package that has NO FRAMEWORK DEPENDENCIES - which is a good
 
 I could only find a single tool for resizing thumbnails on PyPi that did not require a framework, and that's really annoying.
 
-This is still in Alpha as it is made to be more 'universal'.
+This is still in Beta.
 
 
 ## Usage...

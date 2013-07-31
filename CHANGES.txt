@@ -1,5 +1,6 @@
-0.1.0 ( IN PROGRESS )
+0.1.0 rc 1
 ------------------
+* THIS TOTALLY AND ENTIRELY BREAKS PRIOR INTEGRATIONS
 * simplifying interface
 * splitting code into multiple files with better organization
 * supporting Pillow , as PIL isn't really used by many people
