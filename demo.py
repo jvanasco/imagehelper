@@ -22,7 +22,7 @@ s3Config= imagehelper.s3.S3Config(
 )
 
 
-image_resizes= {
+resizesSchema= {
     'thumb1': {
         'width': 120,
         'height': 120,
@@ -58,9 +58,9 @@ image_resizes= {
         'constraint-method': 'fit-within:crop-to',
     },
 }
-image_resizes_selected = ['thumb1','t2','thumb3','t4']
+selected_resizes = ['thumb1','t2','thumb3','t4']
 
-image_resizes_alt= {
+resizesSchema_alt= {
     'og:image': {
         'width': 3200,
         'height': 3200,
@@ -101,10 +101,10 @@ class CustomS3Logger( imagehelper.s3.S3Logger ):
 
 
 s3Logger = CustomS3Logger()
-rConfig = imagehelper.resizer.ResizerConfig( image_resizes=image_resizes , image_resizes_selected=image_resizes_selected )
+resizerConfig = imagehelper.resizer.ResizerConfig( resizesSchema=resizesSchema , selected_resizes=selected_resizes )
 
 # create a wrapper
-resizer = imagehelper.resizer.Resizer( resizer_config=rConfig )
+resizer = imagehelper.resizer.Resizer( resizerConfig=resizerConfig )
 
 
 _img = None
@@ -152,7 +152,7 @@ def demo_factory():
     "demo calling factory methods"
     
     # build a factory
-    rFactory= imagehelper.resizer.ResizerFactory( resizer_config=rConfig )
+    resizerFactory= imagehelper.resizer.ResizerFactory( resizerConfig=resizerConfig )
 
     # resize !
     resizedImages = rFactory.resize( imagefile=get_imagefile() )
@@ -162,11 +162,11 @@ def demo_s3():
     "demo s3 uploading"
 
     # build a factory & resize
-    rFactory= imagehelper.resizer.ResizerFactory( resizer_config=rConfig )
-    resizedImages = rFactory.resize( imagefile=get_imagefile() )
+    resizerFactory= imagehelper.resizer.ResizerFactory( resizerConfig=resizerConfig )
+    resizedImages = resizerFactory.resize( imagefile=get_imagefile() )
 
     # upload the resized items
-    uploader = imagehelper.s3.S3Uploader( s3_config=s3Config , resizer_config=rConfig , s3_logger=s3Logger )
+    uploader = imagehelper.s3.S3Uploader( s3Config=s3Config , resizerConfig=resizerConfig , s3Logger=s3Logger )
     uploaded = uploader.s3_save( resizedImages , guid )
     print "uploaded! %s" % uploaded
     
@@ -176,15 +176,14 @@ def demo_s3():
 
 def demo_alt_resizing():
 
-    rConfig = imagehelper.resizer.ResizerConfig( image_resizes=image_resizes_alt )
+    resizerConfig = imagehelper.resizer.ResizerConfig( resizesSchema=resizesSchema_alt )
 
     # create a wrapper
-    resizer = imagehelper.resizer.Resizer( resizer_config=rConfig )
+    resizer = imagehelper.resizer.Resizer( resizerConfig=resizerConfig )
 
     # build a factory & resize
-    rFactory= imagehelper.resizer.ResizerFactory( resizer_config=rConfig )
-
-    resizedImages = rFactory.resize( imagefile=get_imagefile() )
+    resizerFactory= imagehelper.resizer.ResizerFactory( resizerConfig=resizerConfig )
+    resizedImages = resizerFactory.resize( imagefile=get_imagefile() )
     
     print resizedImages
     

@@ -39,7 +39,7 @@ class ResizedImage(object):
             property to calculate the filesize 
         
     """
-    def __init__( self , resized_file , format=None , name=None , mode=None , 
+    def __init__( self , resizedFile , format=None , name=None , mode=None , 
             width=None, height=None ,
         ):
         """args
@@ -53,7 +53,7 @@ class ResizedImage(object):
                 default = None
             
         """
-        self.file = resized_file
+        self.file = resizedFile
         self.file.seek(0) # be kind, rewind
         self.name = name
         self.format = format
@@ -82,6 +82,16 @@ class ImageWrapper(object):
     def __init__(self , imagefile=None , imagefile_name=None ):
         """registers and validates the image file
             note that we do copy the image file
+            
+            args:
+            
+            `imagefile`
+                    cgi.FieldStorage
+                    types.FileType
+                    StringIO.StringIO , cStringIO.InputType, cStringIO.OutputType
+
+            `imagefile_name`
+                only used for informational purposes
         """
         if imagefile is None:
             raise errors.ImageError_MissingFile( constants.ImageErrorCodes.MISSING_FILE )
@@ -147,6 +157,44 @@ class ImageWrapper(object):
         1. we operate on a copy of the imageObject via cStringIo
             ( which is already a copy of the original )
         2. we save to another new cStringIO 'file'
+
+        valid `constraint-method` for `instructions_dict`
+
+            'fit-within'
+                Resizes item to fit within the bounding box , on both height 
+                and width.   This resulting image will be the size of the 
+                bounding box or smaller.
+
+            'fit-within:crop-to'
+                resizes the item along whichever axis ensures the bounding box 
+                is 100% full, then crops.  This resulting image will be the 
+                size of the bounding box.
+                
+            'fit-within:ensure-width'
+                resizes item to fit within the bounding box, scaling height 
+                to ensure 100% width.  This resulting image will be the size of 
+                the bounding box.
+
+            'fit-within:ensure-height'
+                resizes item to fit within the bounding box, scaling width to 
+                ensure 100% height. This resulting image will be the size of 
+                the bounding box.
+
+            'smallest:ensure-minimum'
+                useful for things like og:image where you want at least a 200px 
+                image. 
+
+            'exact:no-resize'
+                don't scale! raises an error if a scale must be made. this is a 
+                convenience for just saving/re-encoding files.
+                i.e. 100x100 must receive an image that is 100x100
+
+            'exact:proportion'
+                tries to scale the image to an exact size.  raises an error if 
+                it can't.  Usually this is used to resample a 1:1 image, however
+                this might be used to drop an image to a specific proportion.
+                i.e. 300x400 can scale to 30x40, 300x400 but not 30x50 
+        
         
         """
 
@@ -263,7 +311,7 @@ class ImageWrapper(object):
             t_w = int(i_w * scale_factor)
 
 
-        elif constraint_method == 'exact':
+        elif constraint_method == 'exact:proportion':
             proportion_w = 1
             proportion_h = 1
             if t_w < i_w :

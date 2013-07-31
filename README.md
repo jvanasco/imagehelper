@@ -50,21 +50,25 @@ You can create a schema of image sizes...
 
 And easily upload them :
 
-	# new resizer config
-	rConfig = newResizerConfig()
+	# config object for IMAGE_SIZES
+	resizerConfig = imagehelper.resizer.ResizerConfig( image_resizes=IMAGE_SIZES )
 
-	# build a factory
-	rFactory= imagehelper.resizer.ResizerFactory( resizer_config=rConfig )
+	# config object for S3
+	s3Config= imagehelper.s3.S3Config(
+		key_public = AWS_KEY_PUBLIC,
+		key_private = AWS_KEY_SECRET,
+		bucket_public_name = AWS_BUCKET_PUBLIC,
+		bucket_archive_name = AWS_BUCKET_SECRET,
+	)
+
+	# build a factory; you'd probably stash this in your app.
+	rFactory= imagehelper.resizer.ResizerFactory( resizerConfig=resizerConfig )
+	uploader = imagehelper.s3.S3Uploader( s3_config=s3Config , resizer_config=rConfig , s3_logger=s3Logger )
 
 	# resize !
 	resizedImages = rFactory.resize( imagefile=get_imagefile() )
 
-	# new s3 config & logger
-	s3Config = newS3Config()
-	s3Logger = CustomS3Logger()
-
 	# upload the resized items
-	uploader = imagehelper.s3.S3Uploader( s3_config=s3Config , resizer_config=rConfig , s3_logger=s3Logger )
 	uploaded = uploader.s3_save( resizedImages , guid="123" )
 
 	# want to delete them?
@@ -75,13 +79,27 @@ Behind the scenes, imagehelper does all the math and uploading.
 
 ## Resizing Options
 
-* `fit-within` peg to the smallest proportion so the entire image fits
-* `fit-within:crop-to` peg so the smallest dimension fills the canvas, then crop the rest.
-* `fit-within:ensure-width` resize so the width fills the canvas, and the height is scaled to match
-* `fit-within:ensure-height` resize so the height fills the canvas, and the width is scaled to match
-* `smallest:ensure-minimum` useful for things like og:image where you want at least a 200px image ( dupe of fit-within ? )
-* `exact:proportion` scale to exact size. raises an error if this is not possible.  ( ie 300x400 can scale to 30x40, but not 30x50 )
-* `exact:no-resize` don't scale! raises an error if a scale must be made. this is a convenience.
+* `fit-within`
+> Resizes item to fit within the bounding box , on both height and width.   This resulting image will be the size of the bounding box or smaller.
+
+* `fit-within:crop-to`
+> resizes the item along whichever axis ensures the bounding box is 100% full, then crops.  This resulting image will be the size of the bounding box.
+
+* `fit-within:ensure-width`
+> resizes item to fit within the bounding box, scaling height to ensure 100% width.  This resulting image will be the size of the bounding box.
+
+* `fit-within:ensure-height`
+> resizes item to fit within the bounding box, scaling width to ensure 100% height. This resulting image will be the size of the bounding box.
+
+* `smallest:ensure-minimum`
+> resizes the item to cover the bounding box on both axis.  one dimension may be larger than the bounding box.
+
+* `exact:no-resize`
+> don't scale! raises an error if a scale must be made. this is a  convenience for just saving/re-encoding files. i.e. 100x100 must receive an image that is 100x100
+
+* `exact:proportion`
+> tries to scale the image to an exact size.  raises an error if it can't.  Usually this is used to resample a 1:1 image, however this might be used to drop an image to a specific proportion. i.e. 300x400 can scale to 30x40, 300x400 but not 30x50
+
 
 
 

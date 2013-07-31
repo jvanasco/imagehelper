@@ -108,11 +108,11 @@ class S3Logger(object):
 
 class S3Uploader(object):
 
-    _resizer_config = None
+    _resizerConfig = None
+    _s3Config = None
+    _s3Connection = None
+    _s3Logger = None
     _s3_buckets = None
-    _s3_connection = None
-    _s3_config = None
-    _s3_logger = None
     
     s3headers_public_default = None
     s3headers_archive_default = None
@@ -122,31 +122,31 @@ class S3Uploader(object):
 
 
 
-    def __init__( self , s3_config=None , s3_logger=None , resizer_config=None ):
-        self._s3_config = s3_config
-        self._s3_logger = s3_logger
-        self._resizer_config = resizer_config
+    def __init__( self , s3Config=None , s3Logger=None , resizerConfig=None ):
+        self._s3Config = s3Config
+        self._s3Logger = s3Logger
+        self._resizerConfig = resizerConfig
 
         ##
         ## generate the default headers
         ##
         # public and archive get different acls / content-types
         self.s3headers_public_default = { 'x-amz-acl' : 'public-read' }
-        if self._s3_config.bucket_public_headers:
-            for k in self._s3_config.bucket_public_headers:
-                self.s3headers_public_default[k]= self._s3_config.bucket_public_headers[k]
+        if self._s3Config.bucket_public_headers:
+            for k in self._s3Config.bucket_public_headers:
+                self.s3headers_public_default[k]= self._s3Config.bucket_public_headers[k]
         self.s3headers_archive_default = {}
-        if self._s3_config.bucket_archive_headers:
-            for k in self._s3_config.bucket_archive_headers:
-                self.s3headers_archive_default[k]= self._s3_config.bucket_archive_headers[k]
+        if self._s3Config.bucket_archive_headers:
+            for k in self._s3Config.bucket_archive_headers:
+                self.s3headers_archive_default[k]= self._s3Config.bucket_archive_headers[k]
 
 
     @property
     def s3_connection(self):
         """property that memoizes the connection"""
-        if self._s3_connection is None:
-            self._s3_connection = boto.connect_s3( self._s3_config.key_public , self._s3_config.key_private )
-        return self._s3_connection
+        if self._s3Connection is None:
+            self._s3Connection = boto.connect_s3( self._s3Config.key_public , self._s3Config.key_private )
+        return self._s3Connection
 
 
     @property
@@ -159,21 +159,21 @@ class S3Uploader(object):
             s3_buckets = {}
 
             # @public and @archive are special
-            bucket_public = boto.s3.bucket.Bucket( connection=self.s3_connection , name=self._s3_config.bucket_public_name )
-            s3_buckets[self._s3_config.bucket_public_name] = bucket_public
+            bucket_public = boto.s3.bucket.Bucket( connection=self.s3_connection , name=self._s3Config.bucket_public_name )
+            s3_buckets[self._s3Config.bucket_public_name] = bucket_public
             s3_buckets['@public'] = bucket_public
-            if self._s3_config.archive_original :
-                bucket_archive = boto.s3.bucket.Bucket( connection=self.s3_connection , name=self._s3_config.bucket_archive_name )
-                s3_buckets[self._s3_config.bucket_archive_name] = bucket_archive
+            if self._s3Config.archive_original :
+                bucket_archive = boto.s3.bucket.Bucket( connection=self.s3_connection , name=self._s3Config.bucket_archive_name )
+                s3_buckets[self._s3Config.bucket_archive_name] = bucket_archive
                 s3_buckets['@archive'] = bucket_archive
 
             # look through our selected sizes
-            for size in self._resizer_config.image_resizes_selected:
+            for size in self._resizerConfig.selected_resizes:
                 if size[0] == "@":
                     raise errors.ImageError_ConfigError("@ is a reserved initial character for image sizes")
 
-                if 's3_bucket_public' in self._resizer_config.image_resizes[size]:
-                    bucket_name = self._resizer_config.image_resizes[size]['s3_bucket_public']
+                if 's3_bucket_public' in self._resizerConfig.resizesSchema[size]:
+                    bucket_name = self._resizerConfig.resizesSchema[size]['s3_bucket_public']
                     if bucket_name not in s3_buckets :
                         s3_buckets[bucket_name] = boto.s3.bucket.Bucket( connection=self.s3_connection , name=bucket_name )
             
@@ -185,9 +185,9 @@ class S3Uploader(object):
 
 
         
-    def _validate__image_resizes_selected( self , resizerResultset , image_resizes_selected ):
+    def _validate__selected_resizes( self , resizerResultset , selected_resizes ):
         """shared validation
-            returns `dict` image_resizes_selected
+            returns `dict` selected_resizes
 
         ARGS
             `resizerResultset`
@@ -195,33 +195,33 @@ class S3Uploader(object):
                     `resized` - dict of images that were resized
                     `original ` - original file
 
-            `image_resizes_selected`
+            `selected_resizes`
                 iterable of selected resizes
 
         """
 
         # default to the resized images
-        if image_resizes_selected is None:
-            image_resizes_selected = resizerResultset.resized.keys()
+        if selected_resizes is None:
+            selected_resizes = resizerResultset.resized.keys()
 
-        for k in image_resizes_selected :
+        for k in selected_resizes :
 
             if k not in resizerResultset.resized :
                 raise errors.ImageError_ConfigError("selected size is not resizerResultset.resized (%s)" % k)
         
-            if k not in self._resizer_config.image_resizes :
-                raise errors.ImageError_ConfigError("selected size is not self._resizer_config.image_resizes (%s)" % k)
+            if k not in self._resizerConfig.resizesSchema :
+                raise errors.ImageError_ConfigError("selected size is not self._resizerConfig.resizesSchema (%s)" % k)
         
             # exist early for invalid sizes
             if ( k[0] == "@" ) :
                 raise errors.ImageError_ConfigError("@ is a reserved initial character for image sizes (%s)" % k)
         
-        return image_resizes_selected
+        return selected_resizes
         
 
 
 
-    def s3_save( self , resizerResultset , guid, image_resizes_selected=None , archive_original=None ):
+    def s3_save( self , resizerResultset , guid , selected_resizes=None , archive_original=None ):
         """
             Returns a dict of resized images
             calls self.register_image_file() if needed
@@ -238,7 +238,7 @@ class S3Uploader(object):
                 a `uuid` or similar name that forms the basis for storage
                 the guid is passed to the template in `self.generate_filenames`
             
-            `image_resizes_selected`
+            `selected_resizes`
                 default = `None` -- all keys of resizerResultset.resized
                 a `list` of keys to save
                 we default to saving all the resized images
@@ -254,15 +254,15 @@ class S3Uploader(object):
             the image. this is used""")
             
         # quickly validate
-        image_resizes_selected = self._validate__image_resizes_selected( 
-            resizerResultset , image_resizes_selected )
+        selected_resizes = self._validate__selected_resizes( 
+            resizerResultset , selected_resizes )
 
         # setup the s3 connection
         s3_buckets = self.s3_buckets
 
         # and then we have the bucketed filenames...
         target_filenames = self.generate_filenames( resizerResultset , guid , 
-            image_resizes_selected=image_resizes_selected , 
+            selected_resizes=selected_resizes , 
             archive_original=archive_original )
             
         # log uploads for removal/tracking and return           
@@ -270,7 +270,7 @@ class S3Uploader(object):
         try:
 
             # and then we upload...
-            for size in image_resizes_selected:
+            for size in selected_resizes:
             
                 ( target_filename , bucket_name ) = target_filenames[ size ]
                 bucket = s3_buckets[ bucket_name ]
@@ -280,9 +280,9 @@ class S3Uploader(object):
                 # generate the headers
                 _s3_headers = self.s3headers_public_default.copy()
                 _s3_headers['Content-Type'] = utils.PIL_type_to_content_type( resizerResultset.resized[size].format )
-                if 's3_headers' in self._resizer_config.image_resizes[size]:
-                    for k in self._resizer_config.image_resizes[size]['s3_headers']:
-                        _s3_headers[k]= self._resizer_config.image_resizes[size]['s3_headers'][k]
+                if 's3_headers' in self._resizerConfig.resizesSchema[size]:
+                    for k in self._resizerConfig.resizesSchema[size]['s3_headers']:
+                        _s3_headers[k]= self._resizerConfig.resizesSchema[size]['s3_headers'][k]
 
                 # upload 
                 s3_key = boto.s3.key.Key( bucket )
@@ -294,8 +294,8 @@ class S3Uploader(object):
                 s3_uploads[size] = ( target_filename , bucket_name )
 
                 # log to external plugin too
-                if self._s3_logger:
-                    self._s3_logger.log_upload( bucket_name=bucket_name , 
+                if self._s3Logger:
+                    self._s3Logger.log_upload( bucket_name=bucket_name , 
                         key=target_filename , 
                         filesize=resizerResultset.resized[size].filesize , )
 
@@ -321,8 +321,8 @@ class S3Uploader(object):
                 s3_uploads[size] = ( target_filename , bucket_name )
 
                 # log to external plugin too
-                if self._s3_logger:
-                    self._s3_logger.log_upload( bucket_name=bucket_name , 
+                if self._s3Logger:
+                    self._s3Logger.log_upload( bucket_name=bucket_name , 
                         key=target_filename , 
                         filesize=resizerResultset.original.filesize , )
                         
@@ -364,8 +364,8 @@ class S3Uploader(object):
             bucket.delete_key(target_filename)
 
             # external logging
-            if self._s3_logger:
-                self._s3_logger.log_delete( bucket_name=bucket_name , 
+            if self._s3Logger:
+                self._s3Logger.log_delete( bucket_name=bucket_name , 
                     key=target_filename , )
 
             # internal cleanup
@@ -375,7 +375,7 @@ class S3Uploader(object):
     
     
     
-    def generate_filenames( self , resizerResultset , guid , image_resizes_selected=None , archive_original=None ):
+    def generate_filenames( self , resizerResultset , guid , selected_resizes=None , archive_original=None ):
         """
             generates the filenames s3 would save to; 
             this is useful for planning/testing or deleting old files
@@ -391,9 +391,9 @@ class S3Uploader(object):
 
             `guid`
                 a `uuid` or similar name that forms the basis for storage
-                the guid is passed into the template in self._resizer_config
+                the guid is passed into the template in self._resizerConfig
             
-            `image_resizes_selected`
+            `selected_resizes`
                 default = `None` -- all keys of resizerResultset.resized
                 a `list` of keys to save
                 we default to saving all the resized images
@@ -409,19 +409,19 @@ class S3Uploader(object):
             the image. this is used for filename templating""")
 
         # default to the resized images
-        if image_resizes_selected is None:
-            image_resizes_selected = resizerResultset.resized.keys()
+        if selected_resizes is None:
+            selected_resizes = resizerResultset.resized.keys()
 
         # quickly validate
-        image_resizes_selected = self._validate__image_resizes_selected(
-            resizerResultset , image_resizes_selected )
+        selected_resizes = self._validate__selected_resizes(
+            resizerResultset , selected_resizes )
 
         # init our return dict
         filename_mapping = {}
 
-        for size in image_resizes_selected:
+        for size in selected_resizes:
         
-            instructions = self._resizer_config.image_resizes[size]
+            instructions = self._resizerConfig.resizesSchema[size]
 
             # calc vars for filename templating                
             filename_template = self.filename_template
@@ -439,7 +439,7 @@ class S3Uploader(object):
                 }
 
             # figure out the bucketname
-            bucket_name = self._s3_config.bucket_public_name
+            bucket_name = self._s3Config.bucket_public_name
             if 's3_bucket_public' in instructions :
                 bucket_name = instructions['s3_bucket_public']
                 
@@ -451,7 +451,7 @@ class S3Uploader(object):
                     'guid' : guid , 
                     'format' : utils.PIL_type_to_standardized( resizerResultset.original.format ) 
                 }
-            bucket_name = self._s3_config.bucket_archive_name
+            bucket_name = self._s3Config.bucket_archive_name
             filename_mapping["@archive"] = ( target_filename , bucket_name )
 
         ## return the filemapping

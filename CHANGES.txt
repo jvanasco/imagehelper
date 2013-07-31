@@ -1,3 +1,15 @@
+TODO
+----
+
+tests so that each resize generates the expected result
+
+0.1.0 rc 2
+------------------
+* standardized kwargs and attributes of config objects to be camelCase for instances
+* renamed `image_resizes` to `resizesSchema`
+* renamed `image_resizes_selected` to `selected_resizes`
+* added tests for image resizing
+
 0.1.0 rc 1
 ------------------
 * THIS TOTALLY AND ENTIRELY BREAKS PRIOR INTEGRATIONS
@@ -8,6 +20,7 @@
 * this entirely breaks older versions
 * the older schema definitions ( dicts ) remain unchanged. the python
   integration has completely changed
+* started adding tests
 
 notable changes :
 

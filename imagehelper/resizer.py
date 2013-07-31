@@ -15,7 +15,7 @@ class ResizerConfig(object):
             `is_subclass = True` 
         to preserve your vars, or configure one on the fly with __init__()
 
-        `photo_resizes` - a dict in this format:
+        `resizesSchema` - a dict in this format:
             {   'size_name' : {
                     'width': 120,
                     'height': 120,
@@ -28,7 +28,7 @@ class ResizerConfig(object):
                 'other_size_name' : {...},
             }
             
-        `photo_resizes_selected` : an array of size names ( see above ) t
+        `selected_resizes` : an array of size names ( see above ) t
             o be resized
         
         width*
@@ -52,46 +52,31 @@ class ResizerConfig(object):
 
         valid constraint methods:
         
-            fit-within
+            see `imagehelper.image_wrapper.ImageWrapper().resize()` for full
+            details
+            
+            'exact:no-resize'
+            'exact:proportion'
+            'fit-within'
+            'fit-within:crop-to'
+            'fit-within:ensure-height'
+            'fit-within:ensure-width'
+            'smallest:ensure-minimum'
+            
 
-                Resizes item to fit within the bounding box , on both height 
-                and width.   This resulting image will be the size of the 
-                bounding box or smaller.
-
-            fit-within:crop-to
-
-                resizes the item along whichever axis ensures the bounding box 
-                is 100% full, then crops.  This resulting image will be the 
-                size of the bounding box.
-                
-            fit-within:ensure-width
-                resizes item to fit within the bounding box, scaling height 
-                to ensure 100% width.  This resulting image will be the size of 
-                the bounding box.
-
-            fit-within:ensure-height
-                resizes item to fit within the bounding box, scaling width to 
-                ensure 100% height. This resulting image will be the size of 
-                the bounding box.
-
-            exact
-                tries to scale the image to an exact size.  raises an error if 
-                it can't.  Usually this is used to resample a 1:1 image, however
-                 this might be used to drop an image to a specific proportion.
-        
     """
-    image_resizes = None
-    image_resizes_selected= None
+    resizesSchema = None
+    selected_resizes= None
     
-    def __init__( self , image_resizes=None , image_resizes_selected=None , 
+    def __init__( self , resizesSchema=None , selected_resizes=None , 
             is_subclass=False ,
         ):
         if not is_subclass:
-            self.image_resizes = image_resizes
-            if image_resizes_selected is None :
-                self.image_resizes_selected = image_resizes.keys()
+            self.resizesSchema = resizesSchema
+            if selected_resizes is None :
+                self.selected_resizes = resizesSchema.keys()
             else:
-                self.image_resizes_selected = image_resizes_selected
+                self.selected_resizes = selected_resizes
 
 
 class ResizerFactory(object):
@@ -102,11 +87,16 @@ class ResizerFactory(object):
     just use it to continually resize images.  Factories have no state, they
     simply hold configuration information, so they're threadsafe.    
     """
-    resizer_config= None
+    resizerConfig= None
     
 
-    def __init__( self , resizer_config=None ):
-        self.resizer_config = resizer_config
+    def __init__( self , resizerConfig=None ):
+        """
+        args
+            `resizerConfig`
+                a resizer.ResizerConfig instance
+        """
+        self.resizerConfig = resizerConfig
         
 
     def resize( self , imagefile=None ):
@@ -115,10 +105,17 @@ class ResizerFactory(object):
         
         note that this returns a `ResizerResultset` object
 
+        args
+            `imagefile`
+                an object supported by image_wrapper
+                usually:
+                    file
+                    cgi.fi
+
         """
-        wrapped= Resizer( resizer_config=self.resizer_config )
-        wrapped.register_image_file( imagefile=imagefile )
-        resizedImages = wrapped.resize()
+        resizer = Resizer( resizerConfig=self.resizerConfig )
+        resizer.register_image_file( imagefile=imagefile )
+        resizedImages = resizer.resize()
         return resizedImages
         
         
@@ -134,12 +131,12 @@ class ResizerResultset(object):
 class Resizer(object):
     """Resizer is our workhorse.
     It stores the image file, the metadata, and the various resizes."""
-    resizer_config = None
+    resizerConfig = None
     resizerResultset = None
     imageWrapper = None
     
-    def __init__( self , resizer_config=None ):
-        self.resizer_config = resizer_config
+    def __init__( self , resizerConfig=None ):
+        self.resizerConfig = resizerConfig
         self.reset()
         
     def reset(self):
@@ -169,7 +166,7 @@ class Resizer(object):
             self.imageWrapper = imageWrapper
 
 
-    def resize( self , imagefile=None , image_resizes=None , image_resizes_selected=None ):
+    def resize( self , imagefile=None , resizesSchema=None , selected_resizes=None ):
         """
             Returns a dict of resized images
             calls self.register_image_file() if needed
@@ -179,17 +176,23 @@ class Resizer(object):
             
             the internal dict will have an @archive object as well
         """
-        if image_resizes is None:
-            image_resizes = self.resizer_config.image_resizes
+        if resizesSchema is None:
+            if self.resizerConfig :
+                resizesSchema = self.resizerConfig.resizesSchema
+            else:
+                raise ValueError("no resizesSchema and no self.resizerConfig")
 
-        if image_resizes_selected is None:
-            image_resizes_selected = self.resizer_config.image_resizes_selected
+        if selected_resizes is None:
+            if self.resizerConfig :
+                selected_resizes = self.resizerConfig.selected_resizes
+            else:
+                raise ValueError("no selected_resizes and no self.resizerConfig")
             
-        if not len(image_resizes.keys()):
-            raise errors.ImageError_ConfigError("We have no image_resizes...  error")
+        if not len(resizesSchema.keys()):
+            raise errors.ImageError_ConfigError("We have no resizesSchema...  error")
 
-        if not len(image_resizes_selected):
-            raise errors.ImageError_ConfigError("We have no image_resizes_selected...  error")
+        if not len(selected_resizes):
+            raise errors.ImageError_ConfigError("We have no selected_resizes...  error")
 
         if imagefile :
             self.register_image_file( imagefile=imagefile )
@@ -199,12 +202,12 @@ class Resizer(object):
            
         # we'll stash the items here
         resized= {}
-        for size in image_resizes_selected:
+        for size in selected_resizes:
             if size[0] == "@":
                 raise errors.ImageError_ConfigError("@ is a reserved initial character for image sizes")
                 
             ## imageWrapper.resize returns a ResizedImage that has attributes `.resized_image`, `image_format`
-            resized[ size ]= self.imageWrapper.resize( image_resizes[ size ] )
+            resized[ size ]= self.imageWrapper.resize( resizesSchema[ size ] )
             
         resizerResultset = ResizerResultset(
             resized = resized , 

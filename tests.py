@@ -5,7 +5,7 @@ import ConfigParser
 import cStringIO
 
 
-image_resizes= {
+resizesSchema= {
     'thumb1': {
         'width': 120,
         'height': 120,
@@ -40,7 +40,7 @@ image_resizes= {
         'constraint-method': 'fit-within:crop-to',
     },
 }
-image_resizes_selected = ['thumb1','t2','thumb3','t4']
+selected_resizes = ['thumb1','t2','thumb3','t4']
 
 _img = None
 def get_imagefile():
@@ -79,7 +79,7 @@ def newS3Config():
     return s3Config
     
 def newResizerConfig():
-    resizerConfig = imagehelper.resizer.ResizerConfig( image_resizes=image_resizes , image_resizes_selected=image_resizes_selected )
+    resizerConfig = imagehelper.resizer.ResizerConfig( resizesSchema=resizesSchema , selected_resizes=selected_resizes )
     return resizerConfig
 
 
@@ -98,10 +98,10 @@ class TestResize( unittest.TestCase ):
     def test_direct_resize(self):
     
         # new resizer config
-        rConfig = newResizerConfig()
+        resizerConfig = newResizerConfig()
     
         # build a new resizer
-        resizer = imagehelper.resizer.Resizer( resizer_config=rConfig )
+        resizer = imagehelper.resizer.Resizer( resizerConfig=resizerConfig )
 
         # try to register the image
         resizer.register_image_file( imagefile=get_imagefile() )
@@ -124,23 +124,23 @@ class TestResize( unittest.TestCase ):
     def test_factory_resize(self):
 
         # new resizer config
-        rConfig = newResizerConfig()
+        resizerConfig = newResizerConfig()
         # build a factory
-        rFactory= imagehelper.resizer.ResizerFactory( resizer_config=rConfig )
+        resizerFactory = imagehelper.resizer.ResizerFactory( resizerConfig=resizerConfig )
         # resize !
-        resizedImages = rFactory.resize( imagefile=get_imagefile() )
+        resizedImages = resizerFactory.resize( imagefile=get_imagefile() )
 
 
 class TestS3( unittest.TestCase ):
 
     def test_s3(self):
-
+    
         # new resizer config
-        rConfig = newResizerConfig()
+        resizerConfig = newResizerConfig()
         # build a factory
-        rFactory= imagehelper.resizer.ResizerFactory( resizer_config=rConfig )
+        resizerFactory = imagehelper.resizer.ResizerFactory( resizerConfig=resizerConfig )
         # resize !
-        resizedImages = rFactory.resize( imagefile=get_imagefile() )
+        resizedImages = resizerFactory.resize( imagefile=get_imagefile() )
 
         # new s3 config
         s3Config = newS3Config()
@@ -151,11 +151,237 @@ class TestS3( unittest.TestCase ):
             s3Logger = CustomS3Logger()
 
         # upload the resized items
-        uploader = imagehelper.s3.S3Uploader( s3_config=s3Config , resizer_config=rConfig , s3_logger=s3Logger )
+        uploader = imagehelper.s3.S3Uploader( s3Config=s3Config , resizerConfig=resizerConfig , s3Logger=s3Logger )
         
         guid = "123"
         uploaded = uploader.s3_save( resizedImages , guid )
         deleted = uploader.s3_delete( uploaded )
+
+
+class TestResizingMethods( unittest.TestCase ):
+
+    def test_fit_within(self):
+        method = 'fit-within'
+        schema = {
+            'test': {
+                'width': 120,
+                'height': 120,
+                'save_optimize': True,
+                'format':'PNG',
+                'constraint-method': method,
+            },
+        }
+        
+        ## what do we expect ?
+        expected_original_wh = ( 1200 , 1600 )
+        expected_resized_wh = ( 90 , 120 )
+
+        r = imagehelper.resizer.Resizer()
+        results = r.resize( imagefile=get_imagefile() , resizesSchema=schema , selected_resizes=('test',) )
+        
+        ## what do we have ?
+        actual_original_wh = ( results.original.width , results.original.height )
+        actual_resized_wh = ( results.resized['test'].width , results.resized['test'].height )
+
+        ## assert the original matches
+        assert expected_original_wh[0] == actual_original_wh[0]
+        assert expected_original_wh[1] == actual_original_wh[1]
+
+        ## assert the resize matches
+        assert expected_resized_wh[0] == actual_resized_wh[0]
+        assert expected_resized_wh[1] == actual_resized_wh[1]
+        
+
+    def test_fit_within_crop_to(self):
+        method = 'fit-within:crop-to'
+        schema = {
+            'test': {
+                'width': 120,
+                'height': 120,
+                'save_optimize': True,
+                'format':'PNG',
+                'constraint-method': method,
+            },
+        }
+        
+        ## what do we expect ?
+        expected_original_wh = ( 1200 , 1600 )
+        expected_resized_wh = ( 120 , 120 )
+
+        r = imagehelper.resizer.Resizer()
+        results = r.resize( imagefile=get_imagefile() , resizesSchema=schema , selected_resizes=('test',) )
+        
+        ## what do we have ?
+        actual_original_wh = ( results.original.width , results.original.height )
+        actual_resized_wh = ( results.resized['test'].width , results.resized['test'].height )
+
+        ## assert the original matches
+        assert expected_original_wh[0] == actual_original_wh[0]
+        assert expected_original_wh[1] == actual_original_wh[1]
+
+        ## assert the resize matches
+        assert expected_resized_wh[0] == actual_resized_wh[0]
+        assert expected_resized_wh[1] == actual_resized_wh[1]
+
+
+    def test_fit_within_ensure_width(self):
+        method = 'fit-within:ensure-width'
+        schema = {
+            'test': {
+                'width': 120,
+                'height': 120,
+                'save_optimize': True,
+                'format':'PNG',
+                'constraint-method': method,
+            },
+        }
+        
+        ## what do we expect ?
+        expected_original_wh = ( 1200 , 1600 )
+        expected_resized_wh = ( 120 , 160 )
+
+        r = imagehelper.resizer.Resizer()
+        results = r.resize( imagefile=get_imagefile() , resizesSchema=schema , selected_resizes=('test',) )
+        
+        ## what do we have ?
+        actual_original_wh = ( results.original.width , results.original.height )
+        actual_resized_wh = ( results.resized['test'].width , results.resized['test'].height )
+
+        ## assert the original matches
+        assert expected_original_wh[0] == actual_original_wh[0]
+        assert expected_original_wh[1] == actual_original_wh[1]
+
+        ## assert the resize matches
+        assert expected_resized_wh[0] == actual_resized_wh[0]
+        assert expected_resized_wh[1] == actual_resized_wh[1]
+        
+
+    def test_fit_within_ensure_height(self):
+        method = 'fit-within:ensure-height'
+        schema = {
+            'test': {
+                'width': 120,
+                'height': 120,
+                'save_optimize': True,
+                'format':'PNG',
+                'constraint-method': method,
+            },
+        }
+        
+        ## what do we expect ?
+        expected_original_wh = ( 1200 , 1600 )
+        expected_resized_wh = ( 90 , 120 )
+
+        r = imagehelper.resizer.Resizer()
+        results = r.resize( imagefile=get_imagefile() , resizesSchema=schema , selected_resizes=('test',) )
+        
+        ## what do we have ?
+        actual_original_wh = ( results.original.width , results.original.height )
+        actual_resized_wh = ( results.resized['test'].width , results.resized['test'].height )
+
+        ## assert the original matches
+        assert expected_original_wh[0] == actual_original_wh[0]
+        assert expected_original_wh[1] == actual_original_wh[1]
+
+        ## assert the resize matches
+        assert expected_resized_wh[0] == actual_resized_wh[0]
+        assert expected_resized_wh[1] == actual_resized_wh[1]
+
+
+    def test_fit_within_smallest_ensure_minimum(self):
+        method = 'smallest:ensure-minimum'
+        schema = {
+            'test': {
+                'width': 120,
+                'height': 120,
+                'save_optimize': True,
+                'format':'PNG',
+                'constraint-method': method,
+            },
+        }
+        
+        ## what do we expect ?
+        expected_original_wh = ( 1200 , 1600 )
+        expected_resized_wh = ( 120 , 160 )
+
+        r = imagehelper.resizer.Resizer()
+        results = r.resize( imagefile=get_imagefile() , resizesSchema=schema , selected_resizes=('test',) )
+        
+        ## what do we have ?
+        actual_original_wh = ( results.original.width , results.original.height )
+        actual_resized_wh = ( results.resized['test'].width , results.resized['test'].height )
+
+        ## assert the original matches
+        assert expected_original_wh[0] == actual_original_wh[0]
+        assert expected_original_wh[1] == actual_original_wh[1]
+
+        ## assert the resize matches
+        assert expected_resized_wh[0] == actual_resized_wh[0]
+        assert expected_resized_wh[1] == actual_resized_wh[1]
+
+
+    def test_fit_within_exact_no_resize(self):
+        method = 'exact:no-resize'
+        schema = {
+            'test': {
+                'width': 1200,
+                'height': 1600,
+                'save_optimize': True,
+                'format':'PNG',
+                'constraint-method': method,
+            },
+        }
+        
+        ## what do we expect ?
+        expected_original_wh = ( 1200 , 1600 )
+        expected_resized_wh = ( 1200 , 1600 )
+
+        r = imagehelper.resizer.Resizer()
+        results = r.resize( imagefile=get_imagefile() , resizesSchema=schema , selected_resizes=('test',) )
+
+        ## what do we have ?
+        actual_original_wh = ( results.original.width , results.original.height )
+        actual_resized_wh = ( results.resized['test'].width , results.resized['test'].height )
+
+        ## assert the original matches
+        assert expected_original_wh[0] == actual_original_wh[0]
+        assert expected_original_wh[1] == actual_original_wh[1]
+
+        ## assert the resize matches
+        assert expected_resized_wh[0] == actual_resized_wh[0]
+        assert expected_resized_wh[1] == actual_resized_wh[1]
+
+
+    def test_fit_within_exact_proportion(self):
+        method = 'exact:proportion'
+        schema = {
+            'test': {
+                'width': 240,
+                'height': 320,
+                'save_optimize': True,
+                'format':'PNG',
+                'constraint-method': method,
+            },
+        }
+        
+        ## what do we expect ?
+        expected_original_wh = ( 1200 , 1600 )
+        expected_resized_wh = ( 240 , 320 )
+
+        r = imagehelper.resizer.Resizer()
+        results = r.resize( imagefile=get_imagefile() , resizesSchema=schema , selected_resizes=('test',) )
+
+        ## what do we have ?
+        actual_original_wh = ( results.original.width , results.original.height )
+        actual_resized_wh = ( results.resized['test'].width , results.resized['test'].height )
+
+        ## assert the original matches
+        assert expected_original_wh[0] == actual_original_wh[0]
+        assert expected_original_wh[1] == actual_original_wh[1]
+
+        ## assert the resize matches
+        assert expected_resized_wh[0] == actual_resized_wh[0]
+        assert expected_resized_wh[1] == actual_resized_wh[1]
 
 
 
