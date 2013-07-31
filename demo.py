@@ -60,6 +60,37 @@ image_resizes= {
 }
 image_resizes_selected = ['thumb1','t2','thumb3','t4']
 
+image_resizes_alt= {
+    'og:image': {
+        'width': 3200,
+        'height': 3200,
+        'save_quality': 50,
+        'suffix': 'og',
+        'format':'JPEG',
+        'constraint-method': 'smallest:ensure-minimum',
+        'filename_template': '%(guid)s-og.%(format)s',
+    },
+    'og:image2': {
+        'width': 200,
+        'height': 200,
+        'save_quality': 50,
+        'suffix': 'og',
+        'format':'JPEG',
+        'constraint-method': 'smallest:ensure-minimum',
+        'filename_template': '%(guid)s-og.%(format)s',
+    },
+    'og:image3': {
+        'width': 300,
+        'height': 200,
+        'save_quality': 50,
+        'suffix': 'og',
+        'format':'JPEG',
+        'constraint-method': 'smallest:ensure-minimum',
+        'filename_template': '%(guid)s-og.%(format)s',
+    },
+}
+
+
 class CustomS3Logger( imagehelper.s3.S3Logger ):
     def log_upload( self, bucket_name=None, key=None , filesize=None ):
         print "CustomS3Logger.log_upload"
@@ -142,6 +173,22 @@ def demo_s3():
     deleted = uploader.s3_delete( uploaded )
     print "deleted! %s" % deleted
     
+
+def demo_alt_resizing():
+
+    rConfig = imagehelper.resizer.ResizerConfig( image_resizes=image_resizes_alt )
+
+    # create a wrapper
+    resizer = imagehelper.resizer.Resizer( resizer_config=rConfig )
+
+    # build a factory & resize
+    rFactory= imagehelper.resizer.ResizerFactory( resizer_config=rConfig )
+
+    resizedImages = rFactory.resize( imagefile=get_imagefile() )
+    
+    print resizedImages
+    
+
 
 
 if True:

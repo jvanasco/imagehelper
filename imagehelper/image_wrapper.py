@@ -150,23 +150,23 @@ class ImageWrapper(object):
         
         """
 
-        resized_image= self.imageObject.copy()
+        resized_image = self.imageObject.copy()
         if resized_image.palette:
-            resized_image= resized_image.convert()
+            resized_image = resized_image.convert()
             
-        constraint_method= 'fit-within'
+        constraint_method = 'fit-within'
         if 'constraint-method' in instructions_dict:
-            constraint_method= instructions_dict['constraint-method']
+            constraint_method = instructions_dict['constraint-method']
 
         # t_ = target
         # i_ = image / real
 
         ( i_w , i_h ) = self.imageObject.size
 
-        t_w= instructions_dict['width']
-        t_h= instructions_dict['height']
+        t_w = instructions_dict['width']
+        t_h = instructions_dict['height']
         
-        crop= []
+        crop = ()
 
         # notice that we only scale DOWN ( ie: check that t_x < i_x
 
@@ -176,9 +176,9 @@ class ImageWrapper(object):
             proportion_w = 1
             proportion_h = 1
             if t_w < i_w :
-                proportion_w= t_w / i_w 
+                proportion_w = t_w / i_w 
             if t_h < i_h :
-                proportion_h= t_h / i_h 
+                proportion_h = t_h / i_h 
                 
             if constraint_method == 'fit-within':
                 # peg to the SMALLEST proportion so the entire image fits
@@ -198,8 +198,8 @@ class ImageWrapper(object):
                     proportion_w = proportion_h
             
                 # note what we want to crop to
-                crop_w= t_w
-                crop_h= t_h
+                crop_w = t_w
+                crop_h = t_h
             
                 # figure out the resizes!
                 t_w = int ( i_w * proportion_w )
@@ -240,6 +240,29 @@ class ImageWrapper(object):
                 proportion = t_h / i_h 
             t_w = int ( i_w * proportion )
 
+
+        elif constraint_method == 'smallest:ensure-minimum':
+            ## useful for things like og:image where you want at least a 200px image
+        
+            # figure out the proportions
+            proportion_w = t_w / i_w 
+            proportion_h = t_h / i_h 
+                
+            # we don't want to scale up...
+            if ( proportion_h > 1 or proportion_w > 1 ) :
+                proportion_h = 1
+                proportion_w = 1
+                
+            use_scale = 'h'
+            scale_factor = proportion_h
+            if proportion_w > proportion_h :
+                use_scale = 'w'
+                scale_factor = proportion_w
+            
+            t_h = int(i_h * scale_factor)
+            t_w = int(i_w * scale_factor)
+
+
         elif constraint_method == 'exact':
             proportion_w = 1
             proportion_h = 1
@@ -251,17 +274,11 @@ class ImageWrapper(object):
                 raise errors.ImageError_ResizeError( 'item can not be scaled to exact size' )
 
         elif constraint_method == 'exact:no-resize':
-            proportion_w = 1
-            proportion_h = 1
-            if t_w < i_w :
-                proportion_w = t_w / i_w 
-            if t_h < i_h :
-                proportion_h = t_h / i_h 
-            if ( proportion_w != 1 ) or ( proportion_h != 1 ) :
+            if ( t_w != i_w ) or ( t_h != i_h ) :
                 raise errors.ImageError_ResizeError( 'item is not exact size' )
 
         else:
-            raise errors.ImageError_ResizeError( 'Invalid constraint-method for size recipe: "%s"' % size )
+            raise errors.ImageError_ResizeError( 'Invalid constraint-method for size recipe: "%s"' % constraint_method )
 
 
         if ( i_w != t_w ) or ( i_h != t_h ) :
@@ -275,7 +292,7 @@ class ImageWrapper(object):
             resized_image = resized_image.crop(crop)
             resized_image.load()
         
-        format= 'JPEG'
+        format = 'JPEG'
         if 'format' in instructions_dict:
             format = instructions_dict['format'].upper()
             
@@ -290,9 +307,12 @@ class ImageWrapper(object):
                 k = 'save_%s' % i
                 if k in instructions_dict:
                     pil_options[i] = instructions_dict[k]
-        resized_file = cStringIO.StringIO()
-        resized_image.save( resized_file , format , **pil_options )
-        return ResizedImage( resized_file , format=format , 
+
+        ## save the image !
+        resized_image_file = cStringIO.StringIO()
+        resized_image.save( resized_image_file , format , **pil_options )
+
+        return ResizedImage( resized_image_file , format=format , 
             width=resized_image.size[0] , height=resized_image.size[1] )
 
     def get_original( self ):

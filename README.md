@@ -21,6 +21,74 @@ I could only find a single tool for resizing thumbnails on PyPi that did not req
 This is still in Beta.
 
 
+## Why ?
+
+Imagine that you have a site that allows for user generated uploads , or you want to make video stills...
+
+You can create a schema of image sizes...
+
+	IMAGE_SIZES = {
+		'thumb': {
+			'width': 32,
+			'height': 32,
+			'save_quality': 50,
+			'suffix': 't1',
+			'format':'JPEG',
+			'constraint-method': 'fit-within',
+			'filename_template': '%(guid)s-120x120.%(format)s',
+		},
+		'og:image': {
+			'width': 200,
+			'height': 200,
+			'save_quality': 50,
+			'suffix': 'og',
+			'format':'JPEG',
+			'constraint-method': 'ensure-minimum',
+			'filename_template': '%(guid)s-og.%(format)s',
+		},
+	}
+
+And easily upload them :
+
+	# new resizer config
+	rConfig = newResizerConfig()
+
+	# build a factory
+	rFactory= imagehelper.resizer.ResizerFactory( resizer_config=rConfig )
+
+	# resize !
+	resizedImages = rFactory.resize( imagefile=get_imagefile() )
+
+	# new s3 config & logger
+	s3Config = newS3Config()
+	s3Logger = CustomS3Logger()
+
+	# upload the resized items
+	uploader = imagehelper.s3.S3Uploader( s3_config=s3Config , resizer_config=rConfig , s3_logger=s3Logger )
+	uploaded = uploader.s3_save( resizedImages , guid="123" )
+
+	# want to delete them?
+	deleted = uploader.s3_delete( uploaded )
+
+Behind the scenes, imagehelper does all the math and uploading.
+
+
+## Resizing Options
+
+* `fit-within` peg to the smallest proportion so the entire image fits
+* `fit-within:crop-to` peg so the smallest dimension fills the canvas, then crop the rest.
+* `fit-within:ensure-width` resize so the width fills the canvas, and the height is scaled to match
+* `fit-within:ensure-height` resize so the height fills the canvas, and the width is scaled to match
+* `smallest:ensure-minimum` useful for things like og:image where you want at least a 200px image ( dupe of fit-within ? )
+* `exact:proportion` scale to exact size. raises an error if this is not possible.  ( ie 300x400 can scale to 30x40, but not 30x50 )
+* `exact:no-resize` don't scale! raises an error if a scale must be made. this is a convenience.
+
+
+
+
+
+
+
 ## Usage...
 
 Check out the demo.py module - and include some amazon s3 credentials in an `aws.cfg` file.  a template is provided.

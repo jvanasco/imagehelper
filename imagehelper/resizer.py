@@ -88,7 +88,10 @@ class ResizerConfig(object):
         ):
         if not is_subclass:
             self.image_resizes = image_resizes
-            self.image_resizes_selected = image_resizes_selected
+            if image_resizes_selected is None :
+                self.image_resizes_selected = image_resizes.keys()
+            else:
+                self.image_resizes_selected = image_resizes_selected
 
 
 class ResizerFactory(object):
@@ -177,10 +180,10 @@ class Resizer(object):
             the internal dict will have an @archive object as well
         """
         if image_resizes is None:
-            image_resizes= self.resizer_config.image_resizes
+            image_resizes = self.resizer_config.image_resizes
 
         if image_resizes_selected is None:
-            image_resizes_selected= self.resizer_config.image_resizes_selected
+            image_resizes_selected = self.resizer_config.image_resizes_selected
             
         if not len(image_resizes.keys()):
             raise errors.ImageError_ConfigError("We have no image_resizes...  error")
