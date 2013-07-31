@@ -21,11 +21,29 @@ from . import errors
 
 
 class ResizedImage(object):
-    """A class for a ResizedImage Result, it makes the file format accessible"""
-    def __init__( self , resized_file , image_format ):
+    """A class for a ResizedImage Result.
+    
+        `resized_file` 
+            a cStringIO file representation
+        
+        `format`
+        `name`
+        `mode`
+        `width`
+        `height`
+            resized file attributes
+        
+    """
+    def __init__( self , resized_file , format=None , name=None , mode=None , 
+            width=None, height=None ,
+        ):
         self.file = resized_file
         self.file.seek(0)
-        self.format = image_format
+        self.name = name
+        self.format = format
+        self.mode = mode
+        self.width = width
+        self.height = height
     
     def __repr__(self):
         return "<ReizedImage at %s - %s >" % ( id(self) , self.__dict__ )
@@ -38,9 +56,9 @@ class ImageWrapper(object):
     imageFileObject = None
     imageObject = None
     imageObject_name = None
-    imageObject_width = None
-    imageObject_height = None
-
+    imageObject_mode = None
+    
+    
     def __init__(self , imagefile=None , imagefile_name=None ):
         """registers and validates the image file
             note that we do copy the image file
@@ -89,7 +107,7 @@ class ImageWrapper(object):
             self.imageFileObject = imageFileObject
             self.imageObject = imageObject
             self.imageObject_name = imageObject_name
-            ( self.imageObject_width , self.imageObject_height ) = self.imageObject.size
+            self.imageObject_mode = self.imageObject.mode
 
         except IOError:
             raise errors.ImageError_Parsing( constants.ImageErrorCodes.INVALID_FILETYPE )
@@ -101,9 +119,7 @@ class ImageWrapper(object):
             raise
 
 
-
-
-    def resize( self , instructions ):
+    def resize( self , instructions_dict ):
         """this does the heavy lifting
         
         be warned - this uses a bit of memory!
@@ -119,16 +135,16 @@ class ImageWrapper(object):
             resized_image= resized_image.convert()
             
         constraint_method= 'fit-within'
-        if 'constraint-method' in instructions:
-            constraint_method= instructions['constraint-method']
+        if 'constraint-method' in instructions_dict:
+            constraint_method= instructions_dict['constraint-method']
 
         # t_ = target
         # i_ = image / real
 
-        ( i_w , i_h )= ( self.imageObject_width , self.imageObject_height )
+        ( i_w , i_h ) = self.imageObject.size
 
-        t_w= instructions['width']
-        t_h= instructions['height']
+        t_w= instructions_dict['width']
+        t_h= instructions_dict['height']
         
         crop= []
 
@@ -230,20 +246,28 @@ class ImageWrapper(object):
             resized_image.load()
         
         format= 'JPEG'
-        if 'format' in instructions:
-            format= instructions['format'].upper()
+        if 'format' in instructions_dict:
+            format= instructions_dict['format'].upper()
             
         pil_options= {}
         if format == 'JPEG' or format == 'PDF':
             for i in ( 'quality', 'optimize', 'progressive' ):
                 k = 'save_%s' % i
-                if k in instructions:
-                    pil_options[i] = instructions[k]
+                if k in instructions_dict:
+                    pil_options[i] = instructions_dict[k]
         elif format == 'PNG':
             for i in ( 'optimize', 'transparency' , 'bits', 'dictionary' ):
                 k = 'save_%s' % i
-                if k in instructions:
-                    pil_options[i] = instructions[k]
+                if k in instructions_dict:
+                    pil_options[i] = instructions_dict[k]
         resized_file = cStringIO.StringIO()
-        resized_image.save( resized_file, format , **pil_options )
-        return ResizedImage( resized_file , format )
+        resized_image.save( resized_file , format , **pil_options )
+        return ResizedImage( resized_file , format=format , 
+            width=resized_image.size[0] , height=resized_image.size[1] )
+
+    def get_original( self ):
+        return ResizedImage( self.imageFileObject , name=self.imageObject_name , 
+            format=self.imageObject.format , mode=self.imageObject.mode , 
+            width=self.imageObject.size[0] , height=self.imageObject.size[1] )
+
+

@@ -102,25 +102,36 @@ class ResizerFactory(object):
     """
     resizer_config= None
     
+
     def __init__( self , resizer_config=None ):
         self.resizer_config = resizer_config
         
+
     def resize( self , imagefile=None ):
         """Creates a wrapped object, performs resizing /saving on it, 
         then returns it
         
-        note that this returns a tuple of
-            ( resizedImages , archivalImage )
+        note that this returns a dict
+            resizedImages
+        which may contain an `@archive` image
         """
         wrapped= Resizer( resizer_config=self.resizer_config )
         wrapped.register_image_file( imagefile=imagefile )
         resizedImages = wrapped.resize()
         return resizedImages
+        
+        
+class ResizerResultset(object):
+    resized = None
+    archive = None
     
+    def __init__( self , resized , archive=None ):
+        self.resized = resized
+        self.archive = archive
 
 class Resizer(object):
     """Resizer is our workhorse.
-    It stores the image file, the metadata, and the varioud resizes."""
+    It stores the image file, the metadata, and the various resizes."""
     resizer_config = None
     resized_images = None
     imageWrapper = None
@@ -163,6 +174,8 @@ class Resizer(object):
             
             this resizes the images. 
             it returns the images and updates the internal dict.
+            
+            the internal dict will have an @archive object as well
         """
         if image_resizes is None:
             image_resizes= self.resizer_config.image_resizes
@@ -190,10 +203,12 @@ class Resizer(object):
                 
             ## imageWrapper.resize returns a ResizedImage that has attributes `.resized_image`, `image_format`
             resized_images[ size ]= self.imageWrapper.resize( image_resizes[ size ] )
+            
+        self.resized_images = ResizerResultset(
+            resized = resized_images , 
+            archive = self.imageWrapper.get_original() ,
+        )
 
-        resized_images['@archive'] = self.imageWrapper.imageFileObject
-        self.resized_images = resized_images
-
-        return resized_images
+        return self.resized_images
     
              
