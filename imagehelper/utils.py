@@ -1,6 +1,8 @@
 import logging
 log = logging.getLogger(__name__)
 
+import os
+
 
 class ImageErrorCodes(object):
     """Consolidating codes and error messages"""
@@ -42,3 +44,11 @@ def PIL_type_to_standardized( ctype ):
     if ctype in _PIL_type_to_standardized:
         return _PIL_type_to_standardized[ ctype ]
     raise ValueError('invalid ctype')
+
+
+
+def filesize( fileobj ):
+    """what's the size of the object?"""
+    fileobj.seek(0,os.SEEK_END)
+    sized = fileobj.tell()
+    fileobj.seek(0)

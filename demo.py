@@ -1,6 +1,6 @@
 import imagehelper
 import cStringIO
-
+import uuid
 
 import ConfigParser
 Config = ConfigParser.ConfigParser()
@@ -60,7 +60,16 @@ image_resizes= {
 }
 image_resizes_selected = ['thumb1','t2','thumb3','t4']
 
-s3Logger = imagehelper.s3.S3Logger()
+class CustomS3Logger( imagehelper.s3.S3Logger ):
+    def log_upload( self, bucket_name=None, key=None , filesize=None ):
+        print "CustomS3Logger.log_upload"
+        print "\t %s , %s , %s" % ( bucket_name , key , filesize )
+    def log_delete( self, bucket_name=None, key=None ):
+        print "CustomS3Logger.log_delete"
+        print "\t %s , %s" % ( bucket_name , key )
+
+
+s3Logger = CustomS3Logger()
 rConfig = imagehelper.resizer.ResizerConfig( image_resizes=image_resizes , image_resizes_selected=image_resizes_selected )
 
 # create a wrapper
@@ -103,9 +112,9 @@ def demo_direct():
     resizer.reset()
     
     # resize the image
-    results = resizer.resize( imagefile=get_imagefile() )
+    resizedImages = resizer.resize( imagefile=get_imagefile() )
     
-    print results
+    print resizedImages
     
 
 def demo_factory():
@@ -115,59 +124,32 @@ def demo_factory():
     rFactory= imagehelper.resizer.ResizerFactory( resizer_config=rConfig )
 
     # resize !
-    results = rFactory.resize( imagefile=get_imagefile() )
+    resizedImages = rFactory.resize( imagefile=get_imagefile() )
 
 
 def demo_s3():
     "demo s3 uploading"
+
     # build a factory & resize
     rFactory= imagehelper.resizer.ResizerFactory( resizer_config=rConfig )
-    resized = rFactory.resize( imagefile=get_imagefile() )
-    print resized
-    
-    uploader = imagehelper.s3.S3Uploader( s3_config=s3Config , resizer_config=rConfig )
-    print uploader.s3_save( resized , guid=guid )
+    resizedImages = rFactory.resize( imagefile=get_imagefile() )
 
+    # upload the resized items
+    uploader = imagehelper.s3.S3Uploader( s3_config=s3Config , resizer_config=rConfig , s3_logger=s3Logger )
+    uploaded = uploader.s3_save( resizedImages , guid )
+    print "uploaded! %s" % uploaded
+    
+    deleted = uploader.s3_delete( uploaded )
+    print "deleted! %s" % deleted
+    
 
 
 if True:
     pass
+    demo_direct()
+    demo_factory()
     demo_s3()
 
 if False:
     pass
-    demo_direct()
-    demo_factory()
 
-
-raise ValueError("ok")
-
-if 0:
-    # we'll pass in a guid.  in your code this would be the id in your database
-    #saved= rFactory.resize(photofile=puppy,s3_save=True,s3_save_original=True,guid=guid,s3_logger=s3Logger)
-    print saved.__dict__
-    print saved.s3_saved[AWS_BUCKET_SECRET]
-
-    # we'll pass in a guid.  in your code this would be the id in your database
-    s3_filenames= rFactory.s3_generate_filenames( guid=guid , s3_original_filename=saved.s3_saved[AWS_BUCKET_SECRET]['@archive'] )
-    print s3_filenames
-
-if 1 :
-
-    # we'll pass in a guid.  in your code this would be the id in your database
-    s3_filenames= rFactory.s3_generate_filenames( guid=guid , s3_original_filename='123.jpg' )
-    print s3_filenames
-    
-    s3_buckets= rFactory.setup_s3_buckets( s3_save_original=False )
-    print s3_buckets
-
-    s3_buckets= rFactory.setup_s3_buckets( s3_save_original=True )
-    print s3_buckets
-    
-    print "delete..."
-    print rFactory.s3_delete_files( s3_uploads=s3_filenames )
-    
-    print "deleted!"
-    print rFactory.__dict__
-    
-    

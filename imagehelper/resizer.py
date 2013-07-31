@@ -1,5 +1,4 @@
 import image_wrapper
-import constants
 import errors
 
 
@@ -111,9 +110,8 @@ class ResizerFactory(object):
         """Creates a wrapped object, performs resizing /saving on it, 
         then returns it
         
-        note that this returns a dict
-            resizedImages
-        which may contain an `@archive` image
+        note that this returns a `ResizerResultset` object
+
         """
         wrapped= Resizer( resizer_config=self.resizer_config )
         wrapped.register_image_file( imagefile=imagefile )
@@ -123,17 +121,18 @@ class ResizerFactory(object):
         
 class ResizerResultset(object):
     resized = None
-    archive = None
+    original = None
     
-    def __init__( self , resized , archive=None ):
+    def __init__( self , resized , original=None ):
         self.resized = resized
-        self.archive = archive
+        self.original = original
+
 
 class Resizer(object):
     """Resizer is our workhorse.
     It stores the image file, the metadata, and the various resizes."""
     resizer_config = None
-    resized_images = None
+    resizerResultset = None
     imageWrapper = None
     
     def __init__( self , resizer_config=None ):
@@ -142,7 +141,7 @@ class Resizer(object):
         
     def reset(self):
         """if you resize a second item, you will need to reset"""
-        self.resized_images = {}
+        self.resizerResultset = None
         self.imageWrapper = None
         
 
@@ -190,25 +189,26 @@ class Resizer(object):
             raise errors.ImageError_ConfigError("We have no image_resizes_selected...  error")
 
         if imagefile :
-            self._register_image_file( imagefile=imagefile )
+            self.register_image_file( imagefile=imagefile )
             
         if not self.imageWrapper :
            raise errors.ImageError_ConfigError("Please pass in a `imagefile` if you have not set an imageFileObject yet")
            
         # we'll stash the items here
-        resized_images= {}
+        resized= {}
         for size in image_resizes_selected:
             if size[0] == "@":
                 raise errors.ImageError_ConfigError("@ is a reserved initial character for image sizes")
                 
             ## imageWrapper.resize returns a ResizedImage that has attributes `.resized_image`, `image_format`
-            resized_images[ size ]= self.imageWrapper.resize( image_resizes[ size ] )
+            resized[ size ]= self.imageWrapper.resize( image_resizes[ size ] )
             
-        self.resized_images = ResizerResultset(
-            resized = resized_images , 
-            archive = self.imageWrapper.get_original() ,
+        resizerResultset = ResizerResultset(
+            resized = resized , 
+            original = self.imageWrapper.get_original() ,
         )
+        self.resizerResultset = resizerResultset
 
-        return self.resized_images
+        return resizerResultset
     
              

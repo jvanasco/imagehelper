@@ -21,7 +21,7 @@ setup(
     name='imagehelper',
     author='Jonathan Vanasco',
     author_email='jonathan@findmeon.com',
-    version='0.1.0',
+    version='0.1.0..rc1',
     url='http://github.com/jvanasco/imagehelper',
     packages=['imagehelper'],
     description='simple utilites for image resizing and uploading and stuff like that',
@@ -32,5 +32,8 @@ setup(
         'License :: OSI Approved :: BSD License',
         'Programming Language :: Python',
         "Intended Audience :: Developers",
+        "Topic :: Multimedia :: Graphics :: Graphics Conversion",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+        "Development Status :: 4 - Beta",
     ]
 )

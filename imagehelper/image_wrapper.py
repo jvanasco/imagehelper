@@ -16,14 +16,16 @@ import StringIO
 import types
 
 
-from . import constants
 from . import errors
+from . import utils
 
+
+USE_THUMBNAIL = False
 
 class ResizedImage(object):
     """A class for a ResizedImage Result.
     
-        `resized_file` 
+        `file` 
             a cStringIO file representation
         
         `format`
@@ -33,12 +35,26 @@ class ResizedImage(object):
         `height`
             resized file attributes
         
+        `filesize`
+            property to calculate the filesize 
+        
     """
     def __init__( self , resized_file , format=None , name=None , mode=None , 
             width=None, height=None ,
         ):
+        """args
+            `resized_file` 
+                * required
+            `format`
+            `name`
+            `mode`
+            `width`
+            `height`
+                default = None
+            
+        """
         self.file = resized_file
-        self.file.seek(0)
+        self.file.seek(0) # be kind, rewind
         self.name = name
         self.format = format
         self.mode = mode
@@ -48,6 +64,10 @@ class ResizedImage(object):
     def __repr__(self):
         return "<ReizedImage at %s - %s >" % ( id(self) , self.__dict__ )
 
+    @property
+    def filesize(self):
+        """property; calculate the filesize"""
+        return utils.filesize( self.file )    
     
 
 class ImageWrapper(object):
@@ -150,7 +170,7 @@ class ImageWrapper(object):
 
         # notice that we only scale DOWN ( ie: check that t_x < i_x
 
-        if constraint_method == 'fit-within' or constraint_method == 'fit-within:crop-to' :
+        if constraint_method in ( 'fit-within' , 'fit-within:crop-to' ):
 
             # figure out the proportions
             proportion_w = 1
@@ -189,68 +209,78 @@ class ImageWrapper(object):
                 
                     # support_hack_against_artifacting handles an issue where .thumbnail makes stuff look like shit
                     # except we're not using .thumbnail anymore; we're using resize directly
-                    support_hack_against_artifacting= False
+                    support_hack_against_artifacting = USE_THUMBNAIL
                     if support_hack_against_artifacting:
                         if t_w < i_w:
-                            t_w+= 1
+                            t_w += 1
                         if t_h < i_h:
-                            t_h+= 1
+                            t_h += 1
                 
                     ( x0, y0 , x1 , y1 )= ( 0 , 0 , t_w , t_h )
                     
                     if t_w > crop_w :
-                        x0= int( ( t_w / 2 ) - ( crop_w / 2 ) )
-                        x1= x0 + crop_w
+                        x0 = int( ( t_w / 2 ) - ( crop_w / 2 ) )
+                        x1 = x0 + crop_w
             
                     if t_h > crop_h :
-                        y0= int( ( t_h / 2 ) - ( crop_h / 2 ) )
-                        y1= y0 + crop_h
+                        y0 = int( ( t_h / 2 ) - ( crop_h / 2 ) )
+                        y1 = y0 + crop_h
                         
-                    crop= ( x0 , y0 , x1 , y1 ) 
+                    crop = ( x0 , y0 , x1 , y1 ) 
+
+        elif constraint_method == 'fit-within:ensure-width':
+            proportion = 1
+            if t_w < i_w :
+                proportion = t_w / i_w 
+            t_h = int ( i_h * proportion )
+
+        elif constraint_method == 'fit-within:ensure-height':
+            proportion = 1
+            if t_h < i_h :
+                proportion = t_h / i_h 
+            t_w = int ( i_w * proportion )
+
+        elif constraint_method == 'exact':
+            proportion_w = 1
+            proportion_h = 1
+            if t_w < i_w :
+                proportion_w = t_w / i_w 
+            if t_h < i_h :
+                proportion_h = t_h / i_h 
+            if ( proportion_w != proportion_h ) :
+                raise errors.ImageError_ResizeError( 'item can not be scaled to exact size' )
+
+        elif constraint_method == 'exact:no-resize':
+            proportion_w = 1
+            proportion_h = 1
+            if t_w < i_w :
+                proportion_w = t_w / i_w 
+            if t_h < i_h :
+                proportion_h = t_h / i_h 
+            if ( proportion_w != 1 ) or ( proportion_h != 1 ) :
+                raise errors.ImageError_ResizeError( 'item is not exact size' )
 
         else:
-        
-            if constraint_method == 'fit-within:ensure-width':
-                proportion= 1
-                if t_w < i_w :
-                    proportion= t_w / i_w 
-                t_h = int ( i_h * proportion )
-
-            elif constraint_method == 'fit-within:ensure-height':
-                proportion= 1
-                if t_h < i_h :
-                    proportion= t_h / i_h 
-                t_w = int ( i_w * proportion )
-
-            elif constraint_method == 'exact':
-                proportion_w = 1
-                proportion_h = 1
-                if t_w < i_w :
-                    proportion_w= t_w / i_w 
-                if t_h < i_h :
-                    proportion_h= t_h / i_h 
-                if ( proportion_w != proportion_h ) :
-                    raise errors.ImageError_ResizeError( 'item can not be scaled to exact size' )
-
-            else:
-                raise errors.ImageError_ResizeError( 'Invalid constraint-method for size: %s' % size )
+            raise errors.ImageError_ResizeError( 'Invalid constraint-method for size recipe: "%s"' % size )
 
 
         if ( i_w != t_w ) or ( i_h != t_h ) :
-            ## the thumbnail is faster , but has been looking uglier in recent versions
-            #resized_image.thumbnail(  [ t_w , t_h ] , Image.ANTIALIAS )
-            resized_image= resized_image.resize( ( t_w, t_h, ) , Image.ANTIALIAS )
+            if USE_THUMBNAIL :
+                ## the thumbnail is faster , but has been looking uglier in recent versions
+                resized_image.thumbnail(  [ t_w , t_h ] , Image.ANTIALIAS )
+            else:
+                resized_image = resized_image.resize( ( t_w, t_h, ) , Image.ANTIALIAS )
             
         if len(crop):
-            resized_image= resized_image.crop(crop)
+            resized_image = resized_image.crop(crop)
             resized_image.load()
         
         format= 'JPEG'
         if 'format' in instructions_dict:
-            format= instructions_dict['format'].upper()
+            format = instructions_dict['format'].upper()
             
-        pil_options= {}
-        if format == 'JPEG' or format == 'PDF':
+        pil_options = {}
+        if format in ( 'JPEG' , 'PDF' , ) :
             for i in ( 'quality', 'optimize', 'progressive' ):
                 k = 'save_%s' % i
                 if k in instructions_dict:

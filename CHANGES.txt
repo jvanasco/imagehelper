@@ -1,9 +1,22 @@
 0.1.0 ( IN PROGRESS )
 ------------------
-- simplifying interface
-- splitting code into multiple files with better organization
-- supporting Pillow , as PIL isn't really used
-- cleaning up S3
+* simplifying interface
+* splitting code into multiple files with better organization
+* supporting Pillow , as PIL isn't really used by many people
+* cleaning up S3 interface
+* this entirely breaks older versions
+* the older schema definitions ( dicts ) remain unchanged. the python
+  integration has completely changed
+
+notable changes :
+
+* classes have been logically separated into different namespaces
+* resizing does not automatically upload to s3 anymore. you must chain this
+  in your own code
+* s3logger objects
+** kwarg `bucket` is now `bucket_name`
+** kwarg `filesize` is now sent on upload
+
 
 
 0.0.4 (2012-06-07)
