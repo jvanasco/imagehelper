@@ -51,7 +51,7 @@ You can create a schema of image sizes...
 And easily upload them :
 
 	# config object for IMAGE_SIZES
-	resizerConfig = imagehelper.resizer.ResizerConfig( image_resizes=IMAGE_SIZES )
+	resizerConfig = imagehelper.resizer.ResizerConfig( resizesSchema=IMAGE_SIZES )
 
 	# config object for S3
 	s3Config= imagehelper.s3.S3Config(
@@ -63,7 +63,7 @@ And easily upload them :
 
 	# build a factory; you'd probably stash this in your app.
 	rFactory= imagehelper.resizer.ResizerFactory( resizerConfig=resizerConfig )
-	uploader = imagehelper.s3.S3Uploader( s3_config=s3Config , resizer_config=rConfig , s3_logger=s3Logger )
+	uploader = imagehelper.s3.S3Uploader( s3Config=s3Config , resizerConfig=rConfig , s3Logger=s3Logger )
 
 	# resize !
 	resizedImages = rFactory.resize( imagefile=get_imagefile() )
