@@ -169,6 +169,25 @@ this would create a file on amazon s3 with a GUID you supply like 123123123g :
 	_bucket_/_guid_-_suffix_._format_
 
 
+## Transactional Support
+
+If you upload something via `imagehelper.s3.S3Uploader().s3_upload()` , the task is considered to be "all or nothing".
+
+The actual uploading occurs within a try/except block , and a failure will "roll back" and delete everything that has been successfully uploaded.
+
+If you want to integrate with something like the Zope `transaction` package, `imagehelper.s3.S3Uploader().s3_delete()` is a public function that expects as input the output of the `s3_upload` function -- a `dict` of `tuples` where the `keys` are resize names (from the schema) and the `values` are the `( filename, bucket )`.
+
+You can also define a custom subclass of `imagehelper.s3.S3Logger` that supports the following methods:
+
+* `log_upload`( `self`, `bucket_name`=None, `key`=None , `filesize`=None )
+* `log_delete`( `self`, `bucket_name`=None, `key`=None )
+
+Every successful 'action' is sent to the logger.  A valid transaction to upload 5 sizes will have 5 calls to `log_upload`, an invalid transaction will have a `log_delete` call for every `log_upload`.
+
+This was designed for a variety of use cases:
+
+* log activity to a file or non-transactional database connection , you get some efficient bookkeeping of s3 activity and can audit those files to ensure there is no orphan data in your s3 buckts.
+* log activity to StatsD or another metrics app to show how much activity goes on
 
 
 ## License
