@@ -6,7 +6,6 @@ class ImageError(Exception):
     """Base class for Exceptions"""
     pass
 
-
 class ImageError_ArgsError(ImageError):
     pass
 

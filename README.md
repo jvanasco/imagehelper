@@ -179,7 +179,7 @@ If you want to integrate with something like the Zope `transaction` package, `im
 
 You can also define a custom subclass of `imagehelper.s3.S3Logger` that supports the following methods:
 
-* `log_upload`( `self`, `bucket_name`=None, `key`=None , `filesize`=None )
+* `log_upload`( `self`, `bucket_name`=None, `key`=None , `file_size`=None , `file_md5`=None )
 * `log_delete`( `self`, `bucket_name`=None, `key`=None )
 
 Every successful 'action' is sent to the logger.  A valid transaction to upload 5 sizes will have 5 calls to `log_upload`, an invalid transaction will have a `log_delete` call for every `log_upload`.

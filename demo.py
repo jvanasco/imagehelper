@@ -92,9 +92,9 @@ resizesSchema_alt= {
 
 
 class CustomS3Logger( imagehelper.s3.S3Logger ):
-    def log_upload( self, bucket_name=None, key=None , filesize=None ):
+    def log_upload( self, bucket_name=None, key=None , file_size=None , file_md5=None ):
         print "CustomS3Logger.log_upload"
-        print "\t %s , %s , %s" % ( bucket_name , key , filesize )
+        print "\t %s , %s , %s , %s" % ( bucket_name , key , file_size , file_md5 )
     def log_delete( self, bucket_name=None, key=None ):
         print "CustomS3Logger.log_delete"
         print "\t %s , %s" % ( bucket_name , key )
@@ -155,7 +155,7 @@ def demo_factory():
     resizerFactory= imagehelper.resizer.ResizerFactory( resizerConfig=resizerConfig )
 
     # resize !
-    resizedImages = rFactory.resize( imagefile=get_imagefile() )
+    resizedImages = resizerFactory.resize( imagefile=get_imagefile() )
 
 
 def demo_s3():
@@ -188,7 +188,25 @@ def demo_alt_resizing():
     print resizedImages
     
 
+def demo_md5():
+    "demo file md5"
+    
+    # build a factory
+    resizerFactory= imagehelper.resizer.ResizerFactory( resizerConfig=resizerConfig )
 
+    # resize !
+    resizedImages = resizerFactory.resize( imagefile=get_imagefile() )
+    
+    print resizedImages
+    for k in resizedImages.resized.keys() :
+        print resizedImages.resized[k].file_md5
+
+    print resizedImages.original.file_md5
+    print resizedImages.original.file_size
+
+
+demo_md5()
+exit(0)
 
 if True:
     pass

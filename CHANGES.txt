@@ -1,7 +1,27 @@
-TODO
-----
+0.1.0 rc 3
+------------------
+* added `imagehelper.resizer.ResizerFactory.resizer(imagefile=None)` to return a new resizer object.  this is useful for validating a file.
+* fixed location of error codes; were moved to `utils` from (deprecated) `constants`
+* removed `imagehelper.image_wrapper.ImageObject().imageObject_mode`
+* renamed `imagehelper.resizer.Resizer().imageWrapper` to  `imagehelper.image_wrapper.`imagehelper.resizer.Resizer().image`
+* added proxied properties to `imagehelper.image_wrapper.ImageObject`
+** name = self.imageObject_name
+** mode = self.imageObject.mode
+** size = self.imageObject.size
+** format = self.imageObject.format
+** format_standardized = utils.PIL_type_to_standardized( self.imageObject.format )
+* renamed `imagehelper.resize.ResizedImage().filesize` to `file_size`
+* added `imagehelper.utils.file_md5`
+* added `imagehelper.resize.ResizedImage().file_md5`
+* added `imagehelper.utils._standardized_to_PIL_type`
+* added `imagehelper.utils.standardized_to_PIL_type()`
+* added `imagehelper.image_wrapper.FakedOriginal()`
+* added `imagehelper.resize.Resizer().fake_resultset()` to generate a resultset compatible with s3 operations ( specifically delete )
+* renamed `imagehelper.s3.S3Logger().log_upload` is now passed `file_size` instead of `filesize`
+* addded `imagehelper.s3.S3Logger().log_upload` is now passed `file_md5`
+* removed `imagehelper.resize.ResizeFactory().resize()` ; the factory should only return configured `imagehelper.resize.Resize()` objects, not proxy actions to them
 
-tests so that each resize generates the expected result
+
 
 0.1.0 rc 2
 ------------------

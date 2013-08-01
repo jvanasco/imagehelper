@@ -82,15 +82,17 @@ class S3Logger(object):
     Any object offering these methods can be replaced; 
     This is only illustrative."""
 
-    def log_upload( self, bucket_name=None, key=None , filesize=None ):
+    def log_upload( self, bucket_name=None, key=None , file_size=None , file_md5=None , ):
         """args:
         `self`
         `bucket_name`
             s3 bucket name
         `key`
             key in bucket
-        `filesize`
+        `file_size`
             size in bytes
+        `file_md5`
+            hexdigest
         """
         pass
 
@@ -123,6 +125,11 @@ class S3Uploader(object):
 
 
     def __init__( self , s3Config=None , s3Logger=None , resizerConfig=None ):
+    
+        if not resizerConfig :
+            raise ValueError("""`S3Uploader` requires a `resizerConfig` which contains the resize recipes. these are needed for generating filenames.""")
+        
+    
         self._s3Config = s3Config
         self._s3Logger = s3Logger
         self._resizerConfig = resizerConfig
@@ -162,7 +169,7 @@ class S3Uploader(object):
             bucket_public = boto.s3.bucket.Bucket( connection=self.s3_connection , name=self._s3Config.bucket_public_name )
             s3_buckets[self._s3Config.bucket_public_name] = bucket_public
             s3_buckets['@public'] = bucket_public
-            if self._s3Config.archive_original :
+            if self._s3Config.bucket_archive_name :
                 bucket_archive = boto.s3.bucket.Bucket( connection=self.s3_connection , name=self._s3Config.bucket_archive_name )
                 s3_buckets[self._s3Config.bucket_archive_name] = bucket_archive
                 s3_buckets['@archive'] = bucket_archive
@@ -295,9 +302,11 @@ class S3Uploader(object):
 
                 # log to external plugin too
                 if self._s3Logger:
-                    self._s3Logger.log_upload( bucket_name=bucket_name , 
-                        key=target_filename , 
-                        filesize=resizerResultset.resized[size].filesize , )
+                    self._s3Logger.log_upload( bucket_name = bucket_name , 
+                        key = target_filename , 
+                        file_size = resizerResultset.resized[size].file_size , 
+                        file_md5 = resizerResultset.resized[size].file_md5 , 
+                    )
 
             if '@archive' in target_filenames  :
             
@@ -322,9 +331,11 @@ class S3Uploader(object):
 
                 # log to external plugin too
                 if self._s3Logger:
-                    self._s3Logger.log_upload( bucket_name=bucket_name , 
-                        key=target_filename , 
-                        filesize=resizerResultset.original.filesize , )
+                    self._s3Logger.log_upload( bucket_name = bucket_name , 
+                        key = target_filename , 
+                        file_size = resizerResultset.original.file_size , 
+                        file_md5 = resizerResultset.original.file_md5 , 
+                    )
                         
         except Exception as e :
             # if we have ANY issues, we want to delete everything from amazon s3. otherwise this stuff is just hiding up there
@@ -435,7 +446,7 @@ class S3Uploader(object):
             target_filename =  filename_template % {\
                     'guid' : guid , 
                     'suffix' : suffix , 
-                    'format' : utils.PIL_type_to_standardized( resizerResultset.resized[size].format ) 
+                    'format' : utils.PIL_type_to_standardized( instructions['format'] ) 
                 }
 
             # figure out the bucketname

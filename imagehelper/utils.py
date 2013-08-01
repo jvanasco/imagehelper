@@ -1,6 +1,7 @@
 import logging
 log = logging.getLogger(__name__)
 
+import hashlib
 import os
 
 
@@ -32,6 +33,14 @@ _PIL_type_to_standardized= {
     'png': 'png',
 }
 
+_standardized_to_PIL_type= {
+    'gif': 'GIF',
+    'jpg': 'JPEG',
+    'jpeg': 'JPEG',
+    'pdf': 'PDF',
+    'png': 'PNG',
+}
+
 
 def PIL_type_to_content_type( ctype ):
     ctype = ctype.lower()
@@ -45,10 +54,27 @@ def PIL_type_to_standardized( ctype ):
         return _PIL_type_to_standardized[ ctype ]
     raise ValueError('invalid ctype')
 
+def standardized_to_PIL_type( ctype ):
+    ctype = ctype.lower()
+    if ctype in _standardized_to_PIL_type:
+        return _standardized_to_PIL_type[ ctype ]
+    raise ValueError('invalid ctype')
 
 
-def filesize( fileobj ):
+
+def file_size( fileobj ):
     """what's the size of the object?"""
     fileobj.seek(0,os.SEEK_END)
     sized = fileobj.tell()
     fileobj.seek(0)
+    return sized
+
+
+def file_md5(fileobj):
+    fileobj.seek(0)
+    md5 = hashlib.md5()
+    block_size = md5.block_size * 128
+    for chunk in iter( lambda: fileobj.read(block_size),b''):
+       md5.update(chunk)
+    fileobj.seek(0)
+    return md5.hexdigest()

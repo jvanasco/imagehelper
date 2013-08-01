@@ -7,6 +7,7 @@ log = logging.getLogger(__name__)
 try:
     from PIL import Image
 except ImportError:
+    raise ValueError("ugh")
     import Image
 
 
@@ -35,8 +36,11 @@ class ResizedImage(object):
         `height`
             resized file attributes
         
-        `filesize`
-            property to calculate the filesize 
+        `file_size`
+            property to calculate the file's size 
+
+        `file_md5`
+            property to calculate the file's md5
         
     """
     def __init__( self , resizedFile , format=None , name=None , mode=None , 
@@ -65,10 +69,29 @@ class ResizedImage(object):
         return "<ReizedImage at %s - %s >" % ( id(self) , self.__dict__ )
 
     @property
-    def filesize(self):
-        """property; calculate the filesize"""
-        return utils.filesize( self.file )    
-    
+    def file_size(self):
+        """property; calculate the file's size in bytes"""
+        return utils.file_size( self.file )    
+
+    @property
+    def file_md5(self):
+        """property; calculate the file's md5"""
+        return utils.file_md5( self.file )    
+
+
+class FakedOriginal(object):
+    format = None 
+    mode = None 
+    width = None 
+    height = None 
+    file_size = None 
+    file_md5 = None 
+
+    def __init__( self , original_filename ):
+        file_ext = original_filename.split('.')[-1].lower()
+        self.format = utils.standardized_to_PIL_type( file_ext )
+
+
 
 class ImageWrapper(object):
     """Our base class for image operations"""
@@ -76,7 +99,6 @@ class ImageWrapper(object):
     imageFileObject = None
     imageObject = None
     imageObject_name = None
-    imageObject_mode = None
     
     
     def __init__(self , imagefile=None , imagefile_name=None ):
@@ -94,31 +116,46 @@ class ImageWrapper(object):
                 only used for informational purposes
         """
         if imagefile is None:
-            raise errors.ImageError_MissingFile( constants.ImageErrorCodes.MISSING_FILE )
+            raise errors.ImageError_MissingFile( utils.ImageErrorCodes.MISSING_FILE )
 
         if not isinstance( imagefile , ( cgi.FieldStorage , types.FileType , StringIO.StringIO , cStringIO.InputType, cStringIO.OutputType ) ):
-            raise errors.ImageError_Parsing( constants.ImageErrorCodes.UNSUPPORTED_IMAGE_CLASS )
+            raise errors.ImageError_Parsing( utils.ImageErrorCodes.UNSUPPORTED_IMAGE_CLASS )
 
         try:
             # try to cache this all
             data = None
             if isinstance( imagefile , cgi.FieldStorage ):
                 if not hasattr( imagefile , 'filename' ):
-                    raise errors.ImageError_Parsing( constants.ImageErrorCodes.MISSING_FILENAME_METHOD )
+                    raise errors.ImageError_Parsing( utils.ImageErrorCodes.MISSING_FILENAME_METHOD )
                 imagefile.file.seek(0)
                 data = imagefile.file.read()
                 imageObject_name = imagefile.file.name
+
+                # be kind, rewind; the input obj we no longer care about
+                # but someone else might care
+                imagefile.file.seek(0)
+
             elif isinstance( imagefile , types.FileType ):
                 imagefile.seek(0)
                 data = imagefile.read()
                 imageObject_name = imagefile.name
+
+                # be kind, rewind; the input obj we no longer care about
+                # but someone else might care
+                imagefile.seek(0)
+
             elif isinstance( imagefile , (StringIO.StringIO , cStringIO.InputType, cStringIO.OutputType) ):
                 imagefile.seek(0)
                 data = imagefile.read()
-                imageObject_name = imagefile_name or "unknown"
+                imageObject_name = imagefile_name or ""
 
-            # be kind, rewind; the input obj we no longer care about
-            imagefile.seek(0)
+                # be kind, rewind; the input obj we no longer care about
+                # but someone else might care
+                imagefile.seek(0)
+                
+            else:
+                # just be safe with an extra else
+                raise errors.ImageError_Parsing( utils.ImageErrorCodes.UNSUPPORTED_IMAGE_CLASS )
 
             # create a new image
             imageFileObject = cStringIO.StringIO()
@@ -131,16 +168,16 @@ class ImageWrapper(object):
             imageObject.load()
 
             if not imageObject:
-                raise errors.ImageError_Parsing( constants.ImageErrorCodes.INVALID_REBUILD )
+                raise errors.ImageError_Parsing( utils.ImageErrorCodes.INVALID_REBUILD )
 
             # great, stash our data!
+            imageFileObject.seek(0)
             self.imageFileObject = imageFileObject
             self.imageObject = imageObject
             self.imageObject_name = imageObject_name
-            self.imageObject_mode = self.imageObject.mode
 
         except IOError:
-            raise errors.ImageError_Parsing( constants.ImageErrorCodes.INVALID_FILETYPE )
+            raise errors.ImageError_Parsing( utils.ImageErrorCodes.INVALID_FILETYPE )
         
         except errors.ImageError , e:
             raise
@@ -368,4 +405,28 @@ class ImageWrapper(object):
             format=self.imageObject.format , mode=self.imageObject.mode , 
             width=self.imageObject.size[0] , height=self.imageObject.size[1] )
 
+    @property
+    def name(self):
+        """stashed name"""
+        return self.imageObject_name
+
+    @property
+    def format(self):
+        """proxied format; PIL version"""
+        return self.imageObject.format
+
+    @property
+    def format_standardized(self):
+        """proxied format; standardized version"""
+        return utils.PIL_type_to_standardized( self.imageObject.format ) 
+
+    @property
+    def mode(self):
+        """proxied mode"""
+        return self.imageObject.mode
+
+    @property
+    def size(self):
+        """proxied size"""
+        return self.imageObject.size
 

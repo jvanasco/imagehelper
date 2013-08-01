@@ -99,11 +99,11 @@ class ResizerFactory(object):
         self.resizerConfig = resizerConfig
         
 
-    def resize( self , imagefile=None ):
-        """Creates a wrapped object, performs resizing /saving on it, 
-        then returns it
+    def resizer( self , imagefile=None ):
+        """Returns a resizer object; optionally with an imagefile.
+        This does not resize.
         
-        note that this returns a `ResizerResultset` object
+        This is useful for validating a file for it's ability to be resized.
 
         args
             `imagefile`
@@ -111,13 +111,13 @@ class ResizerFactory(object):
                 usually:
                     file
                     cgi.fi
-
         """
         resizer = Resizer( resizerConfig=self.resizerConfig )
-        resizer.register_image_file( imagefile=imagefile )
-        resizedImages = resizer.resize()
-        return resizedImages
-        
+        if imagefile is not None :
+            resizer.register_image_file( imagefile=imagefile )
+        return resizer
+
+
         
 class ResizerResultset(object):
     resized = None
@@ -133,37 +133,44 @@ class Resizer(object):
     It stores the image file, the metadata, and the various resizes."""
     resizerConfig = None
     resizerResultset = None
-    imageWrapper = None
+    image = None
     
     def __init__( self , resizerConfig=None ):
         self.resizerConfig = resizerConfig
         self.reset()
-        
+
+
     def reset(self):
         """if you resize a second item, you will need to reset"""
         self.resizerResultset = None
-        self.imageWrapper = None
+        self.image = None
         
 
     def register_image_file( self,  imagefile=None , imageWrapper=None ):
-        """registers a file to be resized"""
-        
-        if self.imageWrapper is not None :
-            raise errors.ImageError_DuplicateAction("We already have registered a file.")
-    
-        if all( ( imagefile , imageWrapper ) ):
-            raise errors.ImageError_ConfigError("Submit only imagefile /or/ imageWrapper")
+        """registers a file to be resized
 
-        if not any( ( imagefile , imageWrapper ) ):
-            raise errors.ImageError_ConfigError("Must submit either imagefile /or/ imageWrapper")
             
-        if imagefile :
-            self.imageWrapper = image_wrapper.ImageWrapper( imagefile = imagefile )
+            if we pass in cgi.FieldStorage , it seems to bool() to None even when there is a value
+            the workaround (grr) is to check against None
+        
+        """
+        
+        if self.image is not None :
+            raise errors.ImageError_DuplicateAction("We already have registered a file.")
+            
+        if ( imagefile is None ) and ( imageWrapper is None ):
+            raise errors.ImageError_ConfigError("Must submit either imagefile /or/ imageWrapper")
 
-        elif imageWrapper:
+        if ( imagefile is not None ) and ( imageWrapper is not None ):
+            raise errors.ImageError_ConfigError("Submit only imagefile /or/ imageWrapper")
+            
+        if imagefile is not None :
+            self.image = image_wrapper.ImageWrapper( imagefile = imagefile )
+
+        elif imageWrapper is not None:
             if not isinstance( imageWrapper , image_wrapper.ImageWrapper ):
                 raise errors.ImageError_ConfigError("imageWrapper must be of type `imaage_wrapper.ImageWrapper`")
-            self.imageWrapper = imageWrapper
+            self.image = imageWrapper
 
 
     def resize( self , imagefile=None , resizesSchema=None , selected_resizes=None ):
@@ -197,7 +204,7 @@ class Resizer(object):
         if imagefile :
             self.register_image_file( imagefile=imagefile )
             
-        if not self.imageWrapper :
+        if not self.image :
            raise errors.ImageError_ConfigError("Please pass in a `imagefile` if you have not set an imageFileObject yet")
            
         # we'll stash the items here
@@ -206,15 +213,47 @@ class Resizer(object):
             if size[0] == "@":
                 raise errors.ImageError_ConfigError("@ is a reserved initial character for image sizes")
                 
-            ## imageWrapper.resize returns a ResizedImage that has attributes `.resized_image`, `image_format`
-            resized[ size ]= self.imageWrapper.resize( resizesSchema[ size ] )
+            ## ImageWrapper.resize returns a ResizedImage that has attributes `.resized_image`, `image_format`
+            resized[ size ]= self.image.resize( resizesSchema[ size ] )
             
         resizerResultset = ResizerResultset(
             resized = resized , 
-            original = self.imageWrapper.get_original() ,
+            original = self.image.get_original() ,
         )
         self.resizerResultset = resizerResultset
 
         return resizerResultset
     
-             
+
+    def fake_resultset( self , original_filename , selected_resizes=None ):
+
+        if not self.resizerConfig :
+            raise ValueError("fake_resultset requires an instance configured with resizerConfig")
+        resizesSchema = self.resizerConfig.resizesSchema
+
+        if selected_resizes is None:
+            selected_resizes = self.resizerConfig.selected_resizes
+
+        if not len(resizesSchema.keys()):
+            raise errors.ImageError_ConfigError("We have no resizesSchema...  error")
+
+        if not len(selected_resizes):
+            raise errors.ImageError_ConfigError("We have no selected_resizes...  error")
+
+        # we'll stash the items here
+        resized= {}
+        for size in selected_resizes:
+            if size[0] == "@":
+                raise errors.ImageError_ConfigError("@ is a reserved initial character for image sizes")
+                
+            resized[ size ]= True
+            
+        resizerResultset = ResizerResultset(
+            resized = resized , 
+            original = image_wrapper.FakedOriginal( original_filename = original_filename ) ,
+        )
+        self.resizerResultset = resizerResultset
+
+        return resizerResultset
+
+

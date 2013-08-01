@@ -84,9 +84,9 @@ def newResizerConfig():
 
 
 class CustomS3Logger( imagehelper.s3.S3Logger ):
-    def log_upload( self, bucket_name=None, key=None , filesize=None ):
+    def log_upload( self, bucket_name=None, key=None , file_size=None , file_md5=None ):
         print "CustomS3Logger.log_upload"
-        print "\t %s , %s , %s" % ( bucket_name , key , filesize )
+        print "\t %s , %s , %s , %s" % ( bucket_name , key , file_size , file_md5 )
     def log_delete( self, bucket_name=None, key=None ):
         print "CustomS3Logger.log_delete"
         print "\t %s , %s" % ( bucket_name , key )
@@ -121,15 +121,6 @@ class TestResize( unittest.TestCase ):
         resizedImages = resizer.resize( imagefile=get_imagefile() )
 
 
-    def test_factory_resize(self):
-
-        # new resizer config
-        resizerConfig = newResizerConfig()
-        # build a factory
-        resizerFactory = imagehelper.resizer.ResizerFactory( resizerConfig=resizerConfig )
-        # resize !
-        resizedImages = resizerFactory.resize( imagefile=get_imagefile() )
-
 
 class TestS3( unittest.TestCase ):
 
@@ -139,8 +130,12 @@ class TestS3( unittest.TestCase ):
         resizerConfig = newResizerConfig()
         # build a factory
         resizerFactory = imagehelper.resizer.ResizerFactory( resizerConfig=resizerConfig )
+        
+        # grab a resizer
+        resizer = resizerFactory.resizer()
+        
         # resize !
-        resizedImages = resizerFactory.resize( imagefile=get_imagefile() )
+        resizedImages = resizer.resize( imagefile=get_imagefile() )
 
         # new s3 config
         s3Config = newS3Config()
