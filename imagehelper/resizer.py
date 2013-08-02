@@ -131,20 +131,16 @@ class ResizerResultset(object):
 class Resizer(object):
     """Resizer is our workhorse.
     It stores the image file, the metadata, and the various resizes."""
-    resizerConfig = None
-    resizerResultset = None
-    image = None
+    _resizerConfig = None
+    _resizerResultset = None
+    _image = None
     
     def __init__( self , resizerConfig=None ):
-        self.resizerConfig = resizerConfig
-        self.reset()
+        self._resizerConfig = resizerConfig
+        self._resizerResultset = None
+        self._image = None
 
 
-    def reset(self):
-        """if you resize a second item, you will need to reset"""
-        self.resizerResultset = None
-        self.image = None
-        
 
     def register_image_file( self,  imagefile=None , imageWrapper=None ):
         """registers a file to be resized
@@ -155,7 +151,7 @@ class Resizer(object):
         
         """
         
-        if self.image is not None :
+        if self._image is not None :
             raise errors.ImageError_DuplicateAction("We already have registered a file.")
             
         if ( imagefile is None ) and ( imageWrapper is None ):
@@ -165,12 +161,12 @@ class Resizer(object):
             raise errors.ImageError_ConfigError("Submit only imagefile /or/ imageWrapper")
             
         if imagefile is not None :
-            self.image = image_wrapper.ImageWrapper( imagefile = imagefile )
+            self._image = image_wrapper.ImageWrapper( imagefile = imagefile )
 
         elif imageWrapper is not None:
             if not isinstance( imageWrapper , image_wrapper.ImageWrapper ):
                 raise errors.ImageError_ConfigError("imageWrapper must be of type `imaage_wrapper.ImageWrapper`")
-            self.image = imageWrapper
+            self._image = imageWrapper
 
 
     def resize( self , imagefile=None , resizesSchema=None , selected_resizes=None ):
@@ -184,16 +180,16 @@ class Resizer(object):
             the internal dict will have an @archive object as well
         """
         if resizesSchema is None:
-            if self.resizerConfig :
-                resizesSchema = self.resizerConfig.resizesSchema
+            if self._resizerConfig :
+                resizesSchema = self._resizerConfig.resizesSchema
             else:
-                raise ValueError("no resizesSchema and no self.resizerConfig")
+                raise ValueError("no resizesSchema and no self._resizerConfig")
 
         if selected_resizes is None:
-            if self.resizerConfig :
-                selected_resizes = self.resizerConfig.selected_resizes
+            if self._resizerConfig :
+                selected_resizes = self._resizerConfig.selected_resizes
             else:
-                raise ValueError("no selected_resizes and no self.resizerConfig")
+                raise ValueError("no selected_resizes and no self._resizerConfig")
             
         if not len(resizesSchema.keys()):
             raise errors.ImageError_ConfigError("We have no resizesSchema...  error")
@@ -204,7 +200,7 @@ class Resizer(object):
         if imagefile :
             self.register_image_file( imagefile=imagefile )
             
-        if not self.image :
+        if not self._image :
            raise errors.ImageError_ConfigError("Please pass in a `imagefile` if you have not set an imageFileObject yet")
            
         # we'll stash the items here
@@ -214,25 +210,25 @@ class Resizer(object):
                 raise errors.ImageError_ConfigError("@ is a reserved initial character for image sizes")
                 
             ## ImageWrapper.resize returns a ResizedImage that has attributes `.resized_image`, `image_format`
-            resized[ size ]= self.image.resize( resizesSchema[ size ] )
+            resized[ size ]= self._image.resize( resizesSchema[ size ] )
             
         resizerResultset = ResizerResultset(
             resized = resized , 
-            original = self.image.get_original() ,
+            original = self._image.get_original() ,
         )
-        self.resizerResultset = resizerResultset
+        self._resizerResultset = resizerResultset
 
         return resizerResultset
     
 
     def fake_resize( self , original_filename , selected_resizes=None ):
 
-        if not self.resizerConfig :
+        if not self._resizerConfig :
             raise ValueError("fake_resultset requires an instance configured with resizerConfig")
-        resizesSchema = self.resizerConfig.resizesSchema
+        resizesSchema = self._resizerConfig.resizesSchema
 
         if selected_resizes is None:
-            selected_resizes = self.resizerConfig.selected_resizes
+            selected_resizes = self._resizerConfig.selected_resizes
 
         if not len(resizesSchema.keys()):
             raise errors.ImageError_ConfigError("We have no resizesSchema...  error")
@@ -252,8 +248,12 @@ class Resizer(object):
             resized = resized , 
             original = image_wrapper.FakedOriginal( original_filename = original_filename ) ,
         )
-        self.resizerResultset = resizerResultset
+        self._resizerResultset = resizerResultset
 
         return resizerResultset
 
+
+    def get_original( self ):
+        """get the original image, which may have data for us"""
+        return self._image.get_original()
 

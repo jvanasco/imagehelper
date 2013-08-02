@@ -120,9 +120,8 @@ class TestResize( unittest.TestCase ):
             # expected!
             pass
         
-        # reset the resizer
-        resizer.reset()
-    
+        # build a new resizer
+        resizer = imagehelper.resizer.Resizer( resizerConfig=resizerConfig )
         # resize the image
         resizedImages = resizer.resize( imagefile=get_imagefile() )
 

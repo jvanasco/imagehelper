@@ -1,7 +1,22 @@
+0.1.0 rc 6
+------------------
+* refactored `imagehelper.s3.S3Uploader`
+** new base class `_S3CoreManager` for `_S3Manager` and new class `S3SimpleAccess`
+** base class houses `s3_connection` , `s3_buckets` , `s3_delete`
+* new class `imagehelper.s3.S3SimpleAccess`
+** `imagehelper.s3.S3SimpleAccess().s3_file_upload()` upload a single file/bucket
+** `imagehelper.s3.S3SimpleAccess().simple_uploads_mapping()` generates a `s3_uploads` compatible dict for deletion
+
 0.1.0 rc 5
 ------------------
 * updated docs for deleting
 * renamed `imagehelper.resize.Resizer().fake_resultset()` to `imagehelper.resize.Resizer().fake_resize()`
+* removed `imagehelper.resize.Resizer().reset()`. this should never be done.
+* added `imagehelper.resize.Resizer().get_original()`. proxies to the internal image object
+* renamed `imagehelper.resize.Resizer().image` to `imagehelper.resize.Resizer()._image`
+* renamed `imagehelper.resize.Resizer().resizerConfig` to `imagehelper.resize.Resizer()._resizerConfig`
+
+
 
 0.1.0 rc 4
 ------------------

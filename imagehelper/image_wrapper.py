@@ -76,7 +76,12 @@ class ResizedImage(object):
     @property
     def file_md5(self):
         """property; calculate the file's md5"""
-        return utils.file_md5( self.file )    
+        return utils.file_md5( self.file )
+
+    @property
+    def format_standardized(self):
+        """proxied format; standardized version"""
+        return utils.PIL_type_to_standardized( self.format ) 
 
 
 class FakedOriginal(object):
@@ -99,6 +104,16 @@ class ImageWrapper(object):
     imageFileObject = None
     imageObject = None
     imageObject_name = None
+
+    @property
+    def file_size(self):
+        """property; calculate the file's size in bytes"""
+        return utils.file_size( self.imageFileObject )    
+
+    @property
+    def file_md5(self):
+        """property; calculate the file's md5"""
+        return utils.file_md5( self.imageFileObject )    
     
     
     def __init__(self , imagefile=None , imagefile_name=None ):
