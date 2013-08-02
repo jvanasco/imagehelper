@@ -83,6 +83,12 @@ def newResizerConfig():
     return resizerConfig
 
 
+def newS3Logger():
+    s3Logger = imagehelper.s3.S3Logger()
+    return s3Logger
+
+
+
 class CustomS3Logger( imagehelper.s3.S3Logger ):
     def log_upload( self, bucket_name=None, key=None , file_size=None , file_md5=None ):
         print "CustomS3Logger.log_upload"
@@ -124,6 +130,29 @@ class TestResize( unittest.TestCase ):
 
 class TestS3( unittest.TestCase ):
 
+    def test_s3_factory(self):
+
+        # generate the configs    
+        resizerConfig = newResizerConfig()
+        s3Config = newS3Config()
+        s3Logger = newS3Logger()
+        
+        # generate the factory
+        s3ManagerFactory = imagehelper.s3.S3ManagerFactory( s3Config=s3Config , s3Logger=s3Logger , resizerConfig=resizerConfig )
+        
+        # grab a manager
+        s3Manager = s3ManagerFactory.s3_manager()
+        
+        # make sure we generated a manager
+        assert isinstance( s3Manager , imagehelper.s3.S3Manager )   
+
+        # inspect the manager to ensure it is set up correctly
+        assert s3Manager._s3Config == s3Config 
+        assert s3Manager._s3Logger == s3Logger 
+        assert s3Manager._resizerConfig == resizerConfig 
+
+
+
     def test_s3(self):
     
         # new resizer config
@@ -146,7 +175,7 @@ class TestS3( unittest.TestCase ):
             s3Logger = CustomS3Logger()
 
         # upload the resized items
-        uploader = imagehelper.s3.S3Uploader( s3Config=s3Config , resizerConfig=resizerConfig , s3Logger=s3Logger )
+        uploader = imagehelper.s3.S3Manager( s3Config=s3Config , resizerConfig=resizerConfig , s3Logger=s3Logger )
         
         guid = "123"
         uploaded = uploader.s3_save( resizedImages , guid )

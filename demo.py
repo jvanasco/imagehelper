@@ -166,7 +166,7 @@ def demo_s3():
     resizedImages = resizerFactory.resize( imagefile=get_imagefile() )
 
     # upload the resized items
-    uploader = imagehelper.s3.S3Uploader( s3Config=s3Config , resizerConfig=resizerConfig , s3Logger=s3Logger )
+    uploader = imagehelper.s3.S3Manager( s3Config=s3Config , resizerConfig=resizerConfig , s3Logger=s3Logger )
     uploaded = uploader.s3_save( resizedImages , guid )
     print "uploaded! %s" % uploaded
     

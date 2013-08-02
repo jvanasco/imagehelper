@@ -1,3 +1,9 @@
+0.1.0 rc 4
+------------------
+* renamed `imagehelper.s3.S3Uploader()` to `imagehelper.s3.S3Manager()`
+* added `imagehelper.s3.S3ManagerFactory()` class to generate `S3Manager` instances via `s3_manager()` method.
+
+
 0.1.0 rc 3
 ------------------
 * added `imagehelper.resizer.ResizerFactory.resizer(imagefile=None)` to return a new resizer object.  this is useful for validating a file.

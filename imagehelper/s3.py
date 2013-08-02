@@ -107,8 +107,26 @@ class S3Logger(object):
         pass
 
 
+class S3ManagerFactory(object):
+    """Factory for generating S3Manager instances"""
+    _resizerConfig = None
+    _s3Config = None
+    _s3Logger = None
 
-class S3Uploader(object):
+    def __init__( self , s3Config=None , s3Logger=None , resizerConfig=None ):
+        self._s3Config = s3Config
+        self._s3Logger = s3Logger
+        self._resizerConfig = resizerConfig
+    
+    def s3_manager(self):
+        """generate and return a new S3Manager instance"""
+        return S3Manager( s3Config=self._s3Config , s3Logger=self._s3Logger , resizerConfig=self._resizerConfig )
+
+
+
+
+class S3Manager(object):
+    """`S3Manager` handles all the actual uploading and deleting"""
 
     _resizerConfig = None
     _s3Config = None
@@ -127,7 +145,7 @@ class S3Uploader(object):
     def __init__( self , s3Config=None , s3Logger=None , resizerConfig=None ):
     
         if not resizerConfig :
-            raise ValueError("""`S3Uploader` requires a `resizerConfig` which contains the resize recipes. these are needed for generating filenames.""")
+            raise ValueError("""`S3Manager` requires a `resizerConfig` which contains the resize recipes. these are needed for generating filenames.""")
         
     
         self._s3Config = s3Config

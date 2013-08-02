@@ -50,6 +50,8 @@ You can create a schema of image sizes...
 
 And easily upload them :
 
+	# create some configs in your app
+
 	# config object for IMAGE_SIZES
 	resizerConfig = imagehelper.resizer.ResizerConfig( resizesSchema=IMAGE_SIZES )
 
@@ -61,18 +63,31 @@ And easily upload them :
 		bucket_archive_name = AWS_BUCKET_SECRET,
 	)
 
-	# build a factory; you'd probably stash this in your app.
-	rFactory= imagehelper.resizer.ResizerFactory( resizerConfig=resizerConfig )
-	uploader = imagehelper.s3.S3Uploader( s3Config=s3Config , resizerConfig=rConfig , s3Logger=s3Logger )
+	# create some factories.
+	# factories are unnecessary. they just generate the workhorse objects for you
+	# they're very useful for cutting down code
+	# build one, then stash in your app
+
+	USE_FACTORY = True
+	if USE_FACTORY :
+		rFactory = imagehelper.resizer.ResizerFactory( resizerConfig=resizerConfig )
+		s3Factory = imagehelper.s3.s3ManagerFactory( s3Config=s3Config , resizerConfig=rConfig , s3Logger=s3Logger )
+
+		resizer = rFactory.resizer()
+		s3Manager = s3Factory.s3_manager()
+
+	else:
+		resizer = imagehelper.resizer.Resizer( resizerConfig=resizerConfig )
+		s3Manager = imagehelper.s3.s3Manager( s3Config=s3Config , resizerConfig=rConfig , s3Logger=s3Logger )
 
 	# resize !
-	resizedImages = rFactory.resize( imagefile=get_imagefile() )
+	resizedImages = resizer.resize( imagefile=get_imagefile() )
 
 	# upload the resized items
-	uploaded = uploader.s3_save( resizedImages , guid="123" )
+	uploaded_files = s3Manager.s3_save( resizedImages , guid="123" )
 
 	# want to delete them?
-	deleted = uploader.s3_delete( uploaded )
+	deleted = s3Manager.s3_delete( uploaded_files )
 
 Behind the scenes, imagehelper does all the math and uploading.
 
@@ -127,8 +142,11 @@ Check out the demo.py module - and include some amazon s3 credentials in an `aws
 
 5. You can define your own S3 logger, a class that provides two methods:
 
-*     log_upload( bucket_name , key )
-*     log_delete( bucket_name , key )
+    class S3Logger(object):
+		def log_upload( self , bucket_name=None, key=None , file_size=None , file_md5=None ):
+			pass
+		def log_delete( self , bucket_name=None, key=None ):
+			pass
 
 This will allow you to log what is uploaded into amazon aws on your side.  This is hugely helpful , because amazon uploads are not transaction safe to your application logic.  there are some built-in precautions for this... but it's best to play things safely.
 
@@ -136,12 +154,12 @@ This will allow you to log what is uploaded into amazon aws on your side.  This 
 items are currented saved to amazon s3 as such:
 
 public:
-
 	%(guid)s-%(suffix)s.%(format)s
 
 	guid- you must supply a guid for the file
 	suffix- this is set in the resize schema
 	format- this is dictated by the PIL format type
+
 
 archive:
 	%(guid)s.%(format)s
@@ -168,6 +186,7 @@ this would create a file on amazon s3 with a GUID you supply like 123123123g :
 	/my-test/123123123-t120.jpg
 	_bucket_/_guid_-_suffix_._format_
 
+string templates may be used to affect how this is saved. read the source for more info.
 
 ## Transactional Support
 
