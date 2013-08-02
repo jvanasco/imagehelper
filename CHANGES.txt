@@ -1,3 +1,8 @@
+0.1.0 rc 5
+------------------
+* updated docs for deleting
+* renamed `imagehelper.resize.Resizer().fake_resultset()` to `imagehelper.resize.Resizer().fake_resize()`
+
 0.1.0 rc 4
 ------------------
 * renamed `imagehelper.s3.S3Uploader()` to `imagehelper.s3.S3Manager()`

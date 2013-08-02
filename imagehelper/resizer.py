@@ -225,7 +225,7 @@ class Resizer(object):
         return resizerResultset
     
 
-    def fake_resultset( self , original_filename , selected_resizes=None ):
+    def fake_resize( self , original_filename , selected_resizes=None ):
 
         if not self.resizerConfig :
             raise ValueError("fake_resultset requires an instance configured with resizerConfig")

@@ -78,7 +78,7 @@ And easily upload them :
 
 	else:
 		resizer = imagehelper.resizer.Resizer( resizerConfig=resizerConfig )
-		s3Manager = imagehelper.s3.s3Manager( s3Config=s3Config , resizerConfig=rConfig , s3Logger=s3Logger )
+		s3Manager = imagehelper.s3.s3Manager( s3Config=s3Config , resizerConfig=resizerConfig , s3Logger=s3Logger )
 
 	# resize !
 	resizedImages = resizer.resize( imagefile=get_imagefile() )
@@ -207,6 +207,23 @@ This was designed for a variety of use cases:
 
 * log activity to a file or non-transactional database connection , you get some efficient bookkeeping of s3 activity and can audit those files to ensure there is no orphan data in your s3 buckts.
 * log activity to StatsD or another metrics app to show how much activity goes on
+
+
+## deleting existing files ?
+
+if you don't have a current mapping of the files to delete in s3 but you do have the archive filename and a guid , you can easily generate what they would be based off a resizerConfig/schema and the archived filename.
+
+    ## fake the sizes that would be generated off a resize
+    resizer = imagehelper.resizer.Resizer( resizerConfig=resizerConfig )
+    fakedResizedImages = resizer.fake_resultset( original_filename = archive_filename )
+
+    ## generate the filenames
+	deleter = imagehelper.s3.S3Manager( s3Config=s3Config , resizerConfig=resizerConfig )
+	targetFilenames = build.generate_filenames( fakedResizedImages , guid )
+
+the `original_filename` is needed in fake_resultset, because a resultset tracks the original file and it's type.  as of the 0.1.0 branch , only the extension of the filename is utilized.
+
+
 
 
 ## License
