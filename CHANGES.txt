@@ -1,3 +1,20 @@
+0.1.0 rc 7
+------------------
+* updated demo.py to reflect current narrative docs
+* added `imagehelper.image_wrapper.ResizedImage().file_b64`
+* added `imagehelper.image_wrapper.ImageWrapper().file_b64`
+* added `imagehelper.utils.file_b64`
+* added `imagehelper.utils.b64_decode_to_file`
+* updated `imagehelper.resizer.ResizerFactory().resizer()` now accepts `file_b64` data
+* updated `imagehelper.resizer.Resizer().register_image_file()` now accepts `file_b64` data
+
+
+
+
+
+
+
+
 0.1.0 rc 6
 ------------------
 * refactored `imagehelper.s3.S3Uploader`

@@ -103,8 +103,8 @@ class CustomS3Logger( imagehelper.s3.S3Logger ):
 s3Logger = CustomS3Logger()
 resizerConfig = imagehelper.resizer.ResizerConfig( resizesSchema=resizesSchema , selected_resizes=selected_resizes )
 
-# create a wrapper
-resizer = imagehelper.resizer.Resizer( resizerConfig=resizerConfig )
+# create a factory
+resizerFactory = imagehelper.resizer.ResizerFactory( resizerConfig=resizerConfig )
 
 
 _img = None
@@ -128,6 +128,9 @@ guid= '123'
 def demo_direct():
     "demo calling direct methods"
     
+
+    resizer = resizerFactory.resizer()
+
     # try to register the image
     resizer.register_image_file( imagefile=get_imagefile() )
     
@@ -139,11 +142,9 @@ def demo_direct():
         # expected!
         pass
         
-    # reset the resizer
-    resizer.reset()
-    
-    # resize the image
-    resizedImages = resizer.resize( imagefile=get_imagefile() )
+
+    resizer = resizerFactory.resizer( imagefile=get_imagefile() )
+    resizedImages = resizer.resize()
     
     print resizedImages
     
@@ -151,19 +152,16 @@ def demo_direct():
 def demo_factory():
     "demo calling factory methods"
     
-    # build a factory
-    resizerFactory= imagehelper.resizer.ResizerFactory( resizerConfig=resizerConfig )
-
     # resize !
-    resizedImages = resizerFactory.resize( imagefile=get_imagefile() )
+    resizer = resizerFactory.resizer( imagefile=get_imagefile() )
+    resizedImages = resizer.resize()
 
 
 def demo_s3():
     "demo s3 uploading"
 
-    # build a factory & resize
-    resizerFactory= imagehelper.resizer.ResizerFactory( resizerConfig=resizerConfig )
-    resizedImages = resizerFactory.resize( imagefile=get_imagefile() )
+    resizer = resizerFactory.resizer( imagefile=get_imagefile() )
+    resizedImages = resizer.resize()
 
     # upload the resized items
     uploader = imagehelper.s3.S3Manager( s3Config=s3Config , resizerConfig=resizerConfig , s3Logger=s3Logger )
@@ -178,9 +176,6 @@ def demo_alt_resizing():
 
     resizerConfig = imagehelper.resizer.ResizerConfig( resizesSchema=resizesSchema_alt )
 
-    # create a wrapper
-    resizer = imagehelper.resizer.Resizer( resizerConfig=resizerConfig )
-
     # build a factory & resize
     resizerFactory= imagehelper.resizer.ResizerFactory( resizerConfig=resizerConfig )
     resizedImages = resizerFactory.resize( imagefile=get_imagefile() )
@@ -191,11 +186,9 @@ def demo_alt_resizing():
 def demo_md5():
     "demo file md5"
     
-    # build a factory
-    resizerFactory= imagehelper.resizer.ResizerFactory( resizerConfig=resizerConfig )
-
     # resize !
-    resizedImages = resizerFactory.resize( imagefile=get_imagefile() )
+    resizer = resizerFactory.resizer( imagefile=get_imagefile() )
+    resizedImages = resizer.resize()
     
     print resizedImages
     for k in resizedImages.resized.keys() :
@@ -205,14 +198,26 @@ def demo_md5():
     print resizedImages.original.file_size
 
 
-demo_md5()
-exit(0)
+def demo_serialze():
+    "demo file serialize"
+    
+    # resize !
+    resizer = resizerFactory.resizer( imagefile=get_imagefile() )
+    
+    file_md5 = resizer.get_original().file_md5
+    file_b64 = resizer.get_original().file_b64
+
+    resizer = resizerFactory.resizer( file_b64 = file_b64 )
+    
+
 
 if True:
     pass
     demo_direct()
     demo_factory()
     demo_s3()
+    demo_md5()
+    demo_serialze()
 
 if False:
     pass

@@ -7,6 +7,7 @@ try:
 except ImportError:
     import Image
 
+from . import utils
 
 class ResizerConfig(object):
     """ResizerFactory allows you to specify what/how to resize.
@@ -99,7 +100,7 @@ class ResizerFactory(object):
         self.resizerConfig = resizerConfig
         
 
-    def resizer( self , imagefile=None ):
+    def resizer( self , imagefile=None , file_b64=None ):
         """Returns a resizer object; optionally with an imagefile.
         This does not resize.
         
@@ -113,8 +114,10 @@ class ResizerFactory(object):
                     cgi.fi
         """
         resizer = Resizer( resizerConfig=self.resizerConfig )
-        if imagefile is not None :
-            resizer.register_image_file( imagefile=imagefile )
+        if imagefile is not None and file_b64 is not None :
+            raise ValueError("Only pass in `imagefile` or `file_b64`")
+        if ( imagefile is not None ) or ( file_b64 is not None) :
+            resizer.register_image_file( imagefile=imagefile , file_b64=file_b64 )
         return resizer
 
 
@@ -142,7 +145,7 @@ class Resizer(object):
 
 
 
-    def register_image_file( self,  imagefile=None , imageWrapper=None ):
+    def register_image_file( self,  imagefile=None , imageWrapper=None , file_b64=None ):
         """registers a file to be resized
 
             
@@ -154,11 +157,14 @@ class Resizer(object):
         if self._image is not None :
             raise errors.ImageError_DuplicateAction("We already have registered a file.")
             
-        if ( imagefile is None ) and ( imageWrapper is None ):
-            raise errors.ImageError_ConfigError("Must submit either imagefile /or/ imageWrapper")
+        if ( imagefile is None ) and ( imageWrapper is None ) and ( file_b64 is None ):
+            raise errors.ImageError_ConfigError("Must submit either imagefile /or/ imageWrapper /or/ file_b64")
 
-        if ( imagefile is not None ) and ( imageWrapper is not None ):
-            raise errors.ImageError_ConfigError("Submit only imagefile /or/ imageWrapper")
+        if ( imagefile is not None ) and ( imageWrapper is not None ) and ( file_b64 is not None) :
+            raise errors.ImageError_ConfigError("Submit only imagefile /or/ imageWrapper /or/ file_b64")
+
+        if file_b64 is not None :
+            imagefile = utils.b64_decode_to_file( file_b64 )
             
         if imagefile is not None :
             self._image = image_wrapper.ImageWrapper( imagefile = imagefile )
@@ -169,7 +175,7 @@ class Resizer(object):
             self._image = imageWrapper
 
 
-    def resize( self , imagefile=None , resizesSchema=None , selected_resizes=None ):
+    def resize( self , imagefile=None , imageWrapper=None , file_b64=None , resizesSchema=None , selected_resizes=None ):
         """
             Returns a dict of resized images
             calls self.register_image_file() if needed
@@ -197,9 +203,9 @@ class Resizer(object):
         if not len(selected_resizes):
             raise errors.ImageError_ConfigError("We have no selected_resizes...  error")
 
-        if imagefile :
-            self.register_image_file( imagefile=imagefile )
-            
+        if ( imagefile is not None ) or ( imageWrapper is not None ) or ( file_b64 is not None ):
+            self.register_image_file( imagefile=imagefile , imageWrapper=imageWrapper , file_b64=file_b64 )
+
         if not self._image :
            raise errors.ImageError_ConfigError("Please pass in a `imagefile` if you have not set an imageFileObject yet")
            

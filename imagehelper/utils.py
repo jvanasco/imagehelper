@@ -1,6 +1,8 @@
 import logging
 log = logging.getLogger(__name__)
 
+import base64
+import cStringIO
 import hashlib
 import os
 
@@ -78,3 +80,22 @@ def file_md5(fileobj):
        md5.update(chunk)
     fileobj.seek(0)
     return md5.hexdigest()
+
+
+def file_b64(fileobj):
+    fileobj.seek(0)
+    as_b64 = base64.encodestring(fileobj.read())
+    fileobj.seek(0)
+    return as_b64
+
+
+def b64_decode_to_file(coded_string):
+    decoded_data = base64.b64decode(coded_string)
+    fileobj = cStringIO.StringIO()
+    fileobj.write(decoded_data)
+    fileobj.seek(0)
+    return fileobj
+    
+
+
+

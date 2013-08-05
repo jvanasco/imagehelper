@@ -77,6 +77,12 @@ class ResizedImage(object):
     def file_md5(self):
         """property; calculate the file's md5"""
         return utils.file_md5( self.file )
+        
+    @property
+    def file_b64(self):
+        """property; base64 encode the file"""
+        return utils.file_b64( self.file )
+        
 
     @property
     def format_standardized(self):
@@ -115,6 +121,10 @@ class ImageWrapper(object):
         """property; calculate the file's md5"""
         return utils.file_md5( self.imageFileObject )    
     
+    @property
+    def file_b64(self):
+        """property; base64 encode the file"""
+        return utils.file_b64( self.imageFileObject )
     
     def __init__(self , imagefile=None , imagefile_name=None ):
         """registers and validates the image file
