@@ -119,12 +119,21 @@ Behind the scenes, imagehelper does all the math and uploading.
 
 
 
-
-
-
 ## Usage...
 
-Check out the demo.py module - and include some amazon s3 credentials in an `aws.cfg` file.  a template is provided.
+Check out the demo.py module - it offers a narrative demo of how to use the package. Be sure to include some amazon s3 credentials in an `aws.cfg` file.  a template is provided.
+
+imagehelper is NOT designed for one-off resizing needs.  it's designed for a use in applications where you're repeatedly doing the same resizing.
+
+The general program flow is this:
+
+1. Create `Configuration` objects to hold instructions
+2. Create `Factory` objects to hold the `Configuration` objects.
+3. Obtain a `Worker` object from the `Factory` to do the actual work ( resizing or uploading )
+
+You should typically create Configuration and Factory objects during application startup, and create/destroy a work for each request or event.
+
+Here's a more in depth description
 
 1. Create a dict of "photo resizes" describing your schema.
 
@@ -201,7 +210,7 @@ You can also define a custom subclass of `imagehelper.s3.S3Logger` that supports
 * `log_upload`( `self`, `bucket_name`=None, `key`=None , `file_size`=None , `file_md5`=None )
 * `log_delete`( `self`, `bucket_name`=None, `key`=None )
 
-Every successful 'action' is sent to the logger.  A valid transaction to upload 5 sizes will have 5 calls to `log_upload`, an invalid transaction will have a `log_delete` call for every `log_upload`.
+Every successful 'action' is sent to the logger.  A valid transaction to upload 5 sizes will have 5 calls to `log_upload`, an invalid transaction will have a `log_delete` call for every successful upload.
 
 This was designed for a variety of use cases:
 
@@ -209,7 +218,16 @@ This was designed for a variety of use cases:
 * log activity to StatsD or another metrics app to show how much activity goes on
 
 
-## deleting existing files ?
+## FAQ - package components
+
+* `errors` - custom exceptions
+* `image_wrapper` - actual image reading/writing , resize operations
+* `resizer` - manage resizing operations
+* `s3` - manage s3 communication
+* `utils` - miscellaneous utility fucntions
+
+
+## FAQ - deleting existing files ?
 
 if you don't have a current mapping of the files to delete in s3 but you do have the archive filename and a guid , you can easily generate what they would be based off a resizerConfig/schema and the archived filename.
 
@@ -223,6 +241,93 @@ if you don't have a current mapping of the files to delete in s3 but you do have
 
 the `original_filename` is needed in fake_resultset, because a resultset tracks the original file and it's type.  as of the 0.1.0 branch , only the extension of the filename is utilized.
 
+
+## FAQ - validate uploaded image ?
+
+this is simple.
+
+1. create a dumb resizer factory
+
+    nullResizerFactory = imagehelper.resizer.ResizerFactory()
+
+2. validate it
+
+	try:
+		resizer = nullResizerFactory.resizer(\
+			imagefile = uploaded_image_file ,
+		)
+	except imagehelper.errors.ImageError_Parsing , e :
+		raise ValueError('Invalid Filetype')
+
+	# grab the original file for advanced ops
+	resizerImage = resizer.get_original()
+	if resizerImage.file_size > MAX_FILESIZE_PHOTO_UPLOAD :
+		raise ValueError('Too Big!')
+
+
+passing an imagefile to `ResizerFactory.resizer` or `Resizer.__init__` will register the file with the resizer.  This action creates an `image_wrapper.ImageWrapper` object from the file, which contains the original file and a PIL/Pillow object.  If PIL/Pillow can not read the file, an error will be raised.
+
+
+## FAQ - what sort of file types are supported ?
+
+All the reading and resizing of image formats happens in PIL/Pillow.
+
+imagehelper tries to support most common file objects
+
+`imagehelper.image_wrapper.ImageWrapper` our core class for reading files , supports reading the following file types
+
+* `file ( native python object , i.e. `types.FileType` )
+* `cgi.FieldStorage`
+* `StringIO.StringIO` , `cStringIO.InputType` , `cStringIO.OutputType`
+
+we try to be kind and rewind.  we call seek(0) on the underlying file when approprite, but sometimes forget.
+
+the resize operations accepts the following file kwargs:
+
+* `imagefile` -- one of the above file objects
+* `imageWrapper` -- an instance of `imagehelper.image_wrapper.ImageWrapper`
+* `file_b64` -- a base64 encoded file datastream. this will decoded into a cStringIO object for operations.
+
+
+## FAQ - using celery ?
+
+celery message brokers require serialized data.
+
+in order to pass the task to celery , you will need to serialize/deserialize the data.  imagehelper provides convenience functionality for this
+
+    nullResizerFactory = imagehelper.resizer.ResizerFactory()
+	resizer = nullResizerFactory.resizer(\
+		imagefile = uploaded_file ,
+	)
+
+	# grab the original file for advanced ops
+	resizerImage = resizer.get_original()
+
+	# serialize the image
+	instructions = {
+		'image_md5' : resizerImage.file_md5 ,
+		'image_b64' : resizerImage.file_b64 ,
+		'image_format' : resizerImage.format ,
+	}
+
+	# send to celery
+	deferred_task = celery_tasks.do_something.apply_async( ( id , instructions, ) )
+
+
+	# in celery...
+	@task
+	def do_something( id , instructions ):
+		## resize the images
+		resizer = resizerFactory.resizer(\
+			file_b64 = instructions['image_b64'] ,
+		)
+		resizedImages = resizer.resize()
+
+
+
+## ToDo
+
+The resize functions ( constraint methods ) should be moved to an extensible and customizable system.
 
 
 
