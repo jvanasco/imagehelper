@@ -1,3 +1,9 @@
+0.1.0 rc 8
+------------------
+* docs change to illustrate allowing factory managers to upload archive or resizes only
+
+
+
 0.1.0 rc 7
 ------------------
 * updated demo.py to reflect current narrative docs
@@ -7,12 +13,6 @@
 * added `imagehelper.utils.b64_decode_to_file`
 * updated `imagehelper.resizer.ResizerFactory().resizer()` now accepts `file_b64` data
 * updated `imagehelper.resizer.Resizer().register_image_file()` now accepts `file_b64` data
-
-
-
-
-
-
 
 
 0.1.0 rc 6

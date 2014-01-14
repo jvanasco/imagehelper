@@ -387,6 +387,9 @@ class S3Manager(_S3CoreManager):
                 default = `None` -- all keys of resizerResultset.resized
                 a `list` of keys to save
                 we default to saving all the resized images
+                if you don't want to resize any images:
+                    pass in an empty list -- []
+                    passing in `None` will run the default images
             
             `archive_original`
                 default = `None`
@@ -401,7 +404,7 @@ class S3Manager(_S3CoreManager):
         # quickly validate
         selected_resizes = self._validate__selected_resizes( 
             resizerResultset , selected_resizes )
-
+            
         # setup the s3 connection
         s3_buckets = self.s3_buckets
 

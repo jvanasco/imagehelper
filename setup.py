@@ -21,7 +21,7 @@ setup(
     name='imagehelper',
     author='Jonathan Vanasco',
     author_email='jonathan@findmeon.com',
-    version='0.1.0.rc7',
+    version='0.1.0.rc8',
     url='http://github.com/jvanasco/imagehelper',
     packages=['imagehelper'],
     description='simple utilites for image resizing and uploading and stuff like that',

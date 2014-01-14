@@ -172,6 +172,26 @@ def demo_s3():
     print "deleted! %s" % deleted
     
 
+def demo_s3_alt():
+    "demo s3 uploading"
+
+    resizer = resizerFactory.resizer( imagefile=get_imagefile() )
+    resizedImages = resizer.resize()
+
+    # upload the resized items
+    uploader = imagehelper.s3.S3Manager( s3Config=s3Config , resizerConfig=resizerConfig , s3Logger=s3Logger )
+    uploaded_original = uploader.s3_save( resizedImages , guid , selected_resizes=[] , archive_original=True )
+    print "uploaded_original! %s" % uploaded_original
+
+    uploaded_resizes = uploader.s3_save( resizedImages , guid , archive_original=False )
+    print "uploaded_resizes! %s" % uploaded_resizes
+    
+    uploaded_all = dict( uploaded_original.items() + uploaded_resizes.items() )
+    
+    deleted = uploader.s3_delete( uploaded_all )
+    print "deleted! %s" % deleted
+    
+    
 def demo_alt_resizing():
 
     resizerConfig = imagehelper.resizer.ResizerConfig( resizesSchema=resizesSchema_alt )
@@ -211,11 +231,13 @@ def demo_serialze():
     
 
 
+
 if True:
     pass
     demo_direct()
     demo_factory()
     demo_s3()
+    demo_s3_alt()
     demo_md5()
     demo_serialze()
 
