@@ -1,7 +1,13 @@
+0.1.0 rc 9
+------------------
+* added `utils.PIL_type_to_extension`
+* added `image_wrapper.ResizedImage.file_extension`; proxies call to `utils.PIL_type_to_extension`
+* added `image_wrapper.FakedOriginal.file_extension`; proxies call to `utils.PIL_type_to_extension`
+
+
 0.1.0 rc 8
 ------------------
 * docs change to illustrate allowing factory managers to upload archive or resizes only
-
 
 
 0.1.0 rc 7

@@ -82,12 +82,16 @@ class ResizedImage(object):
     def file_b64(self):
         """property; base64 encode the file"""
         return utils.file_b64( self.file )
-        
 
     @property
     def format_standardized(self):
         """proxied format; standardized version"""
         return utils.PIL_type_to_standardized( self.format ) 
+
+    @property
+    def file_extension(self):
+        """proxied format; PIL version"""
+        return utils.PIL_type_to_extension( self.format ) 
 
 
 class FakedOriginal(object):
@@ -439,6 +443,11 @@ class ImageWrapper(object):
     def format(self):
         """proxied format; PIL version"""
         return self.imageObject.format
+
+    @property
+    def file_extension(self):
+        """proxied format; PIL version"""
+        return utils.PIL_type_to_extension( self.imageObject.format ) 
 
     @property
     def format_standardized(self):
