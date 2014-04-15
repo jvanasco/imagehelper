@@ -14,6 +14,9 @@ This package is in the process of being largely rewritten....
 
 The package was originally aimed at thumbnails, but it works for all resizing needs that are aimed at downsampling images.
 
+If you have applications like `gifsicle`, `pngcrush` and `jpegtran` installed in your environment, you can 'optimize' the output (and archive) files.
+
+
 This is a barebones package that has NO FRAMEWORK DEPENDENCIES - which is a good thing.  You define a dict, it does the rest.
 
 I could only find a single tool for resizing thumbnails on PyPi that did not require a framework, and that's really annoying.
@@ -53,7 +56,7 @@ And easily upload them :
 	# create some configs in your app
 
 	# config object for IMAGE_SIZES
-	resizerConfig = imagehelper.resizer.ResizerConfig( resizesSchema=IMAGE_SIZES )
+	resizerConfig = imagehelper.resizer.ResizerConfig( resizesSchema=IMAGE_SIZES , optimize=True )
 
 	# config object for S3
 	s3Config= imagehelper.s3.S3Config(
@@ -232,7 +235,7 @@ This was designed for a variety of use cases:
 if you don't have a current mapping of the files to delete in s3 but you do have the archive filename and a guid , you can easily generate what they would be based off a resizerConfig/schema and the archived filename.
 
     ## fake the sizes that would be generated off a resize
-    resizer = imagehelper.resizer.Resizer( resizerConfig=resizerConfig )
+    resizer = imagehelper.resizer.Resizer( resizerConfig=resizerConfig, optimize=True )
     fakedResizedImages = resizer.fake_resultset( original_filename = archive_filename )
 
     ## generate the filenames

@@ -1,3 +1,21 @@
+0.2.0 rc 1
+------------------
+* backwards incompatible changes
+* gutted `image_wrapper.py`:
+* multiple classes in `image_wrapper` now inherit from BasicImage, which wraps teh file
+* `WrappedImage` now contains a `basicImage` and `pilObject`.
+* multiple functions in `WrappedImage` removed.  functions previously hitting `WrappedImage` should call the attributes of `WrappedImage.basicImage`
+* `BasicImage` can "optimize" an image. this is accomplished by piping the data into gifsicle, pngcrush, jpegtran.  This can be run on original and resize
+* resizerConfig , resize and register_image_file now require information on optimizing the original & resize.  NOTE - large images can take some time!
+* NOTE - the optimization will not work on windows. this is because it uses NamedTemporaryFile to create files.
+* now requires `envoy`, which makes using the subprocess module a bit better.
+
+
+0.1.0 rc 10
+------------------
+* better checking of supported types
+* allowing a prefeerence for file-like objects to be configured
+
 0.1.0 rc 9
 ------------------
 * added `utils.PIL_type_to_extension`

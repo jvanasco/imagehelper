@@ -17,11 +17,15 @@ def get_docs():
         f.close()
     return '\n'.join(result)
 
+requires = [
+    "envoy",
+    ]
+
 setup(
     name='imagehelper',
     author='Jonathan Vanasco',
     author_email='jonathan@findmeon.com',
-    version='0.1.0.rc9',
+    version='0.2.0.rc1',
     url='http://github.com/jvanasco/imagehelper',
     packages=['imagehelper'],
     description='simple utilites for image resizing and uploading and stuff like that',
@@ -35,5 +39,7 @@ setup(
         "Topic :: Multimedia :: Graphics :: Graphics Conversion",
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Development Status :: 4 - Beta",
-    ]
+    ],
+  tests_require = requires,
+  install_requires = requires,
 )

@@ -64,20 +64,27 @@ class ResizerConfig(object):
             'fit-within:ensure-width'
             'smallest:ensure-minimum'
             
+            `optimize` - True / False
+
 
     """
     resizesSchema = None
-    selected_resizes= None
+    selected_resizes = None
+    optimize_original = None
+    optimize_resized = None
     
-    def __init__( self , resizesSchema=None , selected_resizes=None , 
-            is_subclass=False ,
+    def __init__( self, resizesSchema=None, selected_resizes=None, 
+            is_subclass=False, optimize_original=None, optimize_resized=None
         ):
         if not is_subclass:
             self.resizesSchema = resizesSchema
             if selected_resizes is None :
-                self.selected_resizes = resizesSchema.keys()
+                if resizesSchema is not None :
+                    self.selected_resizes = resizesSchema.keys()
             else:
                 self.selected_resizes = selected_resizes
+            self.optimize_original = optimize_original
+            self.optimize_resized = optimize_resized
 
 
 class ResizerFactory(object):
@@ -141,11 +148,11 @@ class Resizer(object):
     def __init__( self , resizerConfig=None ):
         self._resizerConfig = resizerConfig
         self._resizerResultset = None
-        self._image = None
+        self._wrappedImage = None
 
 
 
-    def register_image_file( self,  imagefile=None , imageWrapper=None , file_b64=None ):
+    def register_image_file( self,  imagefile=None, imageWrapper=None, file_b64=None, optimize_original=None ):
         """registers a file to be resized
 
             
@@ -154,7 +161,7 @@ class Resizer(object):
         
         """
         
-        if self._image is not None :
+        if self._wrappedImage is not None :
             raise errors.ImageError_DuplicateAction("We already have registered a file.")
             
         if ( imagefile is None ) and ( imageWrapper is None ) and ( file_b64 is None ):
@@ -167,15 +174,24 @@ class Resizer(object):
             imagefile = utils.b64_decode_to_file( file_b64 )
             
         if imagefile is not None :
-            self._image = image_wrapper.ImageWrapper( imagefile = imagefile )
+            self._wrappedImage = image_wrapper.ImageWrapper( imagefile = imagefile )
 
         elif imageWrapper is not None:
-            if not isinstance( imageWrapper , image_wrapper.ImageWrapper ):
+            if not isinstance( imageWrapper, image_wrapper.ImageWrapper ):
                 raise errors.ImageError_ConfigError("imageWrapper must be of type `imaage_wrapper.ImageWrapper`")
-            self._image = imageWrapper
+            self._wrappedImage = imageWrapper
+
+        if optimize_original is None:
+            if self._resizerConfig :
+                optimize_original = self._resizerConfig.optimize_original
+            else:
+                raise ValueError("no optimize_original and no self._resizerConfig")
+        if optimize_original:
+            print "optimizing original"
+            self._wrappedImage.basicImage.optimize()
 
 
-    def resize( self , imagefile=None , imageWrapper=None , file_b64=None , resizesSchema=None , selected_resizes=None ):
+    def resize( self , imagefile=None, imageWrapper=None, file_b64=None, resizesSchema=None, selected_resizes=None, optimize_original=None, optimize_resized=None ):
         """
             Returns a dict of resized images
             calls self.register_image_file() if needed
@@ -191,6 +207,17 @@ class Resizer(object):
             else:
                 raise ValueError("no resizesSchema and no self._resizerConfig")
 
+        if optimize_original is None:
+            if self._resizerConfig :
+                optimize_original = self._resizerConfig.optimize_original
+            else:
+                raise ValueError("no optimize_original and no self._resizerConfig")
+        if optimize_resized is None:
+            if self._resizerConfig :
+                optimize_resized = self._resizerConfig.optimize_resized
+            else:
+                raise ValueError("no optimize_resized and no self._resizerConfig")
+
         if selected_resizes is None:
             if self._resizerConfig :
                 selected_resizes = self._resizerConfig.selected_resizes
@@ -204,9 +231,9 @@ class Resizer(object):
             raise errors.ImageError_ConfigError("We have no selected_resizes...  error")
 
         if ( imagefile is not None ) or ( imageWrapper is not None ) or ( file_b64 is not None ):
-            self.register_image_file( imagefile=imagefile , imageWrapper=imageWrapper , file_b64=file_b64 )
+            self.register_image_file( imagefile=imagefile, imageWrapper=imageWrapper, file_b64=file_b64, optimize_original=optimize_original )
 
-        if not self._image :
+        if not self._wrappedImage :
            raise errors.ImageError_ConfigError("Please pass in a `imagefile` if you have not set an imageFileObject yet")
            
         # we'll stash the items here
@@ -216,12 +243,14 @@ class Resizer(object):
                 raise errors.ImageError_ConfigError("@ is a reserved initial character for image sizes")
                 
             ## ImageWrapper.resize returns a ResizedImage that has attributes `.resized_image`, `image_format`
-            resized[ size ]= self._image.resize( resizesSchema[ size ] )
+            resized[ size ]= self._wrappedImage.resize( resizesSchema[ size ] )
+            if optimize_resized :
+                resized[ size ].optimize()
             
         resizerResultset = ResizerResultset(
             resized = resized , 
-            original = self._image.get_original() ,
-        )
+            original = self._wrappedImage.get_original() ,
+        )        
         self._resizerResultset = resizerResultset
 
         return resizerResultset
@@ -261,5 +290,5 @@ class Resizer(object):
 
     def get_original( self ):
         """get the original image, which may have data for us"""
-        return self._image.get_original()
+        return self._wrappedImage.get_original()
 

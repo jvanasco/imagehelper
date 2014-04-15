@@ -78,8 +78,13 @@ def newS3Config():
     
     return s3Config
     
-def newResizerConfig():
-    resizerConfig = imagehelper.resizer.ResizerConfig( resizesSchema=resizesSchema , selected_resizes=selected_resizes )
+def newResizerConfig( optimize_original=True , optimize_resized=True ):
+    resizerConfig = imagehelper.resizer.ResizerConfig(\
+        resizesSchema = resizesSchema , 
+        selected_resizes = selected_resizes , 
+        optimize_original = optimize_original ,
+        optimize_resized = optimize_resized ,
+    )
     return resizerConfig
 
 
@@ -110,7 +115,7 @@ class TestResize( unittest.TestCase ):
         resizer = imagehelper.resizer.Resizer( resizerConfig=resizerConfig )
 
         # try to register the image
-        resizer.register_image_file( imagefile=get_imagefile() )
+        resizer.register_image_file( imagefile=get_imagefile(), )
     
         try:
             # resize the image
@@ -200,7 +205,7 @@ class TestResizingMethods( unittest.TestCase ):
         expected_resized_wh = ( 90 , 120 )
 
         r = imagehelper.resizer.Resizer()
-        results = r.resize( imagefile=get_imagefile() , resizesSchema=schema , selected_resizes=('test',) )
+        results = r.resize( imagefile=get_imagefile(), resizesSchema=schema, selected_resizes=('test',), optimize_original=False, optimize_resized=True, )
         
         ## what do we have ?
         actual_original_wh = ( results.original.width , results.original.height )
@@ -232,7 +237,7 @@ class TestResizingMethods( unittest.TestCase ):
         expected_resized_wh = ( 120 , 120 )
 
         r = imagehelper.resizer.Resizer()
-        results = r.resize( imagefile=get_imagefile() , resizesSchema=schema , selected_resizes=('test',) )
+        results = r.resize( imagefile=get_imagefile() , resizesSchema=schema , selected_resizes=('test',), optimize_original=False, optimize_resized=True )
         
         ## what do we have ?
         actual_original_wh = ( results.original.width , results.original.height )
@@ -264,7 +269,7 @@ class TestResizingMethods( unittest.TestCase ):
         expected_resized_wh = ( 120 , 160 )
 
         r = imagehelper.resizer.Resizer()
-        results = r.resize( imagefile=get_imagefile() , resizesSchema=schema , selected_resizes=('test',) )
+        results = r.resize( imagefile=get_imagefile() , resizesSchema=schema , selected_resizes=('test',), optimize_original=False, optimize_resized=True )
         
         ## what do we have ?
         actual_original_wh = ( results.original.width , results.original.height )
@@ -296,7 +301,7 @@ class TestResizingMethods( unittest.TestCase ):
         expected_resized_wh = ( 90 , 120 )
 
         r = imagehelper.resizer.Resizer()
-        results = r.resize( imagefile=get_imagefile() , resizesSchema=schema , selected_resizes=('test',) )
+        results = r.resize( imagefile=get_imagefile() , resizesSchema=schema , selected_resizes=('test',), optimize_original=False, optimize_resized=True )
         
         ## what do we have ?
         actual_original_wh = ( results.original.width , results.original.height )
@@ -328,7 +333,7 @@ class TestResizingMethods( unittest.TestCase ):
         expected_resized_wh = ( 120 , 160 )
 
         r = imagehelper.resizer.Resizer()
-        results = r.resize( imagefile=get_imagefile() , resizesSchema=schema , selected_resizes=('test',) )
+        results = r.resize( imagefile=get_imagefile() , resizesSchema=schema , selected_resizes=('test',), optimize_original=False, optimize_resized=True )
         
         ## what do we have ?
         actual_original_wh = ( results.original.width , results.original.height )
@@ -360,7 +365,7 @@ class TestResizingMethods( unittest.TestCase ):
         expected_resized_wh = ( 1200 , 1600 )
 
         r = imagehelper.resizer.Resizer()
-        results = r.resize( imagefile=get_imagefile() , resizesSchema=schema , selected_resizes=('test',) )
+        results = r.resize( imagefile=get_imagefile() , resizesSchema=schema , selected_resizes=('test',), optimize_original=False, optimize_resized=True )
 
         ## what do we have ?
         actual_original_wh = ( results.original.width , results.original.height )
@@ -392,7 +397,7 @@ class TestResizingMethods( unittest.TestCase ):
         expected_resized_wh = ( 240 , 320 )
 
         r = imagehelper.resizer.Resizer()
-        results = r.resize( imagefile=get_imagefile() , resizesSchema=schema , selected_resizes=('test',) )
+        results = r.resize( imagefile=get_imagefile() , resizesSchema=schema , selected_resizes=('test',), optimize_original=False, optimize_resized=True )
 
         ## what do we have ?
         actual_original_wh = ( results.original.width , results.original.height )

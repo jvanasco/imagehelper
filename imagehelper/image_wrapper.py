@@ -12,9 +12,16 @@ except ImportError:
 
 
 import cgi
-import cStringIO
+try:
+    import cStringIO
+except:
+    cStringIO = None
 import StringIO
+import tempfile
 import types
+
+import envoy
+##from subprocess import call
 
 
 from . import errors
@@ -23,14 +30,27 @@ from . import utils
 
 USE_THUMBNAIL = False
 
-class ResizedImage(object):
-    """A class for a ResizedImage Result.
+_valid_types = [ cgi.FieldStorage, types.FileType, StringIO.StringIO, tempfile.SpooledTemporaryFile ]
+_valid_types_nameless = [ StringIO.StringIO, tempfile.SpooledTemporaryFile  ]
+if cStringIO is not None :
+    _valid_types.extend( (cStringIO.InputType, cStringIO.OutputType,) )
+    _valid_types_nameless.extend( (cStringIO.InputType, cStringIO.OutputType,) )
+    
+_valid_types = tuple( _valid_types )
+_valid_types_nameless = tuple( _valid_types_nameless )
+
+
+
+class BasicImage(object):
+    """A generic wrapper for Images
     
         `file` 
-            a cStringIO file representation
+            a filelike object 
+                ie, cStringIO 
         
         `format`
         `name`
+
         `mode`
         `width`
         `height`
@@ -41,10 +61,15 @@ class ResizedImage(object):
 
         `file_md5`
             property to calculate the file's md5
-        
+    
     """
-    def __init__( self , resizedFile , format=None , name=None , mode=None , 
-            width=None, height=None ,
+    def __init__( self , 
+            fileObject , 
+            name=None , 
+            format=None , 
+            mode=None , 
+            width=None, 
+            height=None ,
         ):
         """args
             `resized_file` 
@@ -57,16 +82,14 @@ class ResizedImage(object):
                 default = None
             
         """
-        self.file = resizedFile
+        self.file = fileObject
         self.file.seek(0) # be kind, rewind
         self.name = name
         self.format = format
         self.mode = mode
         self.width = width
         self.height = height
-    
-    def __repr__(self):
-        return "<ReizedImage at %s - %s >" % ( id(self) , self.__dict__ )
+        self.is_optimized = False
 
     @property
     def file_size(self):
@@ -94,7 +117,59 @@ class ResizedImage(object):
         return utils.PIL_type_to_extension( self.format ) 
 
 
-class FakedOriginal(object):
+    def optimize( self, ):
+        """this does some heavy lifting
+        
+            unix/mac only feature; sorry.
+        
+            this function creates an infile and outfile via NamedTemporaryFile
+            it then pipes the file through lossless compression options
+            
+            this will replace the self.file object
+        """
+        if self.format_standardized not in ( 'jpg', 'png', 'gif' ):
+            return
+            
+        FilelikePreference = None
+        if isinstance( self.file, cStringIO.OutputType ):
+            FilelikePreference = cStringIO.StringIO
+        else:
+            FilelikePreference = tempfile.SpooledTemporaryFile
+            
+        ## we need to write the image onto the disk with an infile and outfile
+        ## this does suck.
+        self.file.seek(0)
+        fileInput = tempfile.NamedTemporaryFile()
+        fileInput.write( self.file.getvalue() )
+        fileInput.seek(0)
+        fileOutput = tempfile.NamedTemporaryFile()
+
+        if self.format_standardized == 'jpg' :
+            envoy.run("""jpegtran -copy none -optimize -perfect -outfile %s %s""" % ( fileOutput.name, fileInput.name ) )
+        elif self.format_standardized == 'gif' :
+            envoy.run("""gifsicle -O2 %s --output %s""" % ( fileInput.name, fileOutput.name ) )
+        elif self.format_standardized == 'png' :
+            envoy.run("""pngcrush -rem alla -reduce -brute -q %s %s""" % ( fileInput.name, fileOutput.name ) )
+
+        fileOutput.seek(0)
+        newFile = FilelikePreference()
+        newFile.write(fileOutput.read())    
+        newFile.seek(0)
+        self.file = newFile
+        self.is_optimized = True
+
+
+class ResizedImage(BasicImage):
+    """A class for a ResizedImage Result.
+    """
+    
+    def __repr__(self):
+        return "<ReizedImage at %s - %s >" % ( id(self) , self.__dict__ )
+
+
+
+class FakedOriginal(BasicImage):
+    """sometimes we need to fake an original file"""
     format = None 
     mode = None 
     width = None 
@@ -102,7 +177,7 @@ class FakedOriginal(object):
     file_size = None 
     file_md5 = None 
 
-    def __init__( self , original_filename ):
+    def __init__( self, original_filename ):
         file_ext = original_filename.split('.')[-1].lower()
         self.format = utils.standardized_to_PIL_type( file_ext )
 
@@ -111,26 +186,15 @@ class FakedOriginal(object):
 class ImageWrapper(object):
     """Our base class for image operations"""
 
-    imageFileObject = None
-    imageObject = None
-    imageObject_name = None
-
-    @property
-    def file_size(self):
-        """property; calculate the file's size in bytes"""
-        return utils.file_size( self.imageFileObject )    
-
-    @property
-    def file_md5(self):
-        """property; calculate the file's md5"""
-        return utils.file_md5( self.imageFileObject )    
+    basicImage = None
+    pilObject = None
     
-    @property
-    def file_b64(self):
-        """property; base64 encode the file"""
-        return utils.file_b64( self.imageFileObject )
-    
-    def __init__(self , imagefile=None , imagefile_name=None ):
+
+    def get_original( self ):
+        return self.basicImage
+
+
+    def __init__(self , imagefile=None , imagefile_name=None, FilelikePreference=None, ):
         """registers and validates the image file
             note that we do copy the image file
             
@@ -140,72 +204,100 @@ class ImageWrapper(object):
                     cgi.FieldStorage
                     types.FileType
                     StringIO.StringIO , cStringIO.InputType, cStringIO.OutputType
+                    tempfile.TemporaryFile , tempfile.SpooledTemporaryFile
 
             `imagefile_name`
                 only used for informational purposes
+            
+            `FilelikePreference`
+                preference class for filelike objects
+                    cStringIo
+                    StringIO
+                    tempfile.SpooledTemporaryFile
+                
         """
         if imagefile is None:
             raise errors.ImageError_MissingFile( utils.ImageErrorCodes.MISSING_FILE )
-
-        if not isinstance( imagefile , ( cgi.FieldStorage , types.FileType , StringIO.StringIO , cStringIO.InputType, cStringIO.OutputType ) ):
+            
+        if not isinstance( imagefile, _valid_types ):
             raise errors.ImageError_Parsing( utils.ImageErrorCodes.UNSUPPORTED_IMAGE_CLASS )
 
         try:
             # try to cache this all
-            data = None
-            if isinstance( imagefile , cgi.FieldStorage ):
-                if not hasattr( imagefile , 'filename' ):
+            file_data = None
+            file_name = None
+            if isinstance( imagefile, cgi.FieldStorage ):
+                if not hasattr( imagefile, 'filename' ):
                     raise errors.ImageError_Parsing( utils.ImageErrorCodes.MISSING_FILENAME_METHOD )
                 imagefile.file.seek(0)
-                data = imagefile.file.read()
-                imageObject_name = imagefile.file.name
+                file_data = imagefile.file.read()
+                file_name = imagefile.file.name
 
                 # be kind, rewind; the input obj we no longer care about
                 # but someone else might care
                 imagefile.file.seek(0)
 
-            elif isinstance( imagefile , types.FileType ):
+            elif isinstance( imagefile, _valid_types_nameless ):
                 imagefile.seek(0)
-                data = imagefile.read()
-                imageObject_name = imagefile.name
-
-                # be kind, rewind; the input obj we no longer care about
-                # but someone else might care
-                imagefile.seek(0)
-
-            elif isinstance( imagefile , (StringIO.StringIO , cStringIO.InputType, cStringIO.OutputType) ):
-                imagefile.seek(0)
-                data = imagefile.read()
-                imageObject_name = imagefile_name or ""
+                file_data = imagefile.read()
+                file_name = imagefile_name or ''
 
                 # be kind, rewind; the input obj we no longer care about
                 # but someone else might care
                 imagefile.seek(0)
                 
+            elif isinstance( imagefile, types.FileType ):
+                ## catch this last
+                imagefile.seek(0)
+                file_data = imagefile.read()
+                file_name = imagefile.name
+                if file_name == '<fdopen>':
+                    file_name = imagefile_name or ''
+
+                # be kind, rewind; the input obj we no longer care about
+                # but someone else might care
+                imagefile.seek(0)
+
             else:
                 # just be safe with an extra else
+                raise ValueError( "where do i go? " )
                 raise errors.ImageError_Parsing( utils.ImageErrorCodes.UNSUPPORTED_IMAGE_CLASS )
+                
+                
+            if FilelikePreference is None:
+                if cStringIO is not None:
+                    FilelikePreference = cStringIO.StringIO
+                else:
+                    FilelikePreference = tempfile.SpooledTemporaryFile
 
             # create a new image
-            imageFileObject = cStringIO.StringIO()
-            imageFileObject.write(data)
-            imageFileObject.seek(0)
+            # and stash our data!
+            fh_imageData = FilelikePreference()
+            fh_imageData.write(file_data)
+            fh_imageData.seek(0)
+            fh_name = imagefile_name or file_name 
 
             # make the new wrapped obj and then...
             # safety first! just ensure this loads.
-            imageObject = Image.open(imageFileObject)
-            imageObject.load()
-
-            if not imageObject:
+            pilObject = Image.open(fh_imageData)
+            pilObject.load()
+            if not pilObject:
                 raise errors.ImageError_Parsing( utils.ImageErrorCodes.INVALID_REBUILD )
+            self.pilObject = pilObject
 
-            # great, stash our data!
-            imageFileObject.seek(0)
-            self.imageFileObject = imageFileObject
-            self.imageObject = imageObject
-            self.imageObject_name = imageObject_name
+            ## finally, stash our data
+            wrappedImage = BasicImage( fh_imageData , 
+                name = fh_name ,
+                format = self.pilObject.format ,
+                mode = self.pilObject.mode ,
+                width = self.pilObject.size[0] ,
+                height = self.pilObject.size[1] ,
+            )
+            self.basicImage = wrappedImage
+
 
         except IOError:
+            raise
             raise errors.ImageError_Parsing( utils.ImageErrorCodes.INVALID_FILETYPE )
         
         except errors.ImageError , e:
@@ -215,12 +307,12 @@ class ImageWrapper(object):
             raise
 
 
-    def resize( self , instructions_dict ):
+    def resize( self, instructions_dict, FilelikePreference=None, ):
         """this does the heavy lifting
         
         be warned - this uses a bit of memory!
             
-        1. we operate on a copy of the imageObject via cStringIo
+        1. we operate on a copy of the pilObject via cStringIo
             ( which is already a copy of the original )
         2. we save to another new cStringIO 'file'
 
@@ -260,11 +352,19 @@ class ImageWrapper(object):
                 it can't.  Usually this is used to resample a 1:1 image, however
                 this might be used to drop an image to a specific proportion.
                 i.e. 300x400 can scale to 30x40, 300x400 but not 30x50 
+                
+            `FilelikePreference` - default preference for file-like objects
         
         
         """
 
-        resized_image = self.imageObject.copy()
+        if FilelikePreference is None:
+            if cStringIO is not None:
+                FilelikePreference = cStringIO.StringIO
+            else:
+                FilelikePreference = tempfile.SpooledTemporaryFile
+
+        resized_image = self.pilObject.copy()
         if resized_image.palette:
             resized_image = resized_image.convert()
             
@@ -275,7 +375,7 @@ class ImageWrapper(object):
         # t_ = target
         # i_ = image / real
 
-        ( i_w , i_h ) = self.imageObject.size
+        ( i_w , i_h ) = self.pilObject.size
 
         t_w = instructions_dict['width']
         t_h = instructions_dict['height']
@@ -423,44 +523,9 @@ class ImageWrapper(object):
                     pil_options[i] = instructions_dict[k]
 
         ## save the image !
-        resized_image_file = cStringIO.StringIO()
+        resized_image_file = FilelikePreference()
         resized_image.save( resized_image_file , format , **pil_options )
 
         return ResizedImage( resized_image_file , format=format , 
             width=resized_image.size[0] , height=resized_image.size[1] )
-
-    def get_original( self ):
-        return ResizedImage( self.imageFileObject , name=self.imageObject_name , 
-            format=self.imageObject.format , mode=self.imageObject.mode , 
-            width=self.imageObject.size[0] , height=self.imageObject.size[1] )
-
-    @property
-    def name(self):
-        """stashed name"""
-        return self.imageObject_name
-
-    @property
-    def format(self):
-        """proxied format; PIL version"""
-        return self.imageObject.format
-
-    @property
-    def file_extension(self):
-        """proxied format; PIL version"""
-        return utils.PIL_type_to_extension( self.imageObject.format ) 
-
-    @property
-    def format_standardized(self):
-        """proxied format; standardized version"""
-        return utils.PIL_type_to_standardized( self.imageObject.format ) 
-
-    @property
-    def mode(self):
-        """proxied mode"""
-        return self.imageObject.mode
-
-    @property
-    def size(self):
-        """proxied size"""
-        return self.imageObject.size
 

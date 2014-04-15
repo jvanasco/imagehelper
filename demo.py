@@ -1,6 +1,7 @@
 import imagehelper
 import cStringIO
 import uuid
+import os
 
 import ConfigParser
 Config = ConfigParser.ConfigParser()
@@ -101,7 +102,7 @@ class CustomS3Logger( imagehelper.s3.S3Logger ):
 
 
 s3Logger = CustomS3Logger()
-resizerConfig = imagehelper.resizer.ResizerConfig( resizesSchema=resizesSchema , selected_resizes=selected_resizes )
+resizerConfig = imagehelper.resizer.ResizerConfig( resizesSchema=resizesSchema, selected_resizes=selected_resizes, optimize=True )
 
 # create a factory
 resizerFactory = imagehelper.resizer.ResizerFactory( resizerConfig=resizerConfig )
@@ -155,7 +156,16 @@ def demo_factory():
     # resize !
     resizer = resizerFactory.resizer( imagefile=get_imagefile() )
     resizedImages = resizer.resize()
+    
+    if not os.path.exists('tests/output'):
+        os.makedirs('tests/output')
+    for k in resizedImages.resized.keys():
+        open( 'tests/output/%s.%s' %  (k,resizesSchema[k]['format']) , "w").write( resizedImages.resized[k].file.getvalue() )
+        
+    resizedImages.original.optimize()
+    open( 'tests/output/original.png', "w").write( resizedImages.original.file.getvalue() )
 
+    
 
 def demo_s3():
     "demo s3 uploading"
@@ -194,14 +204,14 @@ def demo_s3_alt():
     
 def demo_alt_resizing():
 
-    resizerConfig = imagehelper.resizer.ResizerConfig( resizesSchema=resizesSchema_alt )
+    resizerConfig = imagehelper.resizer.ResizerConfig( resizesSchema=resizesSchema_alt, optimize=True )
 
     # build a factory & resize
     resizerFactory= imagehelper.resizer.ResizerFactory( resizerConfig=resizerConfig )
     resizedImages = resizerFactory.resize( imagefile=get_imagefile() )
     
-    print resizedImages
     
+        
 
 def demo_md5():
     "demo file md5"
@@ -234,13 +244,13 @@ def demo_serialze():
 
 if True:
     pass
-    demo_direct()
     demo_factory()
+
+if False:
+    pass
+    demo_direct()
     demo_s3()
     demo_s3_alt()
     demo_md5()
     demo_serialze()
-
-if False:
-    pass
 
