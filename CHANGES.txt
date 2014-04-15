@@ -1,3 +1,8 @@
+0.2.0 rc 2
+------------------
+* fixed demo.py to pass in the right optimize params.  it was not inline with the test
+
+
 0.2.0 rc 1
 ------------------
 * backwards incompatible changes

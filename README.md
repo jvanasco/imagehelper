@@ -56,7 +56,11 @@ And easily upload them :
 	# create some configs in your app
 
 	# config object for IMAGE_SIZES
-	resizerConfig = imagehelper.resizer.ResizerConfig( resizesSchema=IMAGE_SIZES , optimize=True )
+	resizerConfig = imagehelper.resizer.ResizerConfig(\
+		resizesSchema=IMAGE_SIZES ,
+		optimize_original=True,
+    	optimize_resized=True,
+    )
 
 	# config object for S3
 	s3Config= imagehelper.s3.S3Config(
@@ -235,7 +239,11 @@ This was designed for a variety of use cases:
 if you don't have a current mapping of the files to delete in s3 but you do have the archive filename and a guid , you can easily generate what they would be based off a resizerConfig/schema and the archived filename.
 
     ## fake the sizes that would be generated off a resize
-    resizer = imagehelper.resizer.Resizer( resizerConfig=resizerConfig, optimize=True )
+    resizer = imagehelper.resizer.Resizer(\
+    	resizerConfig=resizerConfig,
+		optimize_original=True,
+		optimize_resized=True,
+	)
     fakedResizedImages = resizer.fake_resultset( original_filename = archive_filename )
 
     ## generate the filenames

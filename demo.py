@@ -102,7 +102,12 @@ class CustomS3Logger( imagehelper.s3.S3Logger ):
 
 
 s3Logger = CustomS3Logger()
-resizerConfig = imagehelper.resizer.ResizerConfig( resizesSchema=resizesSchema, selected_resizes=selected_resizes, optimize=True )
+resizerConfig = imagehelper.resizer.ResizerConfig(\
+    resizesSchema=resizesSchema, 
+    selected_resizes=selected_resizes, 
+    optimize_original=True,
+    optimize_resized=True,
+)
 
 # create a factory
 resizerFactory = imagehelper.resizer.ResizerFactory( resizerConfig=resizerConfig )
@@ -204,7 +209,11 @@ def demo_s3_alt():
     
 def demo_alt_resizing():
 
-    resizerConfig = imagehelper.resizer.ResizerConfig( resizesSchema=resizesSchema_alt, optimize=True )
+    resizerConfig = imagehelper.resizer.ResizerConfig(\
+        resizesSchema=resizesSchema_alt,
+        optimize_original=True,
+        optimize_resized=True,
+     )
 
     # build a factory & resize
     resizerFactory= imagehelper.resizer.ResizerFactory( resizerConfig=resizerConfig )
