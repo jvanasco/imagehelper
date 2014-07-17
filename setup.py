@@ -1,6 +1,7 @@
 import os
 from setuptools import setup
 
+
 def get_docs():
     result = []
     in_docs = False
@@ -17,9 +18,11 @@ def get_docs():
         f.close()
     return '\n'.join(result)
 
+
 requires = [
     "envoy",
-    ]
+]
+
 
 setup(
     name='imagehelper',
@@ -40,6 +43,6 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Development Status :: 4 - Beta",
     ],
-  tests_require = requires,
-  install_requires = requires,
+    tests_require = requires,
+    install_requires = requires,
 )

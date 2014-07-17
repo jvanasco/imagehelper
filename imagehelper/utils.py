@@ -17,21 +17,20 @@ class ImageErrorCodes(object):
     INVALID_OTHER = 2
     NO_IMAGE = 3
     MISSING_FILE = 4
-    UNSUPPORTED_IMAGE_CLASS = 5     ## Must be cgi.FieldStorage or file
+    UNSUPPORTED_IMAGE_CLASS = 5   # Must be cgi.FieldStorage or file
     INVALID_REBUILD = 6
     MISSING_FILENAME_METHOD = 7
 
 
-
-_PIL_type_to_content_type= {
+_PIL_type_to_content_type = {
     'gif': 'image/gif',
     'jpg': 'image/jpeg',
     'jpeg': 'image/jpeg',
-    'pdf':'application/pdf',
+    'pdf': 'application/pdf',
     'png': 'image/png',
 }
 
-_PIL_type_to_standardized= {
+_PIL_type_to_standardized = {
     'gif': 'gif',
     'jpg': 'jpg',
     'jpeg': 'jpg',
@@ -39,7 +38,7 @@ _PIL_type_to_standardized= {
     'png': 'png',
 }
 
-_standardized_to_PIL_type= {
+_standardized_to_PIL_type = {
     'gif': 'GIF',
     'jpg': 'JPEG',
     'jpeg': 'JPEG',
@@ -48,35 +47,37 @@ _standardized_to_PIL_type= {
 }
 
 
-def PIL_type_to_content_type( ctype ):
+def PIL_type_to_content_type(ctype):
     ctype = ctype.lower()
     if ctype in _PIL_type_to_content_type:
-        return _PIL_type_to_content_type[ ctype ]
+        return _PIL_type_to_content_type[ctype]
     raise ValueError('invalid ctype')
 
-def PIL_type_to_standardized( ctype ):
+
+def PIL_type_to_standardized(ctype):
     ctype = ctype.lower()
     if ctype in _PIL_type_to_standardized:
-        return _PIL_type_to_standardized[ ctype ]
+        return _PIL_type_to_standardized[ctype]
     raise ValueError('invalid ctype')
 
-def PIL_type_to_extension( ctype ):
+
+def PIL_type_to_extension(ctype):
     ctype = ctype.lower()
     if ctype in _PIL_type_to_standardized:
-        return _PIL_type_to_standardized[ ctype ]
+        return _PIL_type_to_standardized[ctype]
     raise ValueError('invalid ctype')
 
-def standardized_to_PIL_type( ctype ):
+
+def standardized_to_PIL_type(ctype):
     ctype = ctype.lower()
     if ctype in _standardized_to_PIL_type:
-        return _standardized_to_PIL_type[ ctype ]
+        return _standardized_to_PIL_type[ctype]
     raise ValueError('invalid ctype')
 
 
-
-def file_size( fileobj ):
+def file_size(fileobj):
     """what's the size of the object?"""
-    fileobj.seek(0,os.SEEK_END)
+    fileobj.seek(0, os.SEEK_END)
     sized = fileobj.tell()
     fileobj.seek(0)
     return sized
@@ -86,8 +87,8 @@ def file_md5(fileobj):
     fileobj.seek(0)
     md5 = hashlib.md5()
     block_size = md5.block_size * 128
-    for chunk in iter( lambda: fileobj.read(block_size),b''):
-       md5.update(chunk)
+    for chunk in iter(lambda: fileobj.read(block_size), b''):
+        md5.update(chunk)
     fileobj.seek(0)
     return md5.hexdigest()
 
@@ -108,7 +109,3 @@ def b64_decode_to_file(coded_string):
     fileobj.write(decoded_data)
     fileobj.seek(0)
     return fileobj
-    
-
-
-
