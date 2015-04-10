@@ -1,3 +1,10 @@
+0.2.1
+------------------
+* adding in support for pass-through uploads/encoding
+* resizer config "constraint-method='passthrough:no-resize'" will not apply any size transformations
+* resizer config "format='auto'" will encode based on source.  GIF/PNG as PNG; all others as JPEG
+
+
 0.2.0 rc 2
 ------------------
 * fixed demo.py to pass in the right optimize params.  it was not inline with the test

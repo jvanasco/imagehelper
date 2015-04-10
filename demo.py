@@ -1,9 +1,11 @@
-import imagehelper
-import cStringIO
-import uuid
-import os
-
 import ConfigParser
+import cStringIO
+import imagehelper
+import os
+import uuid
+
+# ------------------------------------------------------------------------------
+
 Config = ConfigParser.ConfigParser()
 Config.read('aws.cfg')
 AWS_KEY_PUBLIC = Config.get('aws', 'AWS_KEY_PUBLIC')
@@ -22,6 +24,7 @@ s3Config = imagehelper.s3.S3Config(
     archive_original = True
 )
 
+# ------------------------------------------------------------------------------
 
 resizesSchema = {
     'thumb1': {

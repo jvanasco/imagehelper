@@ -332,12 +332,16 @@ class S3Manager(_S3CoreManager):
                 filename_template = instructions['filename_template']
             if 'suffix' in instructions:
                 suffix = instructions['suffix']
+                
+            _format = instructions['format']
+            if _format.lower() == 'auto':
+                _format = resizerResultset.resized[size].format
 
             # generate the filename
             target_filename = filename_template % {
                 'guid': guid,
                 'suffix': suffix,
-                'format': utils.PIL_type_to_standardized(instructions['format'])
+                'format': utils.PIL_type_to_standardized(_format)
             }
 
             # figure out the bucketname
