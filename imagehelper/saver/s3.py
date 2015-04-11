@@ -159,7 +159,6 @@ class _SaverCoreManager(object):
                 `dict`
                 format =
                     files_saved[size] = (target_filename, bucket_name)
-
         """
 
         # setup the s3 connection
