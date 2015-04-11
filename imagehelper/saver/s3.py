@@ -1,8 +1,10 @@
 import logging
 log = logging.getLogger(__name__)
 
-from . import errors
-from . import utils
+from imagehelper import errors
+from imagehelper import utils
+from .utils import *
+from . import _core
 
 try:
     import boto
@@ -12,42 +14,10 @@ except:
     boto = None
 
 
-def check_archive_original(resizerResultset, archive_original=None):
-    """do we want to archive the original?
-
-    `resizerResultset`
-        object of `resizer.Resultset`
-
-    `archive_original`
-        should we archive original?
-        `None` (default)
-            implicit
-            archive if resizerResultset.original
-        `True`
-            explict.
-            archive resizerResultset.original;
-            raise error if missing
-        `False`
-            explicit.
-            do not archive.
-    """
-
-    if archive_original is False:
-        return False
-
-    elif archive_original is None:
-        if resizerResultset.original:
-            return True
-        return False
-
-    elif archive_original is True:
-        if not resizerResultset.original:
-            raise ValueError("""Missing resizerResultset.original for
-                explicit archiving""")
-        return True
+# ==============================================================================
 
 
-class S3Config(object):
+class SaverConfig(object):
     """Configuration info for amazon s3 services"""
     key_public = None
     key_private = None
@@ -76,12 +46,12 @@ class S3Config(object):
         self.archive_original = archive_original
 
 
-class S3Logger(object):
+class SaverLogger(_core.SaverLogger):
     """The s3 save method will log to this logger on uploads and deletes.
     Any object offering these methods can be replaced;
     This is only illustrative."""
 
-    def log_upload(self, bucket_name=None, key=None, file_size=None, file_md5=None, ):
+    def log_save(self, bucket_name=None, key=None, file_size=None, file_md5=None, ):
         """args:
         `self`
         `bucket_name`
@@ -106,32 +76,32 @@ class S3Logger(object):
         pass
 
 
-class S3ManagerFactory(object):
-    """Factory for generating S3Manager instances"""
+class SaverManagerFactory(object):
+    """Factory for generating SaverManager instances"""
     _resizerConfig = None
-    _s3Config = None
-    _s3Logger = None
+    _saverConfig = None
+    _saverLogger = None
 
-    def __init__(self, s3Config=None, s3Logger=None, resizerConfig=None):
-        self._s3Config = s3Config
-        self._s3Logger = s3Logger
+    def __init__(self, saverConfig=None, saverLogger=None, resizerConfig=None):
+        self._saverConfig = saverConfig
+        self._saverLogger = saverLogger
         self._resizerConfig = resizerConfig
 
-    def s3_manager(self):
-        """generate and return a new S3Manager instance"""
-        return S3Manager(s3Config=self._s3Config, s3Logger=self._s3Logger, resizerConfig=self._resizerConfig)
+    def saver_manager(self):
+        """generate and return a new SaverManager instance"""
+        return SaverManager(saverConfig=self._saverConfig, saverLogger=self._saverLogger, resizerConfig=self._resizerConfig)
 
-    def s3_simple_access(self):
-        """generate and return a new S3SimpleAccess instance"""
-        return S3SimpleAccess(s3Config=self._s3Config, s3Logger=self._s3Logger, resizerConfig=self._resizerConfig)
+    def saver_simple_access(self):
+        """generate and return a new SaverSimpleAccess instance"""
+        return SaverSimpleAccess(saverConfig=self._saverConfig, saverLogger=self._saverLogger, resizerConfig=self._resizerConfig)
 
 
-class _S3CoreManager(object):
+class _SaverCoreManager(object):
 
     _resizerConfig = None
-    _s3Config = None
+    _saverConfig = None
+    _saverLogger = None
     _s3Connection = None
-    _s3Logger = None
     _s3_buckets = None
 
     s3headers_public_default = None
@@ -144,7 +114,7 @@ class _S3CoreManager(object):
     def s3_connection(self):
         """property that memoizes the connection"""
         if self._s3Connection is None:
-            self._s3Connection = boto.connect_s3(self._s3Config.key_public, self._s3Config.key_private)
+            self._s3Connection = boto.connect_s3(self._saverConfig.key_public, self._saverConfig.key_private)
         return self._s3Connection
 
     @property
@@ -157,12 +127,12 @@ class _S3CoreManager(object):
             s3_buckets = {}
 
             # @public and @archive are special
-            bucket_public = boto.s3.bucket.Bucket(connection=self.s3_connection, name=self._s3Config.bucket_public_name)
-            s3_buckets[self._s3Config.bucket_public_name] = bucket_public
+            bucket_public = boto.s3.bucket.Bucket(connection=self.s3_connection, name=self._saverConfig.bucket_public_name)
+            s3_buckets[self._saverConfig.bucket_public_name] = bucket_public
             s3_buckets['@public'] = bucket_public
-            if self._s3Config.bucket_archive_name:
-                bucket_archive = boto.s3.bucket.Bucket(connection=self.s3_connection, name=self._s3Config.bucket_archive_name)
-                s3_buckets[self._s3Config.bucket_archive_name] = bucket_archive
+            if self._saverConfig.bucket_archive_name:
+                bucket_archive = boto.s3.bucket.Bucket(connection=self.s3_connection, name=self._saverConfig.bucket_archive_name)
+                s3_buckets[self._saverConfig.bucket_archive_name] = bucket_archive
                 s3_buckets['@archive'] = bucket_archive
 
             # look through our selected sizes
@@ -182,23 +152,23 @@ class _S3CoreManager(object):
         # return the memoized buckets
         return self._s3_buckets
 
-    def s3_delete(self, s3_uploads):
+    def files_delete(self, files_saved):
         """workhorse for deletion
 
-            `s3_uploads`
+            `files_saved`
                 `dict`
                 format =
-                    s3_uploads[size] = (target_filename, bucket_name)
+                    files_saved[size] = (target_filename, bucket_name)
 
         """
 
         # setup the s3 connection
         s3_buckets = self.s3_buckets
 
-        for size in s3_uploads.keys():
+        for size in files_saved.keys():
 
             # grab the stash
-            (target_filename, bucket_name) = s3_uploads[size]
+            (target_filename, bucket_name) = files_saved[size]
 
             # active bucket
             bucket = s3_buckets[bucket_name]
@@ -210,25 +180,25 @@ class _S3CoreManager(object):
             bucket.delete_key(target_filename)
 
             # external logging
-            if self._s3Logger:
-                self._s3Logger.log_delete(
+            if self._saverLogger:
+                self._saverLogger.log_delete(
                     bucket_name=bucket_name,
                     key=target_filename,
                 )
             # internal cleanup
-            del s3_uploads[size]
+            del files_saved[size]
 
-        return s3_uploads
+        return files_saved
 
 
-class S3Manager(_S3CoreManager):
-    """`S3Manager` handles all the actual uploading and deleting"""
+class SaverManager(_SaverCoreManager):
+    """`SaverManager` handles all the actual uploading and deleting"""
 
-    def __init__(self, s3Config=None, s3Logger=None, resizerConfig=None):
+    def __init__(self, saverConfig=None, saverLogger=None, resizerConfig=None):
         if not resizerConfig:
-            raise ValueError("""`S3Manager` requires a `resizerConfig` which contains the resize recipes. these are needed for generating filenames.""")
-        self._s3Config = s3Config
-        self._s3Logger = s3Logger
+            raise ValueError("""`SaverManager` requires a `resizerConfig` which contains the resize recipes. these are needed for generating filenames.""")
+        self._saverConfig = saverConfig
+        self._saverLogger = saverLogger
         self._resizerConfig = resizerConfig
 
         # ##
@@ -236,13 +206,13 @@ class S3Manager(_S3CoreManager):
         # ##
         # public and archive get different acls / content-types
         self.s3headers_public_default = {'x-amz-acl': 'public-read'}
-        if self._s3Config.bucket_public_headers:
-            for k in self._s3Config.bucket_public_headers:
-                self.s3headers_public_default[k] = self._s3Config.bucket_public_headers[k]
+        if self._saverConfig.bucket_public_headers:
+            for k in self._saverConfig.bucket_public_headers:
+                self.s3headers_public_default[k] = self._saverConfig.bucket_public_headers[k]
         self.s3headers_archive_default = {}
-        if self._s3Config.bucket_archive_headers:
-            for k in self._s3Config.bucket_archive_headers:
-                self.s3headers_archive_default[k] = self._s3Config.bucket_archive_headers[k]
+        if self._saverConfig.bucket_archive_headers:
+            for k in self._saverConfig.bucket_archive_headers:
+                self.s3headers_archive_default[k] = self._saverConfig.bucket_archive_headers[k]
 
     def _validate__selected_resizes(self, resizerResultset, selected_resizes):
         """shared validation
@@ -332,7 +302,7 @@ class S3Manager(_S3CoreManager):
                 filename_template = instructions['filename_template']
             if 'suffix' in instructions:
                 suffix = instructions['suffix']
-                
+
             _format = instructions['format']
             if _format.lower() == 'auto':
                 _format = resizerResultset.resized[size].format
@@ -345,7 +315,7 @@ class S3Manager(_S3CoreManager):
             }
 
             # figure out the bucketname
-            bucket_name = self._s3Config.bucket_public_name
+            bucket_name = self._saverConfig.bucket_public_name
             if 's3_bucket_public' in instructions:
                 bucket_name = instructions['s3_bucket_public']
 
@@ -357,13 +327,13 @@ class S3Manager(_S3CoreManager):
                 'guid': guid,
                 'format': utils.PIL_type_to_standardized(resizerResultset.original.format)
             }
-            bucket_name = self._s3Config.bucket_archive_name
+            bucket_name = self._saverConfig.bucket_archive_name
             filename_mapping["@archive"] = (target_filename, bucket_name)
 
         # return the filemapping
         return filename_mapping
 
-    def s3_save(self, resizerResultset, guid, selected_resizes=None, archive_original=None):
+    def files_save(self, resizerResultset, guid, selected_resizes=None, archive_original=None):
         """
             Returns a dict of resized images
             calls self.register_image_file() if needed
@@ -414,7 +384,7 @@ class S3Manager(_S3CoreManager):
         )
 
         # log uploads for removal/tracking and return
-        s3_uploads = {}
+        files_saved = {}
         try:
 
             # and then we upload...
@@ -438,11 +408,11 @@ class S3Manager(_S3CoreManager):
                 s3_key.set_contents_from_string(resizerResultset.resized[size].file.getvalue(), headers=_s3_headers)
 
                 # log for removal/tracking & return
-                s3_uploads[size] = (target_filename, bucket_name)
+                files_saved[size] = (target_filename, bucket_name)
 
                 # log to external plugin too
-                if self._s3Logger:
-                    self._s3Logger.log_upload(
+                if self._saverLogger:
+                    self._saverLogger.log_save(
                         bucket_name = bucket_name,
                         key = target_filename,
                         file_size = resizerResultset.resized[size].file_size,
@@ -468,11 +438,11 @@ class S3Manager(_S3CoreManager):
                 s3_key_original.set_contents_from_string(resizerResultset.original.file.getvalue(), headers=_s3_headers)
 
                 # log for removal/tracking & return
-                s3_uploads[size] = (target_filename, bucket_name)
+                files_saved[size] = (target_filename, bucket_name)
 
                 # log to external plugin too
-                if self._s3Logger:
-                    self._s3Logger.log_upload(
+                if self._saverLogger:
+                    self._saverLogger.log_save(
                         bucket_name = bucket_name,
                         key = target_filename,
                         file_size = resizerResultset.original.file_size,
@@ -482,18 +452,18 @@ class S3Manager(_S3CoreManager):
         except Exception as e:
             # if we have ANY issues, we want to delete everything from amazon s3. otherwise this stuff is just hiding up there
             log.debug("Error uploading... rolling back s3 items")
-            s3_uploads = self.s3_delete(s3_uploads)
+            files_saved = self.files_delete(files_saved)
             raise
             raise errors.ImageError_S3Upload('error uploading')
 
-        return s3_uploads
+        return files_saved
 
 
-class S3SimpleAccess(_S3CoreManager):
+class SaverSimpleAccess(_SaverCoreManager):
 
-    def __init__(self, s3Config=None, s3Logger=None, resizerConfig=None):
-        self._s3Config = s3Config
-        self._s3Logger = s3Logger
+    def __init__(self, saverConfig=None, saverLogger=None, resizerConfig=None):
+        self._saverConfig = saverConfig
+        self._saverLogger = saverLogger
         self._resizerConfig = resizerConfig
 
         # ##
@@ -501,20 +471,20 @@ class S3SimpleAccess(_S3CoreManager):
         # ##
         # public and archive get different acls / content-types
         self.s3headers_public_default = {'x-amz-acl': 'public-read'}
-        if self._s3Config.bucket_public_headers:
-            for k in self._s3Config.bucket_public_headers:
-                self.s3headers_public_default[k] = self._s3Config.bucket_public_headers[k]
+        if self._saverConfig.bucket_public_headers:
+            for k in self._saverConfig.bucket_public_headers:
+                self.s3headers_public_default[k] = self._saverConfig.bucket_public_headers[k]
         self.s3headers_archive_default = {}
-        if self._s3Config.bucket_archive_headers:
-            for k in self._s3Config.bucket_archive_headers:
-                self.s3headers_archive_default[k] = self._s3Config.bucket_archive_headers[k]
+        if self._saverConfig.bucket_archive_headers:
+            for k in self._saverConfig.bucket_archive_headers:
+                self.s3headers_archive_default[k] = self._saverConfig.bucket_archive_headers[k]
 
-    def s3_file_upload(self, bucket_name, filename, wrappedFile, upload_type="public"):
+    def file_save(self, bucket_name, filename, wrappedFile, upload_type="public"):
         if upload_type not in ("public", "archive"):
             raise ValueError("upload_type must be `public` or `archive`")
 
         s3_buckets = self.s3_buckets
-        s3_uploads = {}
+        files_saved = {}
         try:
 
             bucket = s3_buckets[bucket_name]
@@ -532,22 +502,22 @@ class S3SimpleAccess(_S3CoreManager):
             s3_key_original.set_contents_from_string(wrappedFile.file.getvalue(), headers=_s3_headers)
 
             # log for removal/tracking & return
-            s3_uploads = self.simple_uploads_mapping(bucket_name, filename)
+            files_saved = self.simple_saves_mapping(bucket_name, filename)
 
             # log to external plugin too
-            if self._s3Logger:
-                self._s3Logger.log_upload(
+            if self._saverLogger:
+                self._saverLogger.log_save(
                     bucket_name = bucket_name,
                     key = filename,
                     file_size = wrappedFile.file_size,
                     file_md5 = wrappedFile.file_md5,
                 )
 
-            return s3_uploads
+            return files_saved
         except:
             raise
 
-    def simple_uploads_mapping(self, bucket_name, filename):
-        s3_uploads = {}
-        s3_uploads["%s||%s" % (bucket_name, filename, )] = (filename, bucket_name)
-        return s3_uploads
+    def simple_saves_mapping(self, bucket_name, filename):
+        files_saved = {}
+        files_saved["%s||%s" % (bucket_name, filename, )] = (filename, bucket_name)
+        return files_saved

@@ -31,5 +31,9 @@ class ImageError_ResizeError(ImageError):
     pass
 
 
-class ImageError_S3Upload(ImageError):
+class ImageError_SaverUpload(ImageError):
+    pass
+
+
+class ImageError_S3Upload(ImageError_SaverUpload):
     pass

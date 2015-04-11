@@ -1,3 +1,29 @@
+0.3 rc 1
+------------------
+This release is not backwards compatible.
+In order to better support alternate save methods (not s3), the S3 classes were nested into a 'saver' namespace
+* adding s3_localfile for testing with local files (instead of uploads)
+* `imagehelper.s3` is now `imagehelper.saver.s3`
+* renamed `imagehelper.saver.s3.S3Logger().log_upload` to `log_save`
+* renamed `imagehelper.saver.s3.S3Logger` to `SaverLoger`
+* renamed `imagehelper.saver.s3.S3Config` to `SaverConfig`
+* renamed `imagehelper.saver.s3.S3ManagerFactory` to `SaverManagerFactory`
+* renamed `imagehelper.saver.s3.S3Manager` to `SaverManager`
+
+* renamed `imagehelper.saver.s3.S3SimpleAccess` to `SaverSimpleAccess`
+* renamed `imagehelper.saver.s3._S3CoreManager` to `SaverCoreManager`
+* added `ImageError_SaverUpload` as parent class of `ImageError_S3Upload`
+* renamed `imagehelper.saver.s3._SaverCoreManager.s3_delete` to `files_delete`
+* renamed `imagehelper.saver.s3.SaverManager.files_save` to `files_save`
+* renamed `imagehelper.saver.s3.SaverSimpleAccess.s3_file_upload` to `file_save`
+* renamed most `._s3Config` to `_saverConfig`
+* renamed most `._s3Logger` to `_saverLogger`
+* renamed most `.s3_manager` to `saver_manager`
+* renamed most `.s3_simple_access` to `saver_simple_access`
+* renamed most `.simple_uploads_mapping` to `simple_saves_mapping`
+
+
+
 0.2.1
 ------------------
 * adding in support for pass-through uploads/encoding
@@ -58,7 +84,7 @@
 ** new base class `_S3CoreManager` for `_S3Manager` and new class `S3SimpleAccess`
 ** base class houses `s3_connection` , `s3_buckets` , `s3_delete`
 * new class `imagehelper.s3.S3SimpleAccess`
-** `imagehelper.s3.S3SimpleAccess().s3_file_upload()` upload a single file/bucket
+** `imagehelper.s3.S3SimpleAccess().file_upload()` upload a single file/bucket
 ** `imagehelper.s3.S3SimpleAccess().simple_uploads_mapping()` generates a `s3_uploads` compatible dict for deletion
 
 0.1.0 rc 5

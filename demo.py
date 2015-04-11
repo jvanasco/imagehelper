@@ -14,7 +14,7 @@ AWS_BUCKET_PUBLIC = Config.get('aws', 'AWS_BUCKET_PUBLIC')
 AWS_BUCKET_SECRET = Config.get('aws', 'AWS_BUCKET_SECRET')
 AWS_BUCKET_ALT = Config.get('aws', 'AWS_BUCKET_ALT')
 
-s3Config = imagehelper.s3.S3Config(
+saverConfig = imagehelper.saver.s3.SaverConfig(
     key_public = AWS_KEY_PUBLIC,
     key_private = AWS_KEY_SECRET,
     bucket_public_name = AWS_BUCKET_PUBLIC,
@@ -95,18 +95,18 @@ resizesSchema_alt = {
 }
 
 
-class CustomS3Logger(imagehelper.s3.S3Logger):
+class CustomSaverLogger(imagehelper.saver.s3.SaverLogger):
 
-    def log_upload(self, bucket_name=None, key=None, file_size=None, file_md5=None):
-        print "CustomS3Logger.log_upload"
+    def log_save(self, bucket_name=None, key=None, file_size=None, file_md5=None):
+        print "CustomSaverLogger.log_save"
         print "\t %s, %s, %s, %s" % (bucket_name, key, file_size, file_md5)
 
     def log_delete(self, bucket_name=None, key=None):
-        print "CustomS3Logger.log_delete"
+        print "CustomSaverLogger.log_delete"
         print "\t %s, %s" % (bucket_name, key)
 
 
-s3Logger = CustomS3Logger()
+saverLogger = CustomSaverLogger()
 resizerConfig = imagehelper.resizer.ResizerConfig(
     resizesSchema=resizesSchema,
     selected_resizes=selected_resizes,
@@ -184,11 +184,11 @@ def demo_s3():
     resizedImages = resizer.resize()
 
     # upload the resized items
-    uploader = imagehelper.s3.S3Manager(s3Config=s3Config, resizerConfig=resizerConfig, s3Logger=s3Logger)
-    uploaded = uploader.s3_save(resizedImages, guid)
+    uploader = imagehelper.saver.s3.SaverManager(saverConfig=saverConfig, resizerConfig=resizerConfig, saverLogger=saverLogger)
+    uploaded = uploader.files_save(resizedImages, guid)
     print "uploaded! %s" % uploaded
 
-    deleted = uploader.s3_delete(uploaded)
+    deleted = uploader.files_delete(uploaded)
     print "deleted! %s" % deleted
 
 
@@ -199,16 +199,16 @@ def demo_s3_alt():
     resizedImages = resizer.resize()
 
     # upload the resized items
-    uploader = imagehelper.s3.S3Manager(s3Config=s3Config, resizerConfig=resizerConfig, s3Logger=s3Logger)
-    uploaded_original = uploader.s3_save(resizedImages, guid, selected_resizes=[], archive_original=True)
+    uploader = imagehelper.saver.s3.SaverManager(saverConfig=saverConfig, resizerConfig=resizerConfig, saverLogger=saverLogger)
+    uploaded_original = uploader.files_save(resizedImages, guid, selected_resizes=[], archive_original=True)
     print "uploaded_original! %s" % uploaded_original
 
-    uploaded_resizes = uploader.s3_save(resizedImages, guid, archive_original=False)
+    uploaded_resizes = uploader.files_save(resizedImages, guid, archive_original=False)
     print "uploaded_resizes! %s" % uploaded_resizes
 
     uploaded_all = dict(uploaded_original.items() + uploaded_resizes.items())
 
-    deleted = uploader.s3_delete(uploaded_all)
+    deleted = uploader.files_delete(uploaded_all)
     print "deleted! %s" % deleted
 
 

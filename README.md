@@ -63,7 +63,7 @@ And easily upload them :
     )
 
 	# config object for S3
-	s3Config= imagehelper.s3.S3Config(
+	saverConfig= imagehelper.saver.s3.SaverConfig(
 		key_public = AWS_KEY_PUBLIC,
 		key_private = AWS_KEY_SECRET,
 		bucket_public_name = AWS_BUCKET_PUBLIC,
@@ -78,23 +78,23 @@ And easily upload them :
 	USE_FACTORY = True
 	if USE_FACTORY :
 		rFactory = imagehelper.resizer.ResizerFactory( resizerConfig=resizerConfig )
-		s3Factory = imagehelper.s3.s3ManagerFactory( s3Config=s3Config , resizerConfig=rConfig , s3Logger=s3Logger )
+		s3Factory = imagehelper.saver.s3.s3ManagerFactory( saverConfig=saverConfig , resizerConfig=rConfig , saverLogger=saverLogger )
 
 		resizer = rFactory.resizer()
-		s3Manager = s3Factory.s3_manager()
+		s3Manager = s3Factory.saver_manager()
 
 	else:
 		resizer = imagehelper.resizer.Resizer( resizerConfig=resizerConfig )
-		s3Manager = imagehelper.s3.s3Manager( s3Config=s3Config , resizerConfig=resizerConfig , s3Logger=s3Logger )
+		s3Manager = imagehelper.saver.s3.s3Manager( saverConfig=saverConfig , resizerConfig=resizerConfig , saverLogger=saverLogger )
 
 	# resize !
 	resizedImages = resizer.resize( imagefile=get_imagefile() )
 
 	# upload the resized items
-	uploaded_files = s3Manager.s3_save( resizedImages , guid="123" )
+	uploaded_files = s3Manager.files_save( resizedImages , guid="123" )
 
 	# want to delete them?
-	deleted = s3Manager.s3_delete( uploaded_files )
+	deleted = s3Manager.files_delete( uploaded_files )
 
 Behind the scenes, imagehelper does all the math and uploading.
 
@@ -158,8 +158,8 @@ Here's a more in depth description
 
 5. You can define your own S3 logger, a class that provides two methods:
 
-    class S3Logger(object):
-		def log_upload( self , bucket_name=None, key=None , file_size=None , file_md5=None ):
+    class SaverLogger(object):
+		def log_save( self , bucket_name=None, key=None , file_size=None , file_md5=None ):
 			pass
 		def log_delete( self , bucket_name=None, key=None ):
 			pass
@@ -206,18 +206,18 @@ string templates may be used to affect how this is saved. read the source for mo
 
 ## Transactional Support
 
-If you upload something via `imagehelper.s3.S3Uploader().s3_upload()` , the task is considered to be "all or nothing".
+If you upload something via `imagehelper.saver.s3.S3Uploader().s3_upload()` , the task is considered to be "all or nothing".
 
 The actual uploading occurs within a try/except block , and a failure will "roll back" and delete everything that has been successfully uploaded.
 
-If you want to integrate with something like the Zope `transaction` package, `imagehelper.s3.S3Uploader().s3_delete()` is a public function that expects as input the output of the `s3_upload` function -- a `dict` of `tuples` where the `keys` are resize names (from the schema) and the `values` are the `( filename, bucket )`.
+If you want to integrate with something like the Zope `transaction` package, `imagehelper.saver.s3.S3Uploader().files_delete()` is a public function that expects as input the output of the `s3_upload` function -- a `dict` of `tuples` where the `keys` are resize names (from the schema) and the `values` are the `( filename, bucket )`.
 
-You can also define a custom subclass of `imagehelper.s3.S3Logger` that supports the following methods:
+You can also define a custom subclass of `imagehelper.saver.s3.SaverLogger` that supports the following methods:
 
-* `log_upload`( `self`, `bucket_name`=None, `key`=None , `file_size`=None , `file_md5`=None )
+* `log_save`( `self`, `bucket_name`=None, `key`=None , `file_size`=None , `file_md5`=None )
 * `log_delete`( `self`, `bucket_name`=None, `key`=None )
 
-Every successful 'action' is sent to the logger.  A valid transaction to upload 5 sizes will have 5 calls to `log_upload`, an invalid transaction will have a `log_delete` call for every successful upload.
+Every successful 'action' is sent to the logger.  A valid transaction to upload 5 sizes will have 5 calls to `log_save`, an invalid transaction will have a `log_delete` call for every successful upload.
 
 This was designed for a variety of use cases:
 
@@ -247,7 +247,7 @@ if you don't have a current mapping of the files to delete in s3 but you do have
     fakedResizedImages = resizer.fake_resultset( original_filename = archive_filename )
 
     ## generate the filenames
-	deleter = imagehelper.s3.S3Manager( s3Config=s3Config , resizerConfig=resizerConfig )
+	deleter = imagehelper.saver.s3.SaverManager( saverConfig=saverConfig , resizerConfig=resizerConfig )
 	targetFilenames = build.generate_filenames( fakedResizedImages , guid )
 
 the `original_filename` is needed in fake_resultset, because a resultset tracks the original file and it's type.  as of the 0.1.0 branch , only the extension of the filename is utilized.

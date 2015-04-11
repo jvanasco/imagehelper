@@ -59,7 +59,7 @@ def get_imagefile():
     return _img
 
 
-def newS3Config():
+def newSaverConfig():
     Config = ConfigParser.ConfigParser()
     Config.read('aws.cfg')
     AWS_KEY_PUBLIC = Config.get('aws', 'AWS_KEY_PUBLIC')
@@ -68,7 +68,7 @@ def newS3Config():
     AWS_BUCKET_SECRET = Config.get('aws', 'AWS_BUCKET_SECRET')
     AWS_BUCKET_ALT = Config.get('aws', 'AWS_BUCKET_ALT')
 
-    s3Config = imagehelper.s3.S3Config(
+    saverConfig = imagehelper.saver.s3.SaverConfig(
         key_public = AWS_KEY_PUBLIC,
         key_private = AWS_KEY_SECRET,
         bucket_public_name = AWS_BUCKET_PUBLIC,
@@ -78,7 +78,7 @@ def newS3Config():
         archive_original = True
     )
 
-    return s3Config
+    return saverConfig
 
 
 def newResizerConfig(optimize_original=True, optimize_resized=True):
@@ -91,19 +91,19 @@ def newResizerConfig(optimize_original=True, optimize_resized=True):
     return resizerConfig
 
 
-def newS3Logger():
-    s3Logger = imagehelper.s3.S3Logger()
-    return s3Logger
+def newSaverLogger():
+    saverLogger = imagehelper.saver.s3.SaverLogger()
+    return saverLogger
 
 
-class CustomS3Logger(imagehelper.s3.S3Logger):
+class CustomSaverLogger(imagehelper.saver.s3.SaverLogger):
 
-    def log_upload(self, bucket_name=None, key=None, file_size=None, file_md5=None):
-        print "CustomS3Logger.log_upload"
+    def log_save(self, bucket_name=None, key=None, file_size=None, file_md5=None):
+        print "CustomSaverLogger.log_save"
         print "\t %s, %s, %s, %s" % (bucket_name, key, file_size, file_md5)
 
     def log_delete(self, bucket_name=None, key=None):
-        print "CustomS3Logger.log_delete"
+        print "CustomSaverLogger.log_delete"
         print "\t %s, %s" % (bucket_name, key)
 
 
@@ -140,22 +140,22 @@ class TestS3(unittest.TestCase):
 
         # generate the configs
         resizerConfig = newResizerConfig()
-        s3Config = newS3Config()
-        s3Logger = newS3Logger()
+        saverConfig = newSaverConfig()
+        saverLogger = newSaverLogger()
 
         # generate the factory
-        s3ManagerFactory = imagehelper.s3.S3ManagerFactory(s3Config=s3Config, s3Logger=s3Logger, resizerConfig=resizerConfig)
+        saverManagerFactory = imagehelper.saver.s3.SaverManagerFactory(saverConfig=saverConfig, saverLogger=saverLogger, resizerConfig=resizerConfig)
 
         # grab a manager
-        s3Manager = s3ManagerFactory.s3_manager()
+        saverManager = saverManagerFactory.saver_manager()
 
         # make sure we generated a manager
-        assert isinstance(s3Manager, imagehelper.s3.S3Manager)
+        assert isinstance(saverManager, imagehelper.saver.s3.SaverManager)
 
         # inspect the manager to ensure it is set up correctly
-        assert s3Manager._s3Config == s3Config
-        assert s3Manager._s3Logger == s3Logger
-        assert s3Manager._resizerConfig == resizerConfig
+        assert saverManager._saverConfig == saverConfig
+        assert saverManager._saverLogger == saverLogger
+        assert saverManager._resizerConfig == resizerConfig
 
     def test_s3(self):
 
@@ -171,19 +171,19 @@ class TestS3(unittest.TestCase):
         resizedImages = resizer.resize(imagefile=get_imagefile())
 
         # new s3 config
-        s3Config = newS3Config()
+        saverConfig = newSaverConfig()
         # new s3 logger
         if False:
-            s3Logger = imagehelper.s3.S3Logger()
+            saverLogger = imagehelper.saver.s3.SaverLogger()
         else:
-            s3Logger = CustomS3Logger()
+            saverLogger = CustomSaverLogger()
 
         # upload the resized items
-        uploader = imagehelper.s3.S3Manager(s3Config=s3Config, resizerConfig=resizerConfig, s3Logger=s3Logger)
+        uploader = imagehelper.saver.s3.SaverManager(saverConfig=saverConfig, resizerConfig=resizerConfig, saverLogger=saverLogger)
 
         guid = "123"
-        uploaded = uploader.s3_save(resizedImages, guid)
-        deleted = uploader.s3_delete(uploaded)
+        uploaded = uploader.files_save(resizedImages, guid)
+        deleted = uploader.files_delete(uploaded)
 
 
 class TestResizingMethods(unittest.TestCase):

@@ -372,7 +372,7 @@ class ImageWrapper(object):
         constraint_method = 'fit-within'
         if 'constraint-method' in instructions_dict:
             constraint_method = instructions_dict['constraint-method']
-            
+
         if constraint_method != 'passthrough:no-resize':
 
             # t_ = target
@@ -509,14 +509,14 @@ class ImageWrapper(object):
         format = 'JPEG'
         if 'format' in instructions_dict:
             format = instructions_dict['format'].upper()
-            
+
         if format == 'AUTO':
             _og_format = self.get_original().format
             if _og_format in ('PNG', 'GIF'):
                 format = 'PNG'
             else:
                 format = 'JPEG'
-            
+
         def _get_pil_options(_format):
             pil_options = {}
             if format in ('JPEG', 'PDF', ):
