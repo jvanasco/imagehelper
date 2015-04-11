@@ -1,4 +1,4 @@
-0.3 rc 1
+0.3.0rc1
 ------------------
 This release is not backwards compatible.
 In order to better support alternate save methods (not s3), the S3 classes were nested into a 'saver' namespace
