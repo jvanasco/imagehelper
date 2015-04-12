@@ -287,6 +287,7 @@ class Resizer(object):
                 raise errors.ImageError_ConfigError("@ is a reserved initial character for image sizes")
 
             resized[size] = True
+            resized[size] = (original_filename.split('.'))[-1]
 
         resizerResultset = ResizerResultset(
             resized = resized,

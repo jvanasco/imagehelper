@@ -58,7 +58,7 @@ def PIL_type_to_standardized(ctype):
     ctype = ctype.lower()
     if ctype in _PIL_type_to_standardized:
         return _PIL_type_to_standardized[ctype]
-    raise ValueError('invalid ctype')
+    raise ValueError('invalid ctype - `%s`' % ctype)
 
 
 def PIL_type_to_extension(ctype):

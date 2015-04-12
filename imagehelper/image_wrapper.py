@@ -510,7 +510,7 @@ class ImageWrapper(object):
         if 'format' in instructions_dict:
             format = instructions_dict['format'].upper()
 
-        if format == 'AUTO':
+        if format in ('AUTO', 'ORIGINAL', ):
             _og_format = self.get_original().format
             if _og_format in ('PNG', 'GIF'):
                 format = 'PNG'

@@ -1,3 +1,7 @@
+0.3.0rc2
+------------------
+* in the cases of ORIGINAL/AUTODETECT image deleting, `generate_filenames` did not have the appropriate data
+
 0.3.0rc1
 ------------------
 This release is not backwards compatible.
