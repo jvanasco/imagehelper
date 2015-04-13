@@ -129,6 +129,10 @@ class ResizerFactory(object):
 
 
 class ResizerResultset(object):
+    """A resultset contains two attributes:
+        .original  - image_wrapper.BasicImage
+        .resizes  - dict.  keys = 'sizes', values = image_wrapper.BasicImage
+    """
     resized = None
     original = None
 
@@ -158,10 +162,8 @@ class Resizer(object):
     ):
         """registers a file to be resized
 
-
             if we pass in cgi.FieldStorage, it seems to bool() to None even when there is a value
             the workaround (grr) is to check against None
-
         """
 
         if self._wrappedImage is not None:
@@ -282,12 +284,13 @@ class Resizer(object):
 
         # we'll stash the items here
         resized = {}
+        _original_format = (original_filename.split('.'))[-1]
         for size in selected_resizes:
             if size[0] == "@":
                 raise errors.ImageError_ConfigError("@ is a reserved initial character for image sizes")
-
-            resized[size] = True
-            resized[size] = (original_filename.split('.'))[-1]
+            _format = resizesSchema[size]['format']
+            _format = utils.derive_output_format(_format, _original_format)
+            resized[size] = _format
 
         resizerResultset = ResizerResultset(
             resized = resized,

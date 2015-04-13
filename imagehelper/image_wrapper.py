@@ -508,14 +508,10 @@ class ImageWrapper(object):
 
         format = 'JPEG'
         if 'format' in instructions_dict:
-            format = instructions_dict['format'].upper()
+            format = instructions_dict['format']
 
-        if format in ('AUTO', 'ORIGINAL', ):
-            _og_format = self.get_original().format
-            if _og_format in ('PNG', 'GIF'):
-                format = 'PNG'
-            else:
-                format = 'JPEG'
+        # returns uppercase
+        format = utils.derive_output_format(format, self.get_original().format)
 
         def _get_pil_options(_format):
             pil_options = {}

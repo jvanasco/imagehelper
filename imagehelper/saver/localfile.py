@@ -17,42 +17,30 @@ class SaverConfig(object):
 
         we will save to a `filedir`
     """
-    key_public = None
-    key_private = None
-    bucket_public_name = None
-    bucket_archive_name = None
-    bucket_public_headers = None
-    bucket_archive_headers = None
+    subdir_public_name = None
+    subdir_archive_name = None
     archive_original = None
     filedir = None
 
     def __init__(
         self,
-        key_public = None,
-        key_private = None,
-        bucket_public_name = None,
-        bucket_archive_name = None,
-        bucket_public_headers = None,
-        bucket_archive_headers = None,
+        subdir_public_name = None,
+        subdir_archive_name = None,
         archive_original = None,
         filedir = 'localfile-output',
     ):
-        self.key_public = key_public
-        self.key_private = key_private
-        self.bucket_public_name = bucket_public_name
-        self.bucket_archive_name = bucket_archive_name
-        self.bucket_public_headers = bucket_public_headers
-        self.bucket_archive_headers = bucket_archive_headers
+        self.subdir_public_name = subdir_public_name
+        self.subdir_archive_name = subdir_archive_name
         self.archive_original = archive_original
         self.filedir = filedir
 
 
 class SaverLogger(_core.SaverLogger):
 
-    def log_save(self, bucket_name=None, key=None, file_size=None, file_md5=None, ):
+    def log_save(self, subdir_name=None, filename=None, file_size=None, file_md5=None, ):
         pass
 
-    def log_delete(self, bucket_name=None, key=None):
+    def log_delete(self, subdir_name=None, filename=None):
         pass
 
 
@@ -81,45 +69,36 @@ class _SaverCoreManager(object):
     _resizerConfig = None
     _saverConfig = None
     _saverLogger = None
-    _s3_buckets = None
 
     filename_template = "%(guid)s-%(suffix)s.%(format)s"
     filename_template_archive = "%(guid)s.%(format)s"
 
-    @property
-    def s3_buckets(self):
-        """property that memoizes the s3 buckets"""
-        if self._s3_buckets is None:
-            # memoize the buckets
-
-            # create our bucket list
-            s3_buckets = {}
-
-            # @public and @archive are special
-            s3_buckets['@public'] = self._saverConfig.bucket_public_name
-            if self._saverConfig.bucket_archive_name:
-                s3_buckets['@archive'] = self._saverConfig.bucket_archive_name
-
-            # look through our selected sizes
-            if self._resizerConfig:
-                for size in self._resizerConfig.selected_resizes:
-                    if size[0] == "@":
-                        raise errors.ImageError_ConfigError("@ is a reserved initial character for image sizes")
-
-                    if 's3_bucket_public' in self._resizerConfig.resizesSchema[size]:
-                        bucket_name = self._resizerConfig.resizesSchema[size]['s3_bucket_public']
-                        if bucket_name not in s3_buckets:
-                            s3_buckets[bucket_name] = bucket_name
-
-            # store the buckets
-            self._s3_buckets = s3_buckets
-
-        # return the memoized buckets
-        return self._s3_buckets
-
-    def files_delete(self, files):
+    def files_delete(self, files_saved, dry_run=False, ):
         """does not actually delete"""
-        return []
+        for size in files_saved.keys():
+
+            # grab the stash
+            (target_filename, subdir_name) = files_saved[size]
+
+            # delete it
+            log.debug("going to delete %s " %
+                      (target_filename,))
+
+            if not dry_run:
+
+                # TODO - delete
+
+                # external logging
+                if self._saverLogger:
+                    self._saverLogger.log_delete(
+                        subdir_name=subdir_name,
+                        filename=target_filename,
+                    )
+
+            # internal cleanup
+            del files_saved[size]
+
+        return files_saved
 
 
 class SaverManager(_SaverCoreManager):
@@ -161,7 +140,7 @@ class SaverManager(_SaverCoreManager):
 
             Returns a `dict` of target filenames
                 keys = resized size
-                values = tuple (target_filename, bucket_name)
+                values = tuple (target_filename, subdir)
         """
         if guid is None:
             raise errors.ImageError_ArgsError("""You must supply a `guid` for
@@ -181,32 +160,14 @@ class SaverManager(_SaverCoreManager):
         for size in selected_resizes:
 
             instructions = self._resizerConfig.resizesSchema[size]
+            target_filename = size_to_filename(guid, size, resizerResultset, self.filename_template, instructions, )
 
-            # calc vars for filename templating
-            filename_template = self.filename_template
-            suffix = size
-            if 'filename_template' in instructions:
-                filename_template = instructions['filename_template']
-            if 'suffix' in instructions:
-                suffix = instructions['suffix']
+            # figure out the subdir
+            subdir_name = self._saverConfig.subdir_public_name
+            if 'subdir_public' in instructions:
+                subdir_name = instructions['subdir_public']
 
-            # use a helper to get the format
-            # if we used a FakeResultSet to generate the filenames, then the resized will be a string of the suffix
-            _format = derive_format(instructions, resizerResultset, size)
-
-            # generate the filename
-            target_filename = filename_template % {
-                'guid': guid,
-                'suffix': suffix,
-                'format': utils.PIL_type_to_standardized(_format)
-            }
-
-            # figure out the bucketname
-            bucket_name = self._saverConfig.bucket_public_name
-            if 's3_bucket_public' in instructions:
-                bucket_name = instructions['s3_bucket_public']
-
-            filename_mapping[size] = (target_filename, bucket_name)
+            filename_mapping[size] = (target_filename, subdir_name)
 
         if check_archive_original(resizerResultset, archive_original=archive_original):
             filename_template_archive = self.filename_template_archive
@@ -214,13 +175,13 @@ class SaverManager(_SaverCoreManager):
                 'guid': guid,
                 'format': utils.PIL_type_to_standardized(resizerResultset.original.format)
             }
-            bucket_name = self._saverConfig.bucket_archive_name
-            filename_mapping["@archive"] = (target_filename, bucket_name)
+            subdir_name = self._saverConfig.subdir_archive_name
+            filename_mapping["@archive"] = (target_filename, subdir_name)
 
         # return the filemapping
         return filename_mapping
 
-    def files_save(self, resizerResultset, guid, selected_resizes=None, archive_original=None):
+    def files_save(self, resizerResultset, guid, selected_resizes=None, archive_original=None, dry_run=False, ):
         """
             Returns a dict of resized images
             calls self.register_image_file() if needed
@@ -248,52 +209,54 @@ class SaverManager(_SaverCoreManager):
             # and then we upload...
             for size in selected_resizes:
 
-                (_filename, bucket_name) = target_filenames[size]
-                target_dirname = os.path.join(self._saverConfig.filedir, bucket_name)
+                (_filename, subdir_name) = target_filenames[size]
+                target_dirname = os.path.join(self._saverConfig.filedir, subdir_name)
                 if not os.path.exists(target_dirname):
                     os.makedirs(target_dirname)
                 target_file = os.path.join(target_dirname, _filename)
                 log.debug("Saving %s to %s " % (_filename, target_file))
 
-                # upload
-                open(target_file, 'w').write(resizerResultset.resized[size].file.getvalue())
+                if not dry_run:
+                    # upload
+                    open(target_file, 'w').write(resizerResultset.resized[size].file.getvalue())
+
+                    # log to external plugin too
+                    if self._saverLogger:
+                        self._saverLogger.log_save(
+                            subdir_name = subdir_name,
+                            filename = _filename,
+                            file_size = resizerResultset.resized[size].file_size,
+                            file_md5 = resizerResultset.resized[size].file_md5,
+                        )
 
                 # log for removal/tracking & return
-                _saves[size] = (_filename, bucket_name)
-
-                # log to external plugin too
-                if self._saverLogger:
-                    self._saverLogger.log_save(
-                        bucket_name = bucket_name,
-                        key = _filename,
-                        file_size = resizerResultset.resized[size].file_size,
-                        file_md5 = resizerResultset.resized[size].file_md5,
-                    )
+                _saves[size] = (_filename, subdir_name)
 
             if '@archive' in target_filenames:
 
                 size = "@archive"
-                (_filename, bucket_name) = target_filenames[size]
-                target_dirname = os.path.join(self._saverConfig.filedir, bucket_name)
+                (_filename, subdir_name) = target_filenames[size]
+                target_dirname = os.path.join(self._saverConfig.filedir, subdir_name)
                 if not os.path.exists(target_dirname):
                     os.makedirs(target_dirname)
                 target_file = os.path.join(target_dirname, _filename)
                 log.debug("Saving %s to %s " % (_filename, target_file))
 
-                # upload
-                open(target_file, 'w').write(resizerResultset.original.file.getvalue())
+                if not dry_run:
+                    # upload
+                    open(target_file, 'w').write(resizerResultset.original.file.getvalue())
+
+                    # log to external plugin too
+                    if self._saverLogger:
+                        self._saverLogger.log_save(
+                            subdir_name = subdir_name,
+                            filename = _filename,
+                            file_size = resizerResultset.original.file_size,
+                            file_md5 = resizerResultset.original.file_md5,
+                        )
 
                 # log for removal/tracking & return
-                _saves[size] = (_filename, bucket_name)
-
-                # log to external plugin too
-                if self._saverLogger:
-                    self._saverLogger.log_save(
-                        bucket_name = bucket_name,
-                        key = _filename,
-                        file_size = resizerResultset.original.file_size,
-                        file_md5 = resizerResultset.original.file_md5,
-                    )
+                _saves[size] = (_filename, subdir_name)
 
         except Exception as e:
             # if we have ANY issues, we want to delete everything from amazon s3. otherwise this stuff is just hiding up there
@@ -312,38 +275,39 @@ class SaverSimpleAccess(_SaverCoreManager):
         self._saverLogger = saverLogger
         self._resizerConfig = resizerConfig
 
-    def file_save(self, bucket_name, filename, wrappedFile, upload_type="public"):
+    def file_save(self, subdir_name, filename, wrappedFile, upload_type="public", dry_run=False, ):
         if upload_type not in ("public", "archive"):
             raise ValueError("upload_type must be `public` or `archive`")
 
         _saves = {}
         try:
-            target_dirname = os.path.join(self._saverConfig.filedir, bucket_name)
+            target_dirname = os.path.join(self._saverConfig.filedir, subdir_name)
             if not os.path.exists(target_dirname):
                 os.makedirs(target_dirname)
             target_file = os.path.join(target_dirname, filename)
             log.debug("Saving %s to %s " % (filename, target_file))
 
-            # upload
-            open(target_file, 'w').write(resizerResultset.resized[size].file.getvalue())
+            if not dry_run:
+                # upload
+                open(target_file, 'w').write(resizerResultset.resized[size].file.getvalue())
+
+                # log to external plugin too
+                if self._saverLogger:
+                    self._saverLogger.log_save(
+                        subdir_name = subdir_name,
+                        filename = filename,
+                        file_size = wrappedFile.file_size,
+                        file_md5 = wrappedFile.file_md5,
+                    )
 
             # log for removal/tracking & return
-            _uploads = self.simple_saves_mapping(bucket_name, filename)
-
-            # log to external plugin too
-            if self._saverLogger:
-                self._saverLogger.log_save(
-                    bucket_name = bucket_name,
-                    key = filename,
-                    file_size = wrappedFile.file_size,
-                    file_md5 = wrappedFile.file_md5,
-                )
+            _uploads = self.simple_saves_mapping(subdir_name, filename)
 
             return _saves
         except:
             raise
 
-    def simple_saves_mapping(self, bucket_name, filename):
+    def simple_saves_mapping(self, subdir_name, filename):
         _saves = {}
-        _saves["%s||%s" % (bucket_name, filename, )] = (filename, bucket_name)
+        _saves["%s||%s" % (subdir_name, filename, )] = (filename, subdir_name)
         return _saves

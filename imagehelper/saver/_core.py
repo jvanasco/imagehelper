@@ -27,7 +27,7 @@ class SaverManagerFactory(object):
 
 class _SaverCoreManager(object):
 
-    def files_delete(self, files_saved):
+    def files_delete(self, files_saved, dry_run=False, ):
         """workhorse for deletion
 
             `files_saved`
@@ -43,7 +43,7 @@ class SaverManager(_SaverCoreManager):
     def generate_filenames(self, resizerResultset, guid, selected_resizes=None, archive_original=None):
         pass
 
-    def files_save(self, resizerResultset, guid, selected_resizes=None, archive_original=None):
+    def files_save(self, resizerResultset, guid, selected_resizes=None, archive_original=None, dry_run=False, ):
         pass
 
     # _SaverCoreManager.files_delete
@@ -51,7 +51,7 @@ class SaverManager(_SaverCoreManager):
 
 class SaverSimpleAccess(_SaverCoreManager):
 
-    def file_save(self, bucket_name, filename, wrappedFile, upload_type="public"):
+    def file_save(self, bucket_name, filename, wrappedFile, upload_type="public", dry_run=False, ):
         pass
 
     def simple_saves_mapping(self, bucket_name, filename):

@@ -81,6 +81,24 @@ def newSaverConfig():
     return saverConfig
 
 
+def newSaverConfig_Localfile():
+    Config = ConfigParser.ConfigParser()
+    Config.read('aws.cfg')
+    AWS_KEY_PUBLIC = Config.get('aws', 'AWS_KEY_PUBLIC')
+    AWS_KEY_SECRET = Config.get('aws', 'AWS_KEY_SECRET')
+    AWS_BUCKET_PUBLIC = Config.get('aws', 'AWS_BUCKET_PUBLIC')
+    AWS_BUCKET_SECRET = Config.get('aws', 'AWS_BUCKET_SECRET')
+    AWS_BUCKET_ALT = Config.get('aws', 'AWS_BUCKET_ALT')
+
+    saverConfig = imagehelper.saver.localfile.SaverConfig(
+    subdir_public_name = AWS_BUCKET_PUBLIC,
+    subdir_archive_name = AWS_BUCKET_SECRET,
+    archive_original = True
+    )
+
+    return saverConfig
+
+
 def newResizerConfig(optimize_original=True, optimize_resized=True):
     resizerConfig = imagehelper.resizer.ResizerConfig(
         resizesSchema = resizesSchema,
@@ -185,6 +203,33 @@ class TestS3(unittest.TestCase):
         uploaded = uploader.files_save(resizedImages, guid)
         deleted = uploader.files_delete(uploaded)
 
+
+class TestLocalfile(unittest.TestCase):
+
+    def test_localfile(self):
+
+        # new resizer config
+        resizerConfig = newResizerConfig()
+        # build a factory
+        resizerFactory = imagehelper.resizer.ResizerFactory(resizerConfig=resizerConfig)
+
+        # grab a resizer
+        resizer = resizerFactory.resizer()
+
+        # resize !
+        resizedImages = resizer.resize(imagefile=get_imagefile())
+
+        # new s3 config
+        saverConfig = newSaverConfig_Localfile()
+        # new s3 logger
+        saverLogger = imagehelper.saver.localfile.SaverLogger()
+
+        # upload the resized items
+        saver = imagehelper.saver.localfile.SaverManager(saverConfig=saverConfig, resizerConfig=resizerConfig, saverLogger=saverLogger)
+
+        guid = "123"
+        uploaded = saver.files_save(resizedImages, guid)
+        deleted = saver.files_delete(uploaded)
 
 class TestResizingMethods(unittest.TestCase):
 

@@ -1,3 +1,8 @@
+0.3.0rc4
+------------------
+* adding 'dry_run' option for testing
+
+
 0.3.0rc3
 ------------------
 * missed `size` arg.  this should not have passed tests.

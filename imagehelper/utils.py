@@ -47,6 +47,18 @@ _standardized_to_PIL_type = {
 }
 
 
+def derive_output_format(format, original_format):
+    """returns uppercase"""
+    format = format.upper()
+    if format in ('AUTO', 'ORIGINAL', ):
+        _og_format = original_format.upper()
+        if _og_format in ('PNG', 'GIF'):
+            format = 'PNG'
+        else:
+            format = 'JPEG'
+    return format
+
+
 def PIL_type_to_content_type(ctype):
     ctype = ctype.lower()
     if ctype in _PIL_type_to_content_type:

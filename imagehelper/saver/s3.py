@@ -152,13 +152,17 @@ class _SaverCoreManager(object):
         # return the memoized buckets
         return self._s3_buckets
 
-    def files_delete(self, files_saved):
+    def files_delete(self, files_saved, dry_run=False, ):
         """workhorse for deletion
 
             `files_saved`
                 `dict`
                 format =
                     files_saved[size] = (target_filename, bucket_name)
+
+            `dry_run`
+                default = `False`
+                should we just pretend to save?
         """
 
         # setup the s3 connection
@@ -176,14 +180,16 @@ class _SaverCoreManager(object):
             log.debug("going to delete %s from %s" %
                       (target_filename, bucket_name))
 
-            bucket.delete_key(target_filename)
+            if not dry_run:
+                bucket.delete_key(target_filename)
 
-            # external logging
-            if self._saverLogger:
-                self._saverLogger.log_delete(
-                    bucket_name=bucket_name,
-                    key=target_filename,
-                )
+                # external logging
+                if self._saverLogger:
+                    self._saverLogger.log_delete(
+                        bucket_name=bucket_name,
+                        key=target_filename,
+                    )
+
             # internal cleanup
             del files_saved[size]
 
@@ -293,25 +299,7 @@ class SaverManager(_SaverCoreManager):
         for size in selected_resizes:
 
             instructions = self._resizerConfig.resizesSchema[size]
-
-            # calc vars for filename templating
-            filename_template = self.filename_template
-            suffix = size
-            if 'filename_template' in instructions:
-                filename_template = instructions['filename_template']
-            if 'suffix' in instructions:
-                suffix = instructions['suffix']
-
-            # use a helper to get the format
-            # if we used a FakeResultSet to generate the filenames, then the resized will be a string of the suffix
-            _format = derive_format(instructions, resizerResultset, size)
-
-            # generate the filename
-            target_filename = filename_template % {
-                'guid': guid,
-                'suffix': suffix,
-                'format': utils.PIL_type_to_standardized(_format)
-            }
+            target_filename = size_to_filename(guid, size, resizerResultset, self.filename_template, instructions, )
 
             # figure out the bucketname
             bucket_name = self._saverConfig.bucket_public_name
@@ -332,7 +320,7 @@ class SaverManager(_SaverCoreManager):
         # return the filemapping
         return filename_mapping
 
-    def files_save(self, resizerResultset, guid, selected_resizes=None, archive_original=None):
+    def files_save(self, resizerResultset, guid, selected_resizes=None, archive_original=None, dry_run=False):
         """
             Returns a dict of resized images
             calls self.register_image_file() if needed
@@ -362,6 +350,9 @@ class SaverManager(_SaverCoreManager):
                 should we archive the original ?
                 implicit/explicit archival option.  see `def check_archive_original`
 
+            `dry_run`
+                default = `False`
+                should we just pretend to upload
         """
         if guid is None:
             raise errors.ImageError_ArgsError("""You must supply a `guid` for
@@ -401,22 +392,23 @@ class SaverManager(_SaverCoreManager):
                     for k in self._resizerConfig.resizesSchema[size]['s3_headers']:
                         _s3_headers[k] = self._resizerConfig.resizesSchema[size]['s3_headers'][k]
 
-                # upload
-                s3_key = boto.s3.key.Key(bucket)
-                s3_key.key = target_filename
-                s3_key.set_contents_from_string(resizerResultset.resized[size].file.getvalue(), headers=_s3_headers)
+                if not dry_run:
+                    # upload
+                    s3_key = boto.s3.key.Key(bucket)
+                    s3_key.key = target_filename
+                    s3_key.set_contents_from_string(resizerResultset.resized[size].file.getvalue(), headers=_s3_headers)
+
+                    # log to external plugin too
+                    if self._saverLogger:
+                        self._saverLogger.log_save(
+                            bucket_name = bucket_name,
+                            key = target_filename,
+                            file_size = resizerResultset.resized[size].file_size,
+                            file_md5 = resizerResultset.resized[size].file_md5,
+                        )
 
                 # log for removal/tracking & return
                 files_saved[size] = (target_filename, bucket_name)
-
-                # log to external plugin too
-                if self._saverLogger:
-                    self._saverLogger.log_save(
-                        bucket_name = bucket_name,
-                        key = target_filename,
-                        file_size = resizerResultset.resized[size].file_size,
-                        file_md5 = resizerResultset.resized[size].file_md5,
-                    )
 
             if '@archive' in target_filenames:
 
@@ -431,22 +423,23 @@ class SaverManager(_SaverCoreManager):
                 _s3_headers = self.s3headers_archive_default.copy()
                 _s3_headers['Content-Type'] = utils.PIL_type_to_content_type(resizerResultset.original.format)
 
-                # upload
-                s3_key_original = boto.s3.key.Key(bucket)
-                s3_key_original.key = target_filename
-                s3_key_original.set_contents_from_string(resizerResultset.original.file.getvalue(), headers=_s3_headers)
+                if not dry_run:
+                    # upload
+                    s3_key_original = boto.s3.key.Key(bucket)
+                    s3_key_original.key = target_filename
+                    s3_key_original.set_contents_from_string(resizerResultset.original.file.getvalue(), headers=_s3_headers)
+
+                    # log to external plugin too
+                    if self._saverLogger:
+                        self._saverLogger.log_save(
+                            bucket_name = bucket_name,
+                            key = target_filename,
+                            file_size = resizerResultset.original.file_size,
+                            file_md5 = resizerResultset.original.file_md5,
+                        )
 
                 # log for removal/tracking & return
                 files_saved[size] = (target_filename, bucket_name)
-
-                # log to external plugin too
-                if self._saverLogger:
-                    self._saverLogger.log_save(
-                        bucket_name = bucket_name,
-                        key = target_filename,
-                        file_size = resizerResultset.original.file_size,
-                        file_md5 = resizerResultset.original.file_md5,
-                    )
 
         except Exception as e:
             # if we have ANY issues, we want to delete everything from amazon s3. otherwise this stuff is just hiding up there
@@ -478,7 +471,7 @@ class SaverSimpleAccess(_SaverCoreManager):
             for k in self._saverConfig.bucket_archive_headers:
                 self.s3headers_archive_default[k] = self._saverConfig.bucket_archive_headers[k]
 
-    def file_save(self, bucket_name, filename, wrappedFile, upload_type="public"):
+    def file_save(self, bucket_name, filename, wrappedFile, upload_type="public", dry_run=False, ):
         if upload_type not in ("public", "archive"):
             raise ValueError("upload_type must be `public` or `archive`")
 
@@ -495,22 +488,23 @@ class SaverSimpleAccess(_SaverCoreManager):
             _s3_headers = self.s3headers_public_default.copy()
             _s3_headers['Content-Type'] = utils.PIL_type_to_content_type(wrappedFile.format)
 
-            # upload
-            s3_key_original = boto.s3.key.Key(bucket)
-            s3_key_original.key = filename
-            s3_key_original.set_contents_from_string(wrappedFile.file.getvalue(), headers=_s3_headers)
+            if not dry_run:
+                # upload
+                s3_key_original = boto.s3.key.Key(bucket)
+                s3_key_original.key = filename
+                s3_key_original.set_contents_from_string(wrappedFile.file.getvalue(), headers=_s3_headers)
+
+                # log to external plugin too
+                if self._saverLogger:
+                    self._saverLogger.log_save(
+                        bucket_name = bucket_name,
+                        key = filename,
+                        file_size = wrappedFile.file_size,
+                        file_md5 = wrappedFile.file_md5,
+                    )
 
             # log for removal/tracking & return
             files_saved = self.simple_saves_mapping(bucket_name, filename)
-
-            # log to external plugin too
-            if self._saverLogger:
-                self._saverLogger.log_save(
-                    bucket_name = bucket_name,
-                    key = filename,
-                    file_size = wrappedFile.file_size,
-                    file_md5 = wrappedFile.file_md5,
-                )
 
             return files_saved
         except:
