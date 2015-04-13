@@ -190,13 +190,9 @@ class SaverManager(_SaverCoreManager):
             if 'suffix' in instructions:
                 suffix = instructions['suffix']
 
-            _format = instructions['format']
-            if _format.lower() in ('auto', 'original', ):
-                # if we used a FakeResultSet to generate the filenames, then the resized will be a string of the suffix
-                if not isinstance(resizerResultset.resized[size], str):
-                    _format = resizerResultset.resized[size].format
-                else:
-                    _format = resizerResultset.resized[size]
+            # use a helper to get the format
+            # if we used a FakeResultSet to generate the filenames, then the resized will be a string of the suffix
+            _format = derive_format(instructions, resizerResultset, size)
 
             # generate the filename
             target_filename = filename_template % {

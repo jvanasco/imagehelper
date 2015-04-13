@@ -33,3 +33,14 @@ def check_archive_original(resizerResultset, archive_original=None):
             raise ValueError("""Missing resizerResultset.original for
                 explicit archiving""")
         return True
+
+
+def derive_format(instructions, resizerResultset, size):
+    _format = instructions['format']
+    if _format.lower() in ('auto', 'original', ):
+        # if we used a FakeResultSet to generate the filenames, then the resized will be a string of the suffix
+        if not isinstance(resizerResultset.resized[size], (str, unicode)):
+            _format = resizerResultset.resized[size].format
+        else:
+            _format = resizerResultset.resized[size]
+    return _format

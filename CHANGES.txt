@@ -1,3 +1,7 @@
+0.3.0rc3
+------------------
+* missed `size` arg.  this should not have passed tests.
+
 0.3.0rc2
 ------------------
 * in the cases of ORIGINAL/AUTODETECT image deleting, `generate_filenames` did not have the appropriate data
