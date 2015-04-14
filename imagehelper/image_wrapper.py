@@ -40,6 +40,15 @@ _valid_types = tuple(_valid_types)
 _valid_types_nameless = tuple(_valid_types_nameless)
 
 
+OPTIMIZE_JPEG_PROGRESSIVE = True
+OPTIMIZE_GIFSICLE_LEVEL = 3
+OPTIMIZE_PNGCRUSH_USE = True
+OPTIMIZE_OPTIPNG_USE = True
+OPTIMIZE_OPTIPNG_LEVEL = 3  # 6 would be best
+OPTIMIZE_ADVPNG_USE = True
+OPTIMIZE_ADVPNG_LEVEL = 4  # 4 is max
+
+
 class BasicImage(object):
     """A generic wrapper for Images
 
@@ -70,6 +79,8 @@ class BasicImage(object):
         mode=None,
         width=None,
         height=None,
+        is_image_animated=None,
+        animated_image_totalframes=None,
     ):
         """args
             `resized_file`
@@ -90,6 +101,9 @@ class BasicImage(object):
         self.width = width
         self.height = height
         self.is_optimized = False
+        self.optimization_savings = 0
+        self.is_image_animated = is_image_animated
+        self.animated_image_totalframes = animated_image_totalframes
 
     @property
     def file_size(self):
@@ -148,14 +162,55 @@ class BasicImage(object):
         fileInput.seek(0)
         fileOutput = tempfile.NamedTemporaryFile()
 
+        _fname_input = fileInput.name
+        _fname_output = fileOutput.name
+
+        # we need this for filesavings
+        filesize_original = utils.file_size(fileInput)
+
+        _optimized = False
         if self.format_standardized == 'jpg':
-            envoy.run("""jpegtran -copy none -optimize -outfile %s %s""" % (fileOutput.name, fileInput.name))
-            envoy.run("""jpegoptim --strip-all -q %s""" % (fileOutput.name, ))
+
+            _progressive = '-progressive' if OPTIMIZE_JPEG_PROGRESSIVE else ''
+            r = envoy.run("""jpegtran -copy all -optimize %s -outfile %s %s""" % (_progressive, _fname_output, _fname_input))
+            if r.status_code != 127:
+                _optimized = True
+            r = envoy.run("""jpegoptim --strip-all -q %s""" % (_fname_output, ))
+            if r.status_code != 127:
+                _optimized = True
+
         elif self.format_standardized == 'gif':
-            envoy.run("""gifsicle -O2 %s --output %s""" % (fileInput.name, fileOutput.name))
+
+            _gifsicle_level = OPTIMIZE_GIFSICLE_LEVEL
+            r = envoy.run("""gifsicle -O%d %s --output %s""" % (_gifsicle_level, _fname_input, _fname_output))
+            if r.status_code != 127:
+                _optimized = True
+
         elif self.format_standardized == 'png':
-            # envoy.run("""pngcrush -rem alla -reduce -brute -q %s %s""" % (fileInput.name, fileOutput.name))
-            envoy.run("""pngcrush -rem alla -reduce -q %s %s""" % (fileInput.name, fileOutput.name))
+
+            if OPTIMIZE_PNGCRUSH_USE:
+                # envoy.run("""pngcrush -rem alla -reduce -brute -q %s %s""" % (_fname_input, _fname_output))
+                # envoy.run("""pngcrush -rem alla -reduce -q %s %s""" % (_fname_input, _fname_output))
+                r = envoy.run("""pngcrush -rem alla -nofilecheck -bail -blacken -reduce -cc %s %s""" % (_fname_input, _fname_output))
+                if r.status_code != 127:
+                    _fname_input = _fname_output
+                    _optimized = True
+
+            if OPTIMIZE_OPTIPNG_USE:
+                _optipng_level = OPTIMIZE_OPTIPNG_LEVEL
+                # note that we do `--out OUTPUT --(stop) INPUT
+                r = envoy.run("""optipng -i0 -o%d -out %s -- %s""" % (_optipng_level, _fname_output, _fname_input))
+                if r.status_code != 127:
+                    _fname_input = _fname_output
+                    _optimized = True
+
+            if OPTIMIZE_ADVPNG_USE:
+                _advpng_level = OPTIMIZE_ADVPNG_LEVEL
+                # note that we do `--out OUTPUT --(stop) INPUT
+                r = envoy.run("""advpng -%d -z %s""" % (_advpng_level, _fname_output))
+                if r.status_code != 127:
+                    _fname_input = _fname_output
+                    _optimized = True
 
         fileOutput.seek(0)
         newFile = FilelikePreference()
@@ -163,6 +218,13 @@ class BasicImage(object):
         newFile.seek(0)
         self.file = newFile
         self.is_optimized = True
+
+        # so how much did we save?
+        filesize_optimized = utils.file_size(newFile)
+        optimization_savings = filesize_original - filesize_optimized
+
+        log.debug("optimization_savings = %s" % optimization_savings)
+        self.optimization_savings = optimization_savings
 
 
 class ResizedImage(BasicImage):
@@ -294,6 +356,8 @@ class ImageWrapper(object):
                 mode = self.pilObject.mode,
                 width = self.pilObject.size[0],
                 height = self.pilObject.size[1],
+                is_image_animated = utils.is_image_animated(self.pilObject),
+                animated_image_totalframes = utils.animated_image_totalframes(self.pilObject),
             )
             self.basicImage = wrappedImage
 
@@ -365,7 +429,16 @@ class ImageWrapper(object):
             else:
                 FilelikePreference = tempfile.SpooledTemporaryFile
 
+        # we analyze the pilObject, because `copy()` only works on the frame
+        if utils.is_image_animated(self.pilObject):
+            allow_animated = False
+            if 'allow_animated' in instructions_dict:
+                allow_animated = instructions_dict['allow_animated']
+            if not allow_animated:
+                raise ValueError("Image is Animated!")
+
         resized_image = self.pilObject.copy()
+
         if resized_image.palette:
             resized_image = resized_image.convert()
 

@@ -16,17 +16,20 @@ The package was originally aimed at thumbnails, but it works for all resizing ne
 
 If you have applications like `gifsicle`, `pngcrush` and `jpegtran` installed in your environment, you can 'optimize' the output (and archive) files.
 
-
 This is a barebones package that has NO FRAMEWORK DEPENDENCIES - which is a good thing.  You define a dict, it does the rest.
 
 I could only find a single tool for resizing thumbnails on PyPi that did not require a framework, and that's really annoying.
+
+The package is a bit awkard to use for a single task, but it was designed for repetitive tasks - as in a web application.
+
+A typical usage is illustrated in the sections below.
 
 This is still in Beta.
 
 
 ## Why ?
 
-Imagine that you have a site that allows for user generated uploads , or you want to make video stills...
+Imagine that you have a site that allows for user generated uploads, or you want to make video stills...
 
 You can create a schema of image sizes...
 
@@ -51,13 +54,13 @@ You can create a schema of image sizes...
 		},
 	}
 
-And easily upload them :
+And easily upload them:
 
 	# create some configs in your app
 
 	# config object for IMAGE_SIZES
-	resizerConfig = imagehelper.resizer.ResizerConfig(\
-		resizesSchema=IMAGE_SIZES ,
+	resizerConfig = imagehelper.resizer.ResizerConfig(
+		resizesSchema=IMAGE_SIZES,
 		optimize_original=True,
     	optimize_resized=True,
     )
@@ -76,25 +79,25 @@ And easily upload them :
 	# build one, then stash in your app
 
 	USE_FACTORY = True
-	if USE_FACTORY :
-		rFactory = imagehelper.resizer.ResizerFactory( resizerConfig=resizerConfig )
-		s3Factory = imagehelper.saver.s3.s3ManagerFactory( saverConfig=saverConfig , resizerConfig=rConfig , saverLogger=saverLogger )
+	if USE_FACTORY:
+		rFactory = imagehelper.resizer.ResizerFactory(resizerConfig=resizerConfig)
+		s3Factory = imagehelper.saver.s3.s3ManagerFactory(saverConfig=saverConfig, resizerConfig=rConfig, saverLogger=saverLogger)
 
 		resizer = rFactory.resizer()
 		s3Manager = s3Factory.saver_manager()
 
 	else:
-		resizer = imagehelper.resizer.Resizer( resizerConfig=resizerConfig )
-		s3Manager = imagehelper.saver.s3.s3Manager( saverConfig=saverConfig , resizerConfig=resizerConfig , saverLogger=saverLogger )
+		resizer = imagehelper.resizer.Resizer(resizerConfig=resizerConfig)
+		s3Manager = imagehelper.saver.s3.s3Manager(saverConfig=saverConfig, resizerConfig=resizerConfig, saverLogger=saverLogger)
 
 	# resize !
-	resizedImages = resizer.resize( imagefile=get_imagefile() )
+	resizedImages = resizer.resize(imagefile=get_imagefile())
 
 	# upload the resized items
-	uploaded_files = s3Manager.files_save( resizedImages , guid="123" )
+	uploaded_files = s3Manager.files_save(resizedImages, guid="123")
 
 	# want to delete them?
-	deleted = s3Manager.files_delete( uploaded_files )
+	deleted = s3Manager.files_delete(uploaded_files)
 
 Behind the scenes, imagehelper does all the math and uploading.
 
@@ -102,7 +105,7 @@ Behind the scenes, imagehelper does all the math and uploading.
 ## Resizing Options
 
 * `fit-within`
-> Resizes item to fit within the bounding box , on both height and width.   This resulting image will be the size of the bounding box or smaller.
+> Resizes item to fit within the bounding box, on both height and width.   This resulting image will be the size of the bounding box or smaller.
 
 * `fit-within:crop-to`
 > resizes the item along whichever axis ensures the bounding box is 100% full, then crops.  This resulting image will be the size of the bounding box.
@@ -136,7 +139,7 @@ The general program flow is this:
 
 1. Create `Configuration` objects to hold instructions
 2. Create `Factory` objects to hold the `Configuration` objects.
-3. Obtain a `Worker` object from the `Factory` to do the actual work ( resizing or uploading )
+3. Obtain a `Worker` object from the `Factory` to do the actual work (resizing or uploading)
 
 You should typically create Configuration and Factory objects during application startup, and create/destroy a work for each request or event.
 
@@ -159,12 +162,12 @@ Here's a more in depth description
 5. You can define your own S3 logger, a class that provides two methods:
 
     class SaverLogger(object):
-		def log_save( self , bucket_name=None, key=None , file_size=None , file_md5=None ):
+		def log_save(self, bucket_name=None, key=None, file_size=None, file_md5=None):
 			pass
-		def log_delete( self , bucket_name=None, key=None ):
+		def log_delete(self, bucket_name=None, key=None):
 			pass
 
-This will allow you to log what is uploaded into amazon aws on your side.  This is hugely helpful , because amazon uploads are not transaction safe to your application logic.  there are some built-in precautions for this... but it's best to play things safely.
+This will allow you to log what is uploaded into amazon aws on your side.  This is hugely helpful, because amazon uploads are not transaction safe to your application logic.  there are some built-in precautions for this... but it's best to play things safely.
 
 
 items are currented saved to amazon s3 as such:
@@ -193,11 +196,11 @@ here's an example photo_resize schema
         'constraint-method': 'fit-within',
         's3_bucket_public': 'my-test',
         'filename_template': '%(guid)s-%(suffix)s.%(format)s',
-        's3_headers': { 'x-amz-acl' : 'public-read' }
+        's3_headers': { 'x-amz-acl': 'public-read' }
     },
 
 
-this would create a file on amazon s3 with a GUID you supply like 123123123g :
+this would create a file on amazon s3 with a GUID you supply like 123123123g:
 
 	/my-test/123123123-t120.jpg
 	_bucket_/_guid_-_suffix_._format_
@@ -206,29 +209,29 @@ string templates may be used to affect how this is saved. read the source for mo
 
 ## Transactional Support
 
-If you upload something via `imagehelper.saver.s3.S3Uploader().s3_upload()` , the task is considered to be "all or nothing".
+If you upload something via `imagehelper.saver.s3.S3Uploader().s3_upload()`, the task is considered to be "all or nothing".
 
-The actual uploading occurs within a try/except block , and a failure will "roll back" and delete everything that has been successfully uploaded.
+The actual uploading occurs within a try/except block, and a failure will "roll back" and delete everything that has been successfully uploaded.
 
-If you want to integrate with something like the Zope `transaction` package, `imagehelper.saver.s3.S3Uploader().files_delete()` is a public function that expects as input the output of the `s3_upload` function -- a `dict` of `tuples` where the `keys` are resize names (from the schema) and the `values` are the `( filename, bucket )`.
+If you want to integrate with something like the Zope `transaction` package, `imagehelper.saver.s3.S3Uploader().files_delete()` is a public function that expects as input the output of the `s3_upload` function -- a `dict` of `tuples` where the `keys` are resize names (from the schema) and the `values` are the `(filename, bucket)`.
 
 You can also define a custom subclass of `imagehelper.saver.s3.SaverLogger` that supports the following methods:
 
-* `log_save`( `self`, `bucket_name`=None, `key`=None , `file_size`=None , `file_md5`=None )
-* `log_delete`( `self`, `bucket_name`=None, `key`=None )
+* `log_save`(`self`, `bucket_name`=None, `key`=None, `file_size`=None, `file_md5`=None)
+* `log_delete`(`self`, `bucket_name`=None, `key`=None)
 
 Every successful 'action' is sent to the logger.  A valid transaction to upload 5 sizes will have 5 calls to `log_save`, an invalid transaction will have a `log_delete` call for every successful upload.
 
 This was designed for a variety of use cases:
 
-* log activity to a file or non-transactional database connection , you get some efficient bookkeeping of s3 activity and can audit those files to ensure there is no orphan data in your s3 buckts.
+* log activity to a file or non-transactional database connection, you get some efficient bookkeeping of s3 activity and can audit those files to ensure there is no orphan data in your s3 buckts.
 * log activity to StatsD or another metrics app to show how much activity goes on
 
 
 ## FAQ - package components
 
 * `errors` - custom exceptions
-* `image_wrapper` - actual image reading/writing , resize operations
+* `image_wrapper` - actual image reading/writing, resize operations
 * `resizer` - manage resizing operations
 * `s3` - manage s3 communication
 * `utils` - miscellaneous utility fucntions
@@ -236,21 +239,21 @@ This was designed for a variety of use cases:
 
 ## FAQ - deleting existing files ?
 
-if you don't have a current mapping of the files to delete in s3 but you do have the archive filename and a guid , you can easily generate what they would be based off a resizerConfig/schema and the archived filename.
+if you don't have a current mapping of the files to delete in s3 but you do have the archive filename and a guid, you can easily generate what they would be based off a resizerConfig/schema and the archived filename.
 
     ## fake the sizes that would be generated off a resize
-    resizer = imagehelper.resizer.Resizer(\
+    resizer = imagehelper.resizer.Resizer(
     	resizerConfig=resizerConfig,
 		optimize_original=True,
 		optimize_resized=True,
 	)
-    fakedResizedImages = resizer.fake_resultset( original_filename = archive_filename )
+    fakedResizedImages = resizer.fake_resultset(original_filename = archive_filename)
 
     ## generate the filenames
-	deleter = imagehelper.saver.s3.SaverManager( saverConfig=saverConfig , resizerConfig=resizerConfig )
-	targetFilenames = build.generate_filenames( fakedResizedImages , guid )
+	deleter = imagehelper.saver.s3.SaverManager(saverConfig=saverConfig, resizerConfig=resizerConfig)
+	targetFilenames = build.generate_filenames(fakedResizedImages, guid)
 
-the `original_filename` is needed in fake_resultset, because a resultset tracks the original file and it's type.  as of the 0.1.0 branch , only the extension of the filename is utilized.
+the `original_filename` is needed in fake_resultset, because a resultset tracks the original file and it's type.  as of the 0.1.0 branch, only the extension of the filename is utilized.
 
 
 ## FAQ - validate uploaded image ?
@@ -264,15 +267,15 @@ this is simple.
 2. validate it
 
 	try:
-		resizer = nullResizerFactory.resizer(\
-			imagefile = uploaded_image_file ,
+		resizer = nullResizerFactory.resizer(
+			imagefile = uploaded_image_file,
 		)
-	except imagehelper.errors.ImageError_Parsing , e :
+	except imagehelper.errors.ImageError_Parsing, e:
 		raise ValueError('Invalid Filetype')
 
 	# grab the original file for advanced ops
 	resizerImage = resizer.get_original()
-	if resizerImage.file_size > MAX_FILESIZE_PHOTO_UPLOAD :
+	if resizerImage.file_size > MAX_FILESIZE_PHOTO_UPLOAD:
 		raise ValueError('Too Big!')
 
 
@@ -285,11 +288,11 @@ All the reading and resizing of image formats happens in PIL/Pillow.
 
 imagehelper tries to support most common file objects
 
-`imagehelper.image_wrapper.ImageWrapper` our core class for reading files , supports reading the following file types
+`imagehelper.image_wrapper.ImageWrapper` our core class for reading files, supports reading the following file types
 
-* `file ( native python object , i.e. `types.FileType` )
+* `file (native python object, i.e. `types.FileType`)
 * `cgi.FieldStorage`
-* `StringIO.StringIO` , `cStringIO.InputType` , `cStringIO.OutputType`
+* `StringIO.StringIO`, `cStringIO.InputType`, `cStringIO.OutputType`
 
 we try to be kind and rewind.  we call seek(0) on the underlying file when approprite, but sometimes forget.
 
@@ -304,11 +307,11 @@ the resize operations accepts the following file kwargs:
 
 celery message brokers require serialized data.
 
-in order to pass the task to celery , you will need to serialize/deserialize the data.  imagehelper provides convenience functionality for this
+in order to pass the task to celery, you will need to serialize/deserialize the data.  imagehelper provides convenience functionality for this
 
     nullResizerFactory = imagehelper.resizer.ResizerFactory()
-	resizer = nullResizerFactory.resizer(\
-		imagefile = uploaded_file ,
+	resizer = nullResizerFactory.resizer(
+		imagefile = uploaded_file,
 	)
 
 	# grab the original file for advanced ops
@@ -316,29 +319,96 @@ in order to pass the task to celery , you will need to serialize/deserialize the
 
 	# serialize the image
 	instructions = {
-		'image_md5' : resizerImage.file_md5 ,
-		'image_b64' : resizerImage.file_b64 ,
-		'image_format' : resizerImage.format ,
+		'image_md5': resizerImage.file_md5,
+		'image_b64': resizerImage.file_b64,
+		'image_format': resizerImage.format,
 	}
 
 	# send to celery
-	deferred_task = celery_tasks.do_something.apply_async( ( id , instructions, ) )
+	deferred_task = celery_tasks.do_something.apply_async((id, instructions,))
 
 
 	# in celery...
 	@task
-	def do_something( id , instructions ):
+	def do_something(id, instructions):
 		## resize the images
-		resizer = resizerFactory.resizer(\
-			file_b64 = instructions['image_b64'] ,
+		resizer = resizerFactory.resizer(
+			file_b64 = instructions['image_b64'],
 		)
 		resizedImages = resizer.resize()
+
+
+## How are optimizations handled?
+
+Image optimizations are handled by piping the image through external programs.  The idea (and settings) were borrowed from the mac app ImageOptim https://github.com/pornel/ImageOptim
+
+
+### JPEG
+
+jpegs are optimized in a two-stage process.
+
+	jpegtran is used to do an initial optimization and ensure a progressive jpeg.  all the jpeg markers are preserved.
+	jpegoptim is used on the output of the above, in this stage all jpeg markers are removed.
+
+The exact arguments are:
+
+	"""jpegtran -copy all -optimize -progressive -outfile %s %s""" % (fileOutput.name, fileInput.name)
+	"""jpegoptim --strip-all -q %s""" % (fileOutput.name, )
+
+### GIF
+
+Gifsicle is given the following params
+    -O3
+    --no-comments
+    --no-names
+    --same-delay
+    --same-loopcount
+    --no-warnings
+
+The 03 level can be affected by changing the package level variable to a new integer (1-3)
+
+	imagehelper.image_wrapper.OPTIMIZE_GIFSICLE_LEVEL = 3
+
+
+### PNG
+
+The package will try to use multiple png operators in sequence.
+
+You can disable any png operator by changing the package level variable to False
+
+	OPTIMIZE_PNGCRUSH_USE = True
+	OPTIMIZE_OPTIPNG_USE = True
+	OPTIMIZE_ADVPNG_USE = True
+
+
+#### pngcrush
+
+	pngcrush -rem alla -nofilecheck -bail -blacken -reduce -cc
+
+#### optipng
+
+	optipng -i0 -o3
+
+The optipng level can be set by setting the package level variable to a new integer (1-3)
+
+	OPTIMIZE_OPTIPNG_LEVEL = 3  # 6 would be best
+
+#### advpng
+
+	advpng -4 -z
+
+The advpng level can be set by setting the package level variable to a new integer (1-4)
+
+	OPTIMIZE_ADVPNG_LEVEL = 4  # 4 is max
+
 
 
 
 ## ToDo
 
-The resize functions ( constraint methods ) should be moved to an extensible and customizable system.
+• The resize functions (constraint methods) should be moved to an extensible and customizable system.
+• resize animated images
+• gifsicle - check output of interlace and non-interlace options
 
 
 

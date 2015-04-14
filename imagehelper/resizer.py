@@ -72,11 +72,13 @@ class ResizerConfig(object):
     resizesSchema = None
     selected_resizes = None
     optimize_original = None
+    original_allow_animated = None
     optimize_resized = None
 
     def __init__(
         self, resizesSchema=None, selected_resizes=None,
-        is_subclass=False, optimize_original=None, optimize_resized=None
+        is_subclass=False, optimize_original=None, optimize_resized=None,
+        original_allow_animated=None
     ):
         if not is_subclass:
             self.resizesSchema = resizesSchema
@@ -87,6 +89,7 @@ class ResizerConfig(object):
                 self.selected_resizes = selected_resizes
             self.optimize_original = optimize_original
             self.optimize_resized = optimize_resized
+            self.original_allow_animated = original_allow_animated
 
 
 class ResizerFactory(object):
@@ -203,6 +206,7 @@ class Resizer(object):
         selected_resizes = None,
         optimize_original = None,
         optimize_resized = None,
+        original_allow_animated = None,
     ):
         """
             Returns a dict of resized images

@@ -9,6 +9,7 @@ except:
     cStringIO = None
 import hashlib
 import os
+from PIL import ImageSequence
 
 
 class ImageErrorCodes(object):
@@ -45,6 +46,23 @@ _standardized_to_PIL_type = {
     'pdf': 'PDF',
     'png': 'PNG',
 }
+
+
+def is_image_animated(im):
+    im.seek(0)
+    try:
+        im.seek(1)
+        return True
+    except EOFError:
+        return False
+
+
+def animated_image_totalframes(im):
+    im.seek(0)
+    _frame = 0
+    for frame in ImageSequence.Iterator(im):
+        _frame = _frame + 1
+    return _frame
 
 
 def derive_output_format(format, original_format):
