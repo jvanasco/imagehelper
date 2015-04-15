@@ -340,7 +340,14 @@ in order to pass the task to celery, you will need to serialize/deserialize the 
 
 ## How are optimizations handled?
 
-Image optimizations are handled by piping the image through external programs.  The idea (and settings) were borrowed from the mac app ImageOptim https://github.com/pornel/ImageOptim
+Image optimizations are handled by piping the image through external programs.  The idea (and settings) were borrowed from the mac app ImageOptim https://github.com/pornel/ImageOptim / https://imageoptim.com/
+
+Image Optimizations are LOSSLESS
+
+Fine-grained control of image optimization strategies is achieved on a package level basis.  In the future this could be handled within configuration objects.  This strategy was chosen for 2 reasons:
+
+1. The config objects were getting complex
+2. Choosing an image optimization level is more of a "machine" concern than a "program" concern.
 
 
 ### JPEG
