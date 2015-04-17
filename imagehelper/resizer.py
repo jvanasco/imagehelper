@@ -33,8 +33,8 @@ class ResizerConfig(object):
                 'other_size_name': {...},
             }
 
-        `selected_resizes`: an array of size names (see above) t
-            o be resized
+        `selected_resizes`: an array of size names (see above) to be resized
+            if a list or tuple is supplied, it will be copied.
 
         width*
             in pixels
@@ -70,7 +70,6 @@ class ResizerConfig(object):
 
             `optimize` - True / False
 
-
     """
     resizesSchema = None
     selected_resizes = None
@@ -85,14 +84,17 @@ class ResizerConfig(object):
     ):
         if not is_subclass:
             self.resizesSchema = resizesSchema
-            if selected_resizes is None:
-                if resizesSchema is not None:
-                    self.selected_resizes = resizesSchema.keys()
-            else:
-                self.selected_resizes = selected_resizes
             self.optimize_original = optimize_original
             self.optimize_resized = optimize_resized
             self.original_allow_animated = original_allow_animated
+
+            # we want a unique list
+            if selected_resizes is None:
+                if resizesSchema is not None:
+                    selected_resizes = resizesSchema.keys()
+            else:
+                selected_resizes = selected_resizes[:]
+            self.selected_resizes = list(set(selected_resizes)) if selected_resizes else None
 
 
 class ResizerFactory(object):

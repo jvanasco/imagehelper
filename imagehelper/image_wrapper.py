@@ -295,7 +295,12 @@ class ImageWrapper(object):
                     raise errors.ImageError_Parsing(utils.ImageErrorCodes.MISSING_FILENAME_METHOD)
                 imagefile.file.seek(0)
                 file_data = imagefile.file.read()
-                file_name = imagefile.file.name
+                
+                file_name = ''
+                if hasattr(imagefile.file, 'name'):
+                    file_name = imagefile.file.name
+                elif hasattr(imagefile, 'filename'):
+                    file_name = imagefile.filename
 
                 # be kind, rewind; the input obj we no longer care about
                 # but someone else might care

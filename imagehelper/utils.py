@@ -10,7 +10,7 @@ try:
     import cStringIO
 except:
     cStringIO = None
-    
+
 # PyPi
 from PIL import ImageSequence
 

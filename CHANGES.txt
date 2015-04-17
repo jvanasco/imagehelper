@@ -1,3 +1,8 @@
+0.3.0rc7
+------------------
+* making selected_resizes mutable
+* making filename detection a bit more lenient
+
 0.3.0rc6
 ------------------
 * retooled resizer logic so that an "original" image can be independently resized
