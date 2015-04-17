@@ -1,0 +1,3 @@
+include aws.cfg.template demo.py CHANGES.txt LICENSE.txt
+recursive-include imagehelper/saver *.py
+recursive-include dir tests
