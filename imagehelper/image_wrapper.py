@@ -23,7 +23,6 @@ import types
 import envoy
 # from subprocess import call
 
-
 from . import errors
 from . import utils
 
@@ -142,6 +141,7 @@ class BasicImage(object):
         """
         if self.format_standardized not in ('jpg', 'png', 'gif'):
             return
+        log.debug("optimizing a file.  format is: %s" % self.format_standardized)
 
         FilelikePreference = None
         if isinstance(self.file, cStringIO.OutputType):

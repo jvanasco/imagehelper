@@ -1,14 +1,17 @@
 import logging
 log = logging.getLogger(__name__)
 
+# stdlib
 import base64
+import hashlib
+import os
 import StringIO
 try:
     import cStringIO
 except:
     cStringIO = None
-import hashlib
-import os
+    
+# PyPi
 from PIL import ImageSequence
 
 

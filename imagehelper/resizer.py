@@ -1,13 +1,16 @@
-import image_wrapper
-import errors
+import logging
+log = logging.getLogger(__name__)
+
+
+from . import errors
+from . import image_wrapper
+from . import utils
 
 
 try:
     from PIL import Image
 except ImportError:
     import Image
-
-from . import utils
 
 
 class ResizerConfig(object):
@@ -194,8 +197,15 @@ class Resizer(object):
                 optimize_original = self._resizerConfig.optimize_original
             else:
                 raise ValueError("no optimize_original and no self._resizerConfig")
+
         if optimize_original:
-            self._wrappedImage.basicImage.optimize()
+            # call a standardized interface
+            self.optimize_original()
+
+    def optimize_original(self):
+        """standardized inferface for optimizing"""
+        log.debug("resizer.optimize_original")
+        self._wrappedImage.basicImage.optimize()
 
     def resize(
         self,
@@ -228,6 +238,7 @@ class Resizer(object):
                 optimize_original = self._resizerConfig.optimize_original
             else:
                 raise ValueError("no optimize_original and no self._resizerConfig")
+
         if optimize_resized is None:
             if self._resizerConfig:
                 optimize_resized = self._resizerConfig.optimize_resized
@@ -248,6 +259,9 @@ class Resizer(object):
 
         if (imagefile is not None) or (imageWrapper is not None) or (file_b64 is not None):
             self.register_image_file(imagefile=imagefile, imageWrapper=imageWrapper, file_b64=file_b64, optimize_original=optimize_original)
+        else:
+            if optimize_original:
+                self.optimize_original()
 
         if not self._wrappedImage:
             raise errors.ImageError_ConfigError("Please pass in a `imagefile` if you have not set an imageFileObject yet")

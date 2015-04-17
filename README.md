@@ -432,4 +432,5 @@ The sample image is licensed under the Creative Commons Attribution-NonCommercia
 
 
 TODO:
-    TESTS!
+    More TESTS!
+	resize animated images

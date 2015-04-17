@@ -1,3 +1,7 @@
+0.3.0rc6
+------------------
+* retooled resizer logic so that an "original" image can be independently resized
+
 0.3.0rc5
 ------------------
 * adding support for image animation detection; TODO - resize animated images
