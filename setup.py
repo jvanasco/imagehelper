@@ -1,5 +1,5 @@
 import os
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 def get_docs():
@@ -28,9 +28,9 @@ setup(
     name='imagehelper',
     author='Jonathan Vanasco',
     author_email='jonathan@findmeon.com',
-    version='0.3.0rc8',
+    version='0.3.0rc9',
     url='http://github.com/jvanasco/imagehelper',
-    packages=['imagehelper'],
+    packages=find_packages(exclude=('tests',)),
     description='simple utilites for image resizing and uploading and stuff like that',
     long_description=get_docs(),
     zip_safe=False,
