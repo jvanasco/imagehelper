@@ -1,12 +1,15 @@
 import logging
 log = logging.getLogger(__name__)
 
+# stdlib
+import os
+
+# local
+from imagehelper import _io
 from imagehelper import errors
 from imagehelper import utils
 from .utils import *
 from . import _core
-
-import os
 
 
 # ==============================================================================
@@ -75,7 +78,7 @@ class _SaverCoreManager(object):
 
     def files_delete(self, files_saved, dry_run=False, ):
         """does not actually delete"""
-        for size in files_saved.keys():
+        for size in list(files_saved.keys()):
 
             # grab the stash
             (target_filename, subdir_name) = files_saved[size]
@@ -118,7 +121,7 @@ class SaverManager(_SaverCoreManager):
 
         # default to the resized images
         if selected_resizes is None:
-            selected_resizes = resizerResultset.resized.keys()
+            selected_resizes = list(resizerResultset.resized.keys())
 
         for k in selected_resizes:
             if k not in resizerResultset.resized:
@@ -148,7 +151,7 @@ class SaverManager(_SaverCoreManager):
 
         # default to the resized images
         if selected_resizes is None:
-            selected_resizes = resizerResultset.resized.keys()
+            selected_resizes = list(resizerResultset.resized.keys())
 
         # quickly validate
         selected_resizes = self._validate__selected_resizes(
@@ -218,7 +221,16 @@ class SaverManager(_SaverCoreManager):
 
                 if not dry_run:
                     # upload
-                    open(target_file, 'w').write(resizerResultset.resized[size].file.getvalue())
+                    try:
+                        # so in py2 we are cStringIO.StringO
+                        # but in py3 we are tempfile.SpooledTemporaryFile
+                        with open(target_file, _io.FileWriteArgs) as _fh:
+                            _fh.write(resizerResultset.resized[size].file.getvalue())
+
+                    except Exception as exc:
+                        import pdb
+                        pdb.set_trace()
+                        raise
 
                     # log to external plugin too
                     if self._saverLogger:
@@ -244,7 +256,8 @@ class SaverManager(_SaverCoreManager):
 
                 if not dry_run:
                     # upload
-                    open(target_file, 'w').write(resizerResultset.original.file.getvalue())
+                    with open(target_file, _io.FileWriteArgs) as _fh:
+                        _fh.write(resizerResultset.original.file.getvalue())
 
                     # log to external plugin too
                     if self._saverLogger:
@@ -289,7 +302,8 @@ class SaverSimpleAccess(_SaverCoreManager):
 
             if not dry_run:
                 # upload
-                open(target_file, 'w').write(resizerResultset.resized[size].file.getvalue())
+                with open(target_file, _io.FileWriteArgs) as _fh:
+                    _fh.write(resizerResultset.resized[size].file.getvalue())
 
                 # log to external plugin too
                 if self._saverLogger:

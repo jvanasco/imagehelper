@@ -5,14 +5,16 @@ log = logging.getLogger(__name__)
 import base64
 import hashlib
 import os
-import StringIO
-try:
-    import cStringIO
-except:
-    cStringIO = None
 
 # PyPi
+import six
 from PIL import ImageSequence
+
+# local
+from . import _io
+
+
+# ==============================================================================
 
 
 class ImageErrorCodes(object):
@@ -49,6 +51,9 @@ _standardized_to_PIL_type = {
     'pdf': 'PDF',
     'png': 'PNG',
 }
+
+
+# ==============================================================================
 
 
 def is_image_animated(im):
@@ -135,10 +140,10 @@ def file_b64(fileobj):
 
 def b64_decode_to_file(coded_string):
     decoded_data = base64.b64decode(coded_string)
-    if cStringIO is not None:
-        fileobj = cStringIO.StringIO()
+    if _io.cStringIO:
+        fileobj = _io.cStringIO.StringIO()
     else:
-        fileobj = StringIO.StringIO()
+        fileobj = _io.StringIO()
     fileobj.write(decoded_data)
     fileobj.seek(0)
     return fileobj

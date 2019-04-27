@@ -10,8 +10,15 @@ try:
     import boto
     import boto.s3
     import boto.s3.bucket
-except:
+except ImportError:
     boto = None
+
+
+class NoBoto(ImportError):
+    pass
+
+
+NO_BOTO = NoBoto("`boto` was not available for import")
 
 
 # ==============================================================================
@@ -114,6 +121,8 @@ class _SaverCoreManager(object):
     def s3_connection(self):
         """property that memoizes the connection"""
         if self._s3Connection is None:
+            if boto is None:
+                raise NO_BOTO
             self._s3Connection = boto.connect_s3(self._saverConfig.key_public, self._saverConfig.key_private)
         return self._s3Connection
 
@@ -121,6 +130,9 @@ class _SaverCoreManager(object):
     def s3_buckets(self):
         """property that memoizes the s3 buckets"""
         if self._s3_buckets is None:
+            if boto is None:
+                raise NO_BOTO
+
             # memoize the buckets
 
             # create our bucket list
@@ -236,7 +248,7 @@ class SaverManager(_SaverCoreManager):
 
         # default to the resized images
         if selected_resizes is None:
-            selected_resizes = resizerResultset.resized.keys()
+            selected_resizes = list(resizerResultset.resized.keys())
 
         for k in selected_resizes:
 
@@ -287,7 +299,7 @@ class SaverManager(_SaverCoreManager):
 
         # default to the resized images
         if selected_resizes is None:
-            selected_resizes = resizerResultset.resized.keys()
+            selected_resizes = list(resizerResultset.resized.keys())
 
         # quickly validate
         selected_resizes = self._validate__selected_resizes(
@@ -354,6 +366,9 @@ class SaverManager(_SaverCoreManager):
                 default = `False`
                 should we just pretend to upload
         """
+        if boto is None:
+            raise NO_BOTO
+
         if guid is None:
             raise errors.ImageError_ArgsError("""You must supply a `guid` for
             the image. this is used""")
@@ -474,6 +489,9 @@ class SaverSimpleAccess(_SaverCoreManager):
     def file_save(self, bucket_name, filename, wrappedFile, upload_type="public", dry_run=False, ):
         if upload_type not in ("public", "archive"):
             raise ValueError("upload_type must be `public` or `archive`")
+
+        if boto is None:
+            raise NO_BOTO
 
         s3_buckets = self.s3_buckets
         files_saved = {}

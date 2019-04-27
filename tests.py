@@ -1,8 +1,19 @@
-import imagehelper
+from __future__ import print_function
 
+# stdlib
 import unittest
-import ConfigParser
-import cStringIO
+import pdb
+
+# pypi
+import six
+from six.moves import configparser
+
+# local
+import imagehelper
+from imagehelper import _io
+
+
+# ------------------------------------------------------------------------------
 
 
 resizesSchema = {
@@ -48,19 +59,21 @@ _img = None
 def get_imagefile():
     global _img
     if _img is None:
-        img = open('tests/henry.jpg', 'r')
+        # py3-  r= _io.TextIOWrapper
+        # py3-  rb= _io.BufferedReader
+        img = open('tests/henry.jpg', _io.FileReadArgs)
         img.seek(0)
         data = img.read()
         img.close()
-        img2 = cStringIO.StringIO()
-        img2.write(data)
-        _img = img2
+        imgMemory = _io._DefaultMemoryType()
+        imgMemory.write(data)
+        _img = imgMemory
     _img.seek(0)
     return _img
 
 
 def newSaverConfig():
-    Config = ConfigParser.ConfigParser()
+    Config = configparser.ConfigParser()
     Config.read('aws.cfg')
     AWS_KEY_PUBLIC = Config.get('aws', 'AWS_KEY_PUBLIC')
     AWS_KEY_SECRET = Config.get('aws', 'AWS_KEY_SECRET')
@@ -82,7 +95,7 @@ def newSaverConfig():
 
 
 def newSaverConfig_Localfile():
-    Config = ConfigParser.ConfigParser()
+    Config = configparser.ConfigParser()
     Config.read('aws.cfg')
     AWS_KEY_PUBLIC = Config.get('aws', 'AWS_KEY_PUBLIC')
     AWS_KEY_SECRET = Config.get('aws', 'AWS_KEY_SECRET')
@@ -117,12 +130,14 @@ def newSaverLogger():
 class CustomSaverLogger(imagehelper.saver.s3.SaverLogger):
 
     def log_save(self, bucket_name=None, key=None, file_size=None, file_md5=None):
-        print "CustomSaverLogger.log_save"
-        print "\t %s, %s, %s, %s" % (bucket_name, key, file_size, file_md5)
+        # todo: change to logger and/or mock
+        print("CustomSaverLogger.log_save")
+        print("\t %s, %s, %s, %s" % (bucket_name, key, file_size, file_md5))
 
     def log_delete(self, bucket_name=None, key=None):
-        print "CustomSaverLogger.log_delete"
-        print "\t %s, %s" % (bucket_name, key)
+        # todo: change to logger and/or mock
+        print ("CustomSaverLogger.log_delete")
+        print ("\t %s, %s" % (bucket_name, key))
 
 
 class TestResize(unittest.TestCase):

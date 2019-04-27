@@ -1,4 +1,5 @@
 from imagehelper import utils
+from six import string_types
 
 
 def check_archive_original(resizerResultset, archive_original=None):
@@ -50,7 +51,7 @@ def derive_format(size, resizerResultset, instructions, ):
     _format = instructions['format']
     if _format.lower() in ('auto', 'original', ):
         # if we used a FakeResultSet to generate the filenames, then the resized will be a string of the suffix
-        if not isinstance(resizerResultset.resized[size], (str, unicode)):
+        if not isinstance(resizerResultset.resized[size], string_types):
             _format = resizerResultset.resized[size].format
         else:
             _format = resizerResultset.resized[size]

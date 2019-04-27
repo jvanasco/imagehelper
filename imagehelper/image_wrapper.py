@@ -3,37 +3,47 @@ from __future__ import division
 import logging
 log = logging.getLogger(__name__)
 
+# stdlib
+import cgi
+import tempfile
 
+# PyPi
+import six
 try:
     from PIL import Image
 except ImportError:
-    raise ValueError("ugh")
-    import Image
-
-
-import cgi
-try:
-    import cStringIO
-except:
-    cStringIO = None
-import StringIO
-import tempfile
-import types
-
+    raise ValueError("Image is required")
 import envoy
 # from subprocess import call
 
+
+# local
 from . import errors
 from . import utils
+from . import _io
+
+
+# ==============================================================================
 
 
 USE_THUMBNAIL = False
 
-_valid_types = [cgi.FieldStorage, types.FileType, StringIO.StringIO, tempfile.SpooledTemporaryFile]
-_valid_types_nameless = [StringIO.StringIO, tempfile.SpooledTemporaryFile]
-if cStringIO is not None:
-    _valid_types.extend((cStringIO.InputType, cStringIO.OutputType, ))
-    _valid_types_nameless.extend((cStringIO.InputType, cStringIO.OutputType, ))
+_valid_types = [cgi.FieldStorage,
+                _io._CoreFileType,
+                _io.StringIO,
+                tempfile.SpooledTemporaryFile,
+                ]
+_valid_types_nameless = [_io.StringIO,
+                         tempfile.SpooledTemporaryFile,
+                         ]
+if _io.cStringIO:
+    # this only happens in Python2
+    _valid_types.extend((_io.cStringIO.InputType,
+                         _io.cStringIO.OutputType,
+                         ))
+    _valid_types_nameless.extend((_io.cStringIO.InputType,
+                                  _io.cStringIO.OutputType,
+                                  ))
 
 _valid_types = tuple(_valid_types)
 _valid_types_nameless = tuple(_valid_types_nameless)
@@ -46,6 +56,9 @@ OPTIMIZE_OPTIPNG_USE = True
 OPTIMIZE_OPTIPNG_LEVEL = 3  # 6 would be best
 OPTIMIZE_ADVPNG_USE = True
 OPTIMIZE_ADVPNG_LEVEL = 4  # 4 is max
+
+
+# ==============================================================================
 
 
 class BasicImage(object):
@@ -143,11 +156,11 @@ class BasicImage(object):
             return
         log.debug("optimizing a file.  format is: %s" % self.format_standardized)
 
-        FilelikePreference = None
-        if isinstance(self.file, cStringIO.OutputType):
-            FilelikePreference = cStringIO.StringIO
-        else:
-            FilelikePreference = tempfile.SpooledTemporaryFile
+        FilelikePreference = _io._FallbackFileType
+        if _io.cStringIO:
+            # only in Python2
+            if isinstance(self.file, _io.cStringIO.OutputType):
+                FilelikePreference = _io.cStringIO.StringIO
 
         # we need to write the image onto the disk with an infile and outfile
         # this does suck.
@@ -167,6 +180,9 @@ class BasicImage(object):
 
         # we need this for filesavings
         filesize_original = utils.file_size(fileInput)
+        
+        # we're done with it. explcicitly close
+        fileInput.close()
 
         _optimized = False
         if self.format_standardized == 'jpg':
@@ -218,6 +234,9 @@ class BasicImage(object):
         newFile.seek(0)
         self.file = newFile
         self.is_optimized = True
+        
+        # done with this one
+        fileOutput.close()
 
         # so how much did we save?
         filesize_optimized = utils.file_size(newFile)
@@ -258,27 +277,34 @@ class ImageWrapper(object):
     def get_original(self):
         return self.basicImage
 
+    def __del__(self):
+        if self.pilObject is not None:
+            self.pilObject.close()
+
     def __init__(self, imagefile=None, imagefile_name=None, FilelikePreference=None, ):
-        """registers and validates the image file
-            note that we do copy the image file
+        """
+        registers and validates the image file
+        note that we do copy the image file
 
-            args:
+        args:
 
-            `imagefile`
-                    cgi.FieldStorage
-                    types.FileType
-                    StringIO.StringIO, cStringIO.InputType, cStringIO.OutputType
-                    tempfile.TemporaryFile, tempfile.SpooledTemporaryFile
+        `imagefile`
+                cgi.FieldStorage
+                _io._CoreFileType = file  # Python2 Only
+                _io._CoreFileType = io.IOBase  # Python3 Only
+                _io.StringIO.StringIO  # StringIO.StringIO Py3=io.StringIO
+                    _io.cStringIO.InputType  # Python2 Only
+                    _io.cStringIO.OutputType # Python2 Only
+                tempfile.TemporaryFile, tempfile.SpooledTemporaryFile
 
-            `imagefile_name`
-                only used for informational purposes
+        `imagefile_name`
+            only used for informational purposes
 
-            `FilelikePreference`
-                preference class for filelike objects
-                    cStringIo
-                    StringIO
-                    tempfile.SpooledTemporaryFile
-
+        `FilelikePreference`
+            preference class for filelike objects
+                _io.cStringIo  # Python2 Only
+                _io.StringIO  # Py2=StringIO.StringIO Py3=io.StringIO
+                tempfile.SpooledTemporaryFile
         """
         if imagefile is None:
             raise errors.ImageError_MissingFile(utils.ImageErrorCodes.MISSING_FILE)
@@ -295,7 +321,7 @@ class ImageWrapper(object):
                     raise errors.ImageError_Parsing(utils.ImageErrorCodes.MISSING_FILENAME_METHOD)
                 imagefile.file.seek(0)
                 file_data = imagefile.file.read()
-                
+
                 file_name = ''
                 if hasattr(imagefile.file, 'name'):
                     file_name = imagefile.file.name
@@ -315,11 +341,14 @@ class ImageWrapper(object):
                 # but someone else might care
                 imagefile.seek(0)
 
-            elif isinstance(imagefile, types.FileType):
+            elif isinstance(imagefile, _io._CoreFileType):
                 # catch this last
                 imagefile.seek(0)
                 file_data = imagefile.read()
-                file_name = imagefile.name
+                # default
+                file_name = imagefile_name
+                if hasattr(imagefile, 'name'):  # Py3 object may not have this
+                    file_name = imagefile.name
                 if file_name == '<fdopen>':
                     file_name = imagefile_name or ''
 
@@ -333,10 +362,10 @@ class ImageWrapper(object):
                 raise errors.ImageError_Parsing(utils.ImageErrorCodes.UNSUPPORTED_IMAGE_CLASS)
 
             if FilelikePreference is None:
-                if cStringIO is not None:
-                    FilelikePreference = cStringIO.StringIO
+                if _io.cStringIO:
+                    FilelikePreference = _io.cStringIO.StringIO
                 else:
-                    FilelikePreference = tempfile.SpooledTemporaryFile
+                    FilelikePreference = _io._FallbackFileType
 
             # create a new image
             # and stash our data!
@@ -370,7 +399,7 @@ class ImageWrapper(object):
             raise
             raise errors.ImageError_Parsing(utils.ImageErrorCodes.INVALID_FILETYPE)
 
-        except errors.ImageError, e:
+        except errors.ImageError as e:
             raise
 
         except Exception as e:
@@ -381,9 +410,9 @@ class ImageWrapper(object):
 
         be warned - this uses a bit of memory!
 
-        1. we operate on a copy of the pilObject via cStringIo
+        1. we operate on a copy of the pilObject via _io.cStringIo
             (which is already a copy of the original)
-        2. we save to another new cStringIO 'file'
+        2. we save to another new _io.cStringIO 'file'
 
         valid `constraint-method` for `instructions_dict`
 
@@ -429,10 +458,10 @@ class ImageWrapper(object):
         """
 
         if FilelikePreference is None:
-            if cStringIO is not None:
-                FilelikePreference = cStringIO.StringIO
+            if _io.cStringIO:
+                FilelikePreference = _io.cStringIO.StringIO
             else:
-                FilelikePreference = tempfile.SpooledTemporaryFile
+                FilelikePreference = _io._FallbackFileType
 
         # we analyze the pilObject, because `copy()` only works on the frame
         if utils.is_image_animated(self.pilObject):

@@ -1,16 +1,19 @@
 import logging
 log = logging.getLogger(__name__)
 
-
+# stdlib
 from . import errors
 from . import image_wrapper
 from . import utils
 
-
+# PyPi
 try:
     from PIL import Image
 except ImportError:
-    import Image
+    raise ValueError('')
+
+
+# ==============================================================================
 
 
 class ResizerConfig(object):
@@ -91,7 +94,7 @@ class ResizerConfig(object):
             # we want a unique list
             if selected_resizes is None:
                 if resizesSchema is not None:
-                    selected_resizes = resizesSchema.keys()
+                    selected_resizes = list(resizesSchema.keys())
             else:
                 selected_resizes = selected_resizes[:]
             self.selected_resizes = list(set(selected_resizes)) if selected_resizes else None

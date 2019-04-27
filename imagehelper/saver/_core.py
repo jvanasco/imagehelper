@@ -28,12 +28,13 @@ class SaverManagerFactory(object):
 class _SaverCoreManager(object):
 
     def files_delete(self, files_saved, dry_run=False, ):
-        """workhorse for deletion
+        """
+        workhorse for deletion
 
-            `files_saved`
-                `dict`
-                format =
-                    files_saved[size] = (target_filename, bucket_name)
+        `files_saved`
+            `dict`
+            format =
+                files_saved[size] = (target_filename, bucket_name)
         """
         pass
 

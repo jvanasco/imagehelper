@@ -2,6 +2,9 @@ import logging
 log = logging.getLogger(__name__)
 
 
+# ==============================================================================
+
+
 class ImageError(Exception):
     """Base class for Exceptions"""
     pass

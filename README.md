@@ -1,16 +1,18 @@
 #### IMPORTANT Note:
 
-This package is in the process of being largely rewritten....
+This package was in the process of being largely rewritten... It really needs to be rewritten, but is production safe
 
 ## About
 
-`imagehelper` is a fork of some image helping routines that were built at FindMeOn a while back.
+`imagehelper` is a fork of some image helping routines that were built for FindMeOn.com around 2005.
 
 `imagehelper` allows you to define a schema for resizing images as a simple `dict`, and will then easily resize them.
 
 `imagehelper` also supports uploading the resized images - and an archival version - onto amazon's s3.
 
-`imagehelper` will try to use `Pillow` but fall back on `PIL` if that is unavailable.  it will try to import `boto` for communicating with s3.  If you don't want to use s3, no worries.
+`imagehelper` requires `Pillow`. Earlier versions relied on `PIL` or supported both. This is an old package.
+
+it will try to import `boto` for communicating with s3.  If you don't want to use s3, no worries.
 
 The package was originally aimed at thumbnails, but it works for all resizing needs that are aimed at downsampling images.
 
@@ -24,7 +26,9 @@ The package is a bit awkard to use for a single task, but it was designed for re
 
 A typical usage is illustrated in the sections below.
 
-This is still in Beta.
+This is still in Beta, but has been production safe.
+
+It supports Python2.7 and Python3.  A lot of things could be done better and should be done better, but this works and is fast.
 
 
 ## Why ?
@@ -413,9 +417,7 @@ The advpng level can be set by setting the package level variable to a new integ
 
 ## ToDo
 
-• The resize functions (constraint methods) should be moved to an extensible and customizable system.
-• resize animated images
-• gifsicle - check output of interlace and non-interlace options
+See the Todo file
 
 
 
