@@ -20,6 +20,8 @@ If you have applications like `gifsicle`, `pngcrush` and `jpegtran` installed in
 
 This is a barebones package that has NO FRAMEWORK DEPENDENCIES - which is a good thing.  You define a dict, it does the rest.
 
+This package also tries to avoid writing to disk whenever possible, tempfiles (spooled) are avoided unless an external program is called. this tries to pipe everything through file-like in-memory objects
+
 I could only find a single tool for resizing thumbnails on PyPi that did not require a framework, and that's really annoying.
 
 The package is a bit awkard to use for a single task, but it was designed for repetitive tasks - as in a web application.
@@ -28,7 +30,7 @@ A typical usage is illustrated in the sections below.
 
 This is still in Beta, but has been production safe.
 
-It supports Python2.7 and Python3.  A lot of things could be done better and should be done better, but this works and is fast.
+It supports Python2.7 and Python3.  A lot of things could be done better and should be done better, but this works and is relatively fast.
 
 
 ## Why ?

@@ -1,5 +1,6 @@
 TODO
-• The resize functions (constraint methods) should be moved to an extensible and customizable system.
-• resize animated images
-• gifsicle - check output of interlace and non-interlace options
-• testing instructions
+* The resize functions (constraint methods) should be moved to an extensible and customizable system.
+* resize animated images
+* gifsicle - check output of interlace and non-interlace options
+* testing instructions
+* dealing with files/filelike objects was an "elegant hack" under python2. with python3 support it is messy and might not have the expected results.
