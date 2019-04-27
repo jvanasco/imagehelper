@@ -180,7 +180,8 @@ class _SaverCoreManager(object):
         # setup the s3 connection
         s3_buckets = self.s3_buckets
 
-        for size in files_saved.keys():
+        # convert to a list, because we delete the items from the dict
+        for size in list(files_saved.keys()):
 
             # grab the stash
             (target_filename, bucket_name) = files_saved[size]

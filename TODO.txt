@@ -2,3 +2,4 @@ TODO
 • The resize functions (constraint methods) should be moved to an extensible and customizable system.
 • resize animated images
 • gifsicle - check output of interlace and non-interlace options
+• testing instructions

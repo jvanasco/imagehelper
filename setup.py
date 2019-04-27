@@ -31,6 +31,7 @@ def get_docs():
 
 
 requires = [
+    "certifi",
     "envoy",
     'six',
     "Pillow",
