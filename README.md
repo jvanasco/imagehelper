@@ -16,7 +16,7 @@ it will try to import `boto` for communicating with s3.  If you don't want to us
 
 The package was originally aimed at thumbnails, but it works for all resizing needs that are aimed at downsampling images.
 
-If you have applications like `gifsicle`, `pngcrush` and `jpegtran` installed in your environment, you can 'optimize' the output (and archive) files.
+If you have optimization applications like `gifsicle`, `pngcrush` and `jpegtran` installed in your environment, you can 'optimize' the output (and archive) files.
 
 This is a barebones package that has NO FRAMEWORK DEPENDENCIES - which is a good thing.  You define a dict, it does the rest.
 
@@ -26,7 +26,7 @@ I could only find a single tool for resizing thumbnails on PyPi that did not req
 
 The package is a bit awkard to use for a single task, but it was designed for repetitive tasks - as in a web application.
 
-A typical usage is illustrated in the sections below.
+A typical usage is illustrated in the sections below.  Also check the `demo.py` file to see how neat it can be
 
 This is still in Beta, but has been production safe.
 
@@ -348,12 +348,35 @@ in order to pass the task to celery, you will need to serialize/deserialize the 
 
 Image optimizations are handled by piping the image through external programs.  The idea (and settings) were borrowed from the mac app ImageOptim https://github.com/pornel/ImageOptim / https://imageoptim.com/
 
-Image Optimizations are LOSSLESS
+The default image Optimizations are LOSSLESS
 
 Fine-grained control of image optimization strategies is achieved on a package level basis.  In the future this could be handled within configuration objects.  This strategy was chosen for 2 reasons:
 
 1. The config objects were getting complex
 2. Choosing an image optimization level is more of a "machine" concern than a "program" concern.
+
+Not everyone has every program installed on their machines
+
+`imagehelper` will attempt to autodetect what is available on the first invocation of `.optimize`
+
+if you are on a forking server, you can do this before the fork and save yourself a tiny bit of cpu cycles. yay.
+
+	import imagehelper
+	imagehelper.image_wrapper.autodetect_support()
+
+The `autodetect_support` routing will set 
+
+	imagehelper.image_wrapper[ program ]['available']
+
+if you want to enable/disable them manuall, just edit
+
+	imagehelper.image_wrapper[ program ]['use']
+
+you can also set a custom binary
+
+	imagehelper.image_wrapper[ program ]['binary']
+
+autodetection is handled by invoking each program's help command to see if it is installed
 
 
 ### JPEG
