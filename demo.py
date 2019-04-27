@@ -1,12 +1,22 @@
-import ConfigParser
-import cStringIO
-import imagehelper
+from __future__ import print_function
+
+# stdlib
+import pprint
+import pdb
 import os
 import uuid
 
+# pypi
+from six.moves import configparser
+
+# local
+import imagehelper
+from imagehelper import _io
+
+
 # ------------------------------------------------------------------------------
 
-Config = ConfigParser.ConfigParser()
+Config = configparser.ConfigParser()
 Config.read('aws.cfg')
 AWS_KEY_PUBLIC = Config.get('aws', 'AWS_KEY_PUBLIC')
 AWS_KEY_SECRET = Config.get('aws', 'AWS_KEY_SECRET')
@@ -98,12 +108,12 @@ resizesSchema_alt = {
 class CustomSaverLogger(imagehelper.saver.s3.SaverLogger):
 
     def log_save(self, bucket_name=None, key=None, file_size=None, file_md5=None):
-        print "CustomSaverLogger.log_save"
-        print "\t %s, %s, %s, %s" % (bucket_name, key, file_size, file_md5)
+        print("CustomSaverLogger.log_save")
+        print("\t %s, %s, %s, %s" % (bucket_name, key, file_size, file_md5))
 
     def log_delete(self, bucket_name=None, key=None):
-        print "CustomSaverLogger.log_delete"
-        print "\t %s, %s" % (bucket_name, key)
+        print("CustomSaverLogger.log_delete")
+        print("\t %s, %s" % (bucket_name, key))
 
 
 saverLogger = CustomSaverLogger()
@@ -125,13 +135,13 @@ _img = None
 def get_imagefile():
     global _img
     if _img is None:
-        img = open('tests/henry.jpg', 'r')
+        img = open('tests/henry.jpg', _io.FileReadArgs)
         img.seek(0)
         data = img.read()
         img.close()
-        img2 = cStringIO.StringIO()
-        img2.write(data)
-        _img = img2
+        imgMemory = _io._DefaultMemoryType()
+        imgMemory.write(data)
+        _img = imgMemory
     _img.seek(0)
     return _img
 
@@ -141,6 +151,7 @@ guid = '123'
 
 def demo_direct():
     "demo calling direct methods"
+    print(">>> demo_direct | start")
 
     resizer = resizerFactory.resizer()
 
@@ -158,11 +169,14 @@ def demo_direct():
     resizer = resizerFactory.resizer(imagefile=get_imagefile())
     resizedImages = resizer.resize()
 
-    print resizedImages
+    print(". resized the image. report follows:")
+    pprint.pprint(resizedImages.__dict__)
+    print("<<< demo_direct | done")
 
 
 def demo_factory():
     "demo calling factory methods"
+    print(">>> demo_factory | start")
 
     # resize !
     resizer = resizerFactory.resizer(imagefile=get_imagefile())
@@ -171,14 +185,17 @@ def demo_factory():
     if not os.path.exists('tests/output'):
         os.makedirs('tests/output')
     for k in resizedImages.resized.keys():
-        open('tests/output/%s.%s' % (k, resizesSchema[k]['format']), "w").write(resizedImages.resized[k].file.getvalue())
+        _filename = 'tests/output/%s.%s' % (k, resizesSchema[k]['format'])
+        print(". writing %s" % _filename)
+        open(_filename, _io.FileWriteArgs).write(resizedImages.resized[k].file.getvalue())
 
     resizedImages.original.optimize()
-    open('tests/output/original.png', "w").write(resizedImages.original.file.getvalue())
-
+    open('tests/output/original.png', _io.FileWriteArgs).write(resizedImages.original.file.getvalue())
+    print("<<< demo_factory | done")
 
 def demo_s3():
     "demo s3 uploading"
+    print(">>> demo_s3 | start")
 
     resizer = resizerFactory.resizer(imagefile=get_imagefile())
     resizedImages = resizer.resize()
@@ -186,14 +203,16 @@ def demo_s3():
     # upload the resized items
     uploader = imagehelper.saver.s3.SaverManager(saverConfig=saverConfig, resizerConfig=resizerConfig, saverLogger=saverLogger)
     uploaded = uploader.files_save(resizedImages, guid)
-    print "uploaded! %s" % uploaded
+    print(". uploaded! %s" % uploaded)
 
     deleted = uploader.files_delete(uploaded)
-    print "deleted! %s" % deleted
+    print(". deleted! %s" % deleted)
+    print("<<< demo_s3 | done")
 
 
 def demo_s3_alt():
     "demo s3 uploading"
+    print(">>> demo_s3_alt | start")
 
     resizer = resizerFactory.resizer(imagefile=get_imagefile())
     resizedImages = resizer.resize()
@@ -201,18 +220,30 @@ def demo_s3_alt():
     # upload the resized items
     uploader = imagehelper.saver.s3.SaverManager(saverConfig=saverConfig, resizerConfig=resizerConfig, saverLogger=saverLogger)
     uploaded_original = uploader.files_save(resizedImages, guid, selected_resizes=[], archive_original=True)
-    print "uploaded_original! %s" % uploaded_original
+    print(". uploaded_original! %s" % uploaded_original)
 
     uploaded_resizes = uploader.files_save(resizedImages, guid, archive_original=False)
-    print "uploaded_resizes! %s" % uploaded_resizes
+    print(". uploaded_resizes! %s" % uploaded_resizes)
 
     uploaded_all = dict(uploaded_original.items() + uploaded_resizes.items())
 
     deleted = uploader.files_delete(uploaded_all)
-    print "deleted! %s" % deleted
+    print(". deleted! %s" % deleted)
+    print("<<< demo_s3_alt | done")
+
+
+def _print_ResizedImages(resizedImages):
+    print(". resizedImages report: ")
+    print(".. original file_md5:", resizedImages.original.file_md5)
+    print(".. original file_size:", resizedImages.original.file_size)
+    print(".. for the resizes...")
+    print(".. resize | file_size |  file_md5")
+    for k in resizedImages.resized.keys():
+        print(". ", k, "|", resizedImages.resized[k].file_size, "|", resizedImages.resized[k].file_md5)
 
 
 def demo_alt_resizing():
+    print(">>> demo_alt_resizing | start")
 
     resizerConfig = imagehelper.resizer.ResizerConfig(
         resizesSchema=resizesSchema_alt,
@@ -222,26 +253,33 @@ def demo_alt_resizing():
 
     # build a factory & resize
     resizerFactory = imagehelper.resizer.ResizerFactory(resizerConfig=resizerConfig)
-    resizedImages = resizerFactory.resize(imagefile=get_imagefile())
+
+    # not a big difference here...
+    # usually we would call
+    # - resizedImages = resizerFactory.resizer(imagefile=get_imagefile()).resize()
+    # but instead we are deferring the imagefile into the resize() function
+    resizedImages = resizerFactory.resizer().resize(imagefile=get_imagefile())
+    for k in resizedImages.resized.keys():
+        print(". ", k, resizedImages.resized[k].file_size, resizedImages.resized[k].file_md5)
+    _print_ResizedImages(resizedImages)
+
+    print("<<< demo_alt_resizing | done")
 
 
 def demo_md5():
     "demo file md5"
+    print(">>> demo_md5 | start")
 
     # resize !
     resizer = resizerFactory.resizer(imagefile=get_imagefile())
     resizedImages = resizer.resize()
-
-    print resizedImages
-    for k in resizedImages.resized.keys():
-        print resizedImages.resized[k].file_md5
-
-    print resizedImages.original.file_md5
-    print resizedImages.original.file_size
+    _print_ResizedImages(resizedImages)
+    print("<<< demo_md5 | done")
 
 
 def demo_serialze():
-    "demo file serialize"
+    "demo file serialize, this just looks creating a file from a b64 encoding"
+    print(">>> demo_serialze | start")
 
     # resize !
     resizer = resizerFactory.resizer(imagefile=get_imagefile())
@@ -250,16 +288,17 @@ def demo_serialze():
     file_b64 = resizer.get_original().file_b64
 
     resizer = resizerFactory.resizer(file_b64 = file_b64)
+    print("<<< demo_serialze | done")
 
 
-if True:
-    pass
-    demo_factory()
+demo_alt_resizing()
+demo_factory()
+demo_direct()
+demo_md5()
 
-if False:
-    pass
-    demo_direct()
+if AWS_KEY_PUBLIC:
     demo_s3()
     demo_s3_alt()
-    demo_md5()
-    demo_serialze()
+else:
+    print("no AWS_KEY_PUBLIC set, not running s3 ")
+    

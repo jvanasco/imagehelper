@@ -49,13 +49,90 @@ _valid_types = tuple(_valid_types)
 _valid_types_nameless = tuple(_valid_types_nameless)
 
 
-OPTIMIZE_JPEG_PROGRESSIVE = True
-OPTIMIZE_GIFSICLE_LEVEL = 3
-OPTIMIZE_PNGCRUSH_USE = True
-OPTIMIZE_OPTIPNG_USE = True
-OPTIMIZE_OPTIPNG_LEVEL = 3  # 6 would be best
-OPTIMIZE_ADVPNG_USE = True
-OPTIMIZE_ADVPNG_LEVEL = 4  # 4 is max
+# ==============================================================================
+
+
+# these are set to True by imagehelper/__init__.py on import
+_OPTIMIZE_SUPPORT_DETECTED = None
+OPTIMIZE_SUPPORT = {
+    'advpng': {'available': None,
+               'use': True,
+               'options': {'level': 4,  # 4 is max
+                           },
+               'binary': None,
+               '*autodetect_args': '--help',
+               },
+    'gifsicle': {'available': None,
+                 'use': True,
+                 'options': {'level': 3,
+                             },
+                 'binary': None,
+                 '*autodetect_args': '--help',
+                 },
+    'jpegtran': {'available': None,
+                 'use': True,
+                 'options': {'progressive': True,
+                             },
+                 'binary': None,
+                 '*autodetect_args': '--help',
+                 },
+    'jpegoptim': {'available': None,
+                  'use': True,
+                  'binary': None,
+                  '*autodetect_args': '--help',
+                  },
+    'optipng': {'available': None,
+                'use': True,
+                'options': {'level': 3,  # 6 would be best
+                            },
+                'binary': None,
+                '*autodetect_args': '--help',
+                },
+    'pngcrush': {'available': None,
+                 'use': True,
+                 'binary': None,
+                 '*autodetect_args': '--help',
+                 },
+
+}
+
+
+def autodetect_support(test_libraries=None):
+    """
+    ``test_libraries`` should be a list of keys in the OPTIMIZE_SUPPORT list
+    if not supplied, all will be tested
+    this only needs to be done once per application
+    
+    it tests if a program exists by invoking the `help` subcommand for
+    each shell command. this runs relatively quickly, but calls multiple
+    external programs. Python3 has `shutil.which` but this library supports
+    Python2
+    
+    if you have a forking application, you should run before forking:
+    
+        import imagehelper
+        imagehelper.image_wrapper.autodetect_support()
+    
+    otherwise, the first invocation of .optimize() will cause this to run
+    once run, `_OPTIMIZE_SUPPORT_DETECTED` will be set, blocking further
+    autodetections
+    """
+    log.debug("autodetect_support")
+    if test_libraries is None:
+        test_libraries = list(OPTIMIZE_SUPPORT.keys())
+    for library in test_libraries:
+        _binary = OPTIMIZE_SUPPORT[library]['binary'] or library
+        result = envoy.run("""%s %s""" % (_binary, OPTIMIZE_SUPPORT[library]['*autodetect_args']))
+        if result.status_code == 1:
+            log.debug('   available:    %s', library)
+            OPTIMIZE_SUPPORT[library]['available'] = True
+        elif result.status_code == 127:
+            log.debug('!!! unavailable: %s', library)
+            OPTIMIZE_SUPPORT[library]['available'] = False
+        else:
+            log.debug('xxx unsupported code: %s : %s', library, result.status_code)
+            # leave None for every other code
+    _OPTIMIZE_SUPPORT_DETECTED = True
 
 
 # ==============================================================================
@@ -112,10 +189,15 @@ class BasicImage(object):
         self.mode = mode
         self.width = width
         self.height = height
-        self.is_optimized = False
         self.optimization_savings = 0
         self.is_image_animated = is_image_animated
         self.animated_image_totalframes = animated_image_totalframes
+
+    # `None` by default; `True` if `optimize` successful; `False` if it failed
+    is_optimized = None
+
+    # `None` by default. If `optimize` is run, it becomes a list of external tool + status
+    optimizations = None
 
     @property
     def file_size(self):
@@ -173,77 +255,119 @@ class BasicImage(object):
         else:
             raise ValueError("not sure what to do")
         fileInput.seek(0)
-        fileOutput = tempfile.NamedTemporaryFile()
+        fileOutput = tempfile.NamedTemporaryFile()  # keep this open for the next block
 
         _fname_input = fileInput.name
         _fname_output = fileOutput.name
 
         # we need this for filesavings
         filesize_original = utils.file_size(fileInput)
-        
-        # we're done with it. explcicitly close
-        fileInput.close()
+
+        # run the autodetect
+        if not _OPTIMIZE_SUPPORT_DETECTED:
+            autodetect_support()
 
         _optimized = False
+        optimizations = []
         if self.format_standardized == 'jpg':
+        
+            if OPTIMIZE_SUPPORT['jpegtran']['available'] and OPTIMIZE_SUPPORT['jpegtran']['use']:
+                _binary = OPTIMIZE_SUPPORT['jpegtran']['binary'] or 'jpegtran'
+                _progressive = '-progressive' if OPTIMIZE_SUPPORT['jpegtran']['options']['progressive'] else ''
+                r = envoy.run("""%s -copy all -optimize %s -outfile %s %s""" % (_binary, _progressive, _fname_output, _fname_input))
+                if r.status_code != 127:
+                    _optimized = True
+                    optimizations.append(('jpegtran', True))
+                else:
+                    optimizations.append(('jpegtran', False))
 
-            _progressive = '-progressive' if OPTIMIZE_JPEG_PROGRESSIVE else ''
-            r = envoy.run("""jpegtran -copy all -optimize %s -outfile %s %s""" % (_progressive, _fname_output, _fname_input))
-            if r.status_code != 127:
-                _optimized = True
-            r = envoy.run("""jpegoptim --strip-all -q %s""" % (_fname_output, ))
-            if r.status_code != 127:
-                _optimized = True
+            if OPTIMIZE_SUPPORT['jpegoptim']['available'] and OPTIMIZE_SUPPORT['jpegoptim']['use']:
+                print("optimizing with jpegoptim")
+                _binary = OPTIMIZE_SUPPORT['jpegoptim']['binary'] or 'jpegoptim'
+                r = envoy.run("""%s --strip-all -q %s""" % (_binary, _fname_output, ))
+                if r.status_code != 127:
+                    _optimized = True
+                    optimizations.append(('jpegoptim', True))
+                else:
+                    optimizations.append(('jpegoptim', False))
 
         elif self.format_standardized == 'gif':
 
-            _gifsicle_level = OPTIMIZE_GIFSICLE_LEVEL
-            r = envoy.run("""gifsicle -O%d %s --output %s""" % (_gifsicle_level, _fname_input, _fname_output))
-            if r.status_code != 127:
-                _optimized = True
+            if OPTIMIZE_SUPPORT['gifsicle']['available'] and OPTIMIZE_SUPPORT['gifsicle']['use']:
+                _binary = OPTIMIZE_SUPPORT['gifsicle']['binary'] or 'gifsicle'
+                _gifsicle_level = OPTIMIZE_SUPPORT['gifsicle']['options']['level']
+                r = envoy.run("""%s -O%d %s --output %s""" % (_binary, _gifsicle_level, _fname_input, _fname_output))
+                if r.status_code != 127:
+                    _optimized = True
+                    optimizations.append(('gifsicle', True))
+                else:
+                    optimizations.append(('gifsicle', False))
 
         elif self.format_standardized == 'png':
 
-            if OPTIMIZE_PNGCRUSH_USE:
+            if OPTIMIZE_SUPPORT['pngcrush']['available'] and OPTIMIZE_SUPPORT['pngcrush']['use']:
+                _binary = OPTIMIZE_SUPPORT['pngcrush']['binary'] or 'pngcrush'
                 # envoy.run("""pngcrush -rem alla -reduce -brute -q %s %s""" % (_fname_input, _fname_output))
                 # envoy.run("""pngcrush -rem alla -reduce -q %s %s""" % (_fname_input, _fname_output))
-                r = envoy.run("""pngcrush -rem alla -nofilecheck -bail -blacken -reduce -cc %s %s""" % (_fname_input, _fname_output))
+                r = envoy.run("""%s -rem alla -nofilecheck -bail -blacken -reduce -cc %s %s""" % (_binary, _fname_input, _fname_output))
                 if r.status_code != 127:
                     _fname_input = _fname_output
                     _optimized = True
+                    optimizations.append(('pngcrush', True))
+                else:
+                    optimizations.append(('pngcrush', False))
 
-            if OPTIMIZE_OPTIPNG_USE:
-                _optipng_level = OPTIMIZE_OPTIPNG_LEVEL
+            if OPTIMIZE_SUPPORT['optipng']['available'] and OPTIMIZE_SUPPORT['optipng']['use']:
+                _binary = OPTIMIZE_SUPPORT['optipng']['binary'] or 'optipng'
+                _optipng_level = OPTIMIZE_SUPPORT['optipng']['options']['level']
                 # note that we do `--out OUTPUT --(stop) INPUT
-                r = envoy.run("""optipng -i0 -o%d -out %s -- %s""" % (_optipng_level, _fname_output, _fname_input))
+                r = envoy.run("""%s -i0 -o%d -out %s -- %s""" % (_binary, _optipng_level, _fname_output, _fname_input))
                 if r.status_code != 127:
                     _fname_input = _fname_output
                     _optimized = True
+                    optimizations.append(('optipng', True))
+                else:
+                    optimizations.append(('optipng', False))
 
-            if OPTIMIZE_ADVPNG_USE:
-                _advpng_level = OPTIMIZE_ADVPNG_LEVEL
+            if OPTIMIZE_SUPPORT['advpng']['available'] and OPTIMIZE_SUPPORT['advpng']['use']:
+                _binary = OPTIMIZE_SUPPORT['advpng']['binary'] or 'advpng'
+                _advpng_level = OPTIMIZE_SUPPORT['advpng']['options']['level']
                 # note that we do `--out OUTPUT --(stop) INPUT
-                r = envoy.run("""advpng -%d -z %s""" % (_advpng_level, _fname_output))
+                r = envoy.run("""%s -%d -z %s""" % (_binary, _advpng_level, _fname_output))
                 if r.status_code != 127:
                     _fname_input = _fname_output
                     _optimized = True
+                    optimizations.append(('advpng', True))
+                else:
+                    optimizations.append(('advpng', False))
 
-        fileOutput.seek(0)
-        newFile = FilelikePreference()
-        newFile.write(fileOutput.read())
-        newFile.seek(0)
-        self.file = newFile
-        self.is_optimized = True
+        # stash this onto the object
+        self.optimizations = optimizations
+
+        if not _optimized:
+            self.file.seek(0)
+            self.is_optimized = False  # nothing to optimize
+            log.debug("optimization_savings = 0 - NO OPTIMIZATIONS POSSIBLE")
+            self.optimization_savings = 0
+
+        else:
+            fileOutput.seek(0)
+            newFile = FilelikePreference()
+            newFile.write(fileOutput.read())
+            newFile.seek(0)
+            self.file = newFile
+            self.is_optimized = True
+
+            # so how much did we save?
+            filesize_optimized = utils.file_size(newFile)
+            optimization_savings = filesize_original - filesize_optimized
+
+            log.debug("optimization_savings = %s" % optimization_savings)
+            self.optimization_savings = optimization_savings
         
-        # done with this one
+        # done with these, so close
+        fileInput.close()
         fileOutput.close()
-
-        # so how much did we save?
-        filesize_optimized = utils.file_size(newFile)
-        optimization_savings = filesize_original - filesize_optimized
-
-        log.debug("optimization_savings = %s" % optimization_savings)
-        self.optimization_savings = optimization_savings
 
 
 class ResizedImage(BasicImage):

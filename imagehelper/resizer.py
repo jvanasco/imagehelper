@@ -171,12 +171,12 @@ class Resizer(object):
         file_b64 = None,
         optimize_original = None,
     ):
-        """registers a file to be resized
-
-            if we pass in cgi.FieldStorage, it seems to bool() to None even when there is a value
-            the workaround (grr) is to check against None
         """
+        registers a file to be resized
 
+        if we pass in cgi.FieldStorage, it seems to bool() to None even when there is a value
+        the workaround (grr) is to check against None
+        """
         if self._wrappedImage is not None:
             raise errors.ImageError_DuplicateAction("We already have registered a file.")
 
@@ -209,7 +209,7 @@ class Resizer(object):
 
     def optimize_original(self):
         """standardized inferface for optimizing"""
-        log.debug("resizer.optimize_original")
+        log.debug("Resizer.optimize_original")
         self._wrappedImage.basicImage.optimize()
 
     def resize(

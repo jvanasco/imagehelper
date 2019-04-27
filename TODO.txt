@@ -4,3 +4,6 @@ TODO
 * gifsicle - check output of interlace and non-interlace options
 * testing instructions
 * dealing with files/filelike objects was an "elegant hack" under python2. with python3 support it is messy and might not have the expected results.
+
+* tests:
+* ensure we have resized image sizes, and not 0
