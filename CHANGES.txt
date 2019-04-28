@@ -2,7 +2,7 @@
 -----
 * python3 support
 * the way commandline optimization libraries are called/setup has drastically changed. instead of multiple variables being used to control this, they are now in a single `OPTIMIZE_SUPPORT`. they are also autodetected. this ensures we do not run programs that do not exist on an operating system.
-
+* added tests to ensure the resizer doesn't have null objects
 
 0.3.0
 -----

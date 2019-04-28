@@ -140,7 +140,18 @@ class CustomSaverLogger(imagehelper.saver.s3.SaverLogger):
         print ("\t %s, %s" % (bucket_name, key))
 
 
-class TestResize(unittest.TestCase):
+class _ImagehelperTestingMixin(object):
+
+    def _check_resizedImages(self, resizedImages):
+        # ensure the original has a file size
+        self.assertNotEqual(resizedImages.original.file_size, 0)
+
+        # ensure every resize has a file_size        
+        for _size in resizedImages.resized.keys():
+            self.assertNotEqual(resizedImages.resized[_size].file_size, 0)
+
+
+class TestResize(unittest.TestCase, _ImagehelperTestingMixin, ):
 
     def test_direct_resize(self):
 
@@ -157,6 +168,7 @@ class TestResize(unittest.TestCase):
             # resize the image
             # this should fail, because we don't want to risk changing the image before registering
             results = resizer.resize(imagefile=get_imagefile())
+            raise ValueError("this should have failed")
         except imagehelper.errors.ImageError_DuplicateAction:
             # expected!
             pass
@@ -166,8 +178,11 @@ class TestResize(unittest.TestCase):
         # resize the image
         resizedImages = resizer.resize(imagefile=get_imagefile())
 
+        # audit the payload
+        self._check_resizedImages(resizedImages)
 
-class TestS3(unittest.TestCase):
+
+class TestS3(unittest.TestCase, _ImagehelperTestingMixin, ):
 
     def test_s3_factory(self):
 
@@ -203,6 +218,9 @@ class TestS3(unittest.TestCase):
         # resize !
         resizedImages = resizer.resize(imagefile=get_imagefile())
 
+        # audit the payload
+        self._check_resizedImages(resizedImages)
+
         # new s3 config
         saverConfig = newSaverConfig()
         # new s3 logger
@@ -219,7 +237,7 @@ class TestS3(unittest.TestCase):
         deleted = uploader.files_delete(uploaded)
 
 
-class TestLocalfile(unittest.TestCase):
+class TestLocalfile(unittest.TestCase, _ImagehelperTestingMixin, ):
 
     def test_localfile(self):
 
@@ -234,6 +252,9 @@ class TestLocalfile(unittest.TestCase):
         # resize !
         resizedImages = resizer.resize(imagefile=get_imagefile())
 
+        # audit the payload
+        self._check_resizedImages(resizedImages)
+
         # new s3 config
         saverConfig = newSaverConfig_Localfile()
         # new s3 logger
@@ -246,7 +267,7 @@ class TestLocalfile(unittest.TestCase):
         uploaded = saver.files_save(resizedImages, guid)
         deleted = saver.files_delete(uploaded)
 
-class TestResizingMethods(unittest.TestCase):
+class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin, ):
 
     def test_fit_within(self):
         method = 'fit-within'
@@ -265,11 +286,19 @@ class TestResizingMethods(unittest.TestCase):
         expected_resized_wh = (90, 120)
 
         r = imagehelper.resizer.Resizer()
-        results = r.resize(imagefile=get_imagefile(), resizesSchema=schema, selected_resizes=('test', ), optimize_original=False, optimize_resized=True, )
+        resizedImages = r.resize(imagefile=get_imagefile(),
+                                 resizesSchema=schema,
+                                 selected_resizes=('test', ),
+                                 optimize_original=False,
+                                 optimize_resized=True,
+                                 )
+
+        # audit the payload
+        self._check_resizedImages(resizedImages)
 
         # what do we have ?
-        actual_original_wh = (results.original.width, results.original.height)
-        actual_resized_wh = (results.resized['test'].width, results.resized['test'].height)
+        actual_original_wh = (resizedImages.original.width, resizedImages.original.height)
+        actual_resized_wh = (resizedImages.resized['test'].width, resizedImages.resized['test'].height)
 
         # assert the original matches
         assert expected_original_wh[0] == actual_original_wh[0]
@@ -296,11 +325,19 @@ class TestResizingMethods(unittest.TestCase):
         expected_resized_wh = (120, 120)
 
         r = imagehelper.resizer.Resizer()
-        results = r.resize(imagefile=get_imagefile(), resizesSchema=schema, selected_resizes=('test', ), optimize_original=False, optimize_resized=True)
+        resizedImages = r.resize(imagefile=get_imagefile(),
+                                 resizesSchema=schema,
+                                 selected_resizes=('test', ),
+                                 optimize_original=False,
+                                 optimize_resized=True,
+                                 )
+
+        # audit the payload
+        self._check_resizedImages(resizedImages)
 
         # what do we have ?
-        actual_original_wh = (results.original.width, results.original.height)
-        actual_resized_wh = (results.resized['test'].width, results.resized['test'].height)
+        actual_original_wh = (resizedImages.original.width, resizedImages.original.height)
+        actual_resized_wh = (resizedImages.resized['test'].width, resizedImages.resized['test'].height)
 
         # assert the original matches
         assert expected_original_wh[0] == actual_original_wh[0]
@@ -327,11 +364,19 @@ class TestResizingMethods(unittest.TestCase):
         expected_resized_wh = (120, 160)
 
         r = imagehelper.resizer.Resizer()
-        results = r.resize(imagefile=get_imagefile(), resizesSchema=schema, selected_resizes=('test', ), optimize_original=False, optimize_resized=True)
+        resizedImages = r.resize(imagefile=get_imagefile(),
+                                 resizesSchema=schema,
+                                 selected_resizes=('test', ),
+                                 optimize_original=False,
+                                 optimize_resized=True,
+                                 )
+
+        # audit the payload
+        self._check_resizedImages(resizedImages)
 
         # what do we have ?
-        actual_original_wh = (results.original.width, results.original.height)
-        actual_resized_wh = (results.resized['test'].width, results.resized['test'].height)
+        actual_original_wh = (resizedImages.original.width, resizedImages.original.height)
+        actual_resized_wh = (resizedImages.resized['test'].width, resizedImages.resized['test'].height)
 
         # assert the original matches
         assert expected_original_wh[0] == actual_original_wh[0]
@@ -358,11 +403,18 @@ class TestResizingMethods(unittest.TestCase):
         expected_resized_wh = (90, 120)
 
         r = imagehelper.resizer.Resizer()
-        results = r.resize(imagefile=get_imagefile(), resizesSchema=schema, selected_resizes=('test', ), optimize_original=False, optimize_resized=True)
+        resizedImages = r.resize(imagefile=get_imagefile(),
+                                 resizesSchema=schema,
+                                 selected_resizes=('test', ),
+                                 optimize_original=False,
+                                 optimize_resized=True,
+                                 )
+        # audit the payload
+        self._check_resizedImages(resizedImages)
 
         # what do we have ?
-        actual_original_wh = (results.original.width, results.original.height)
-        actual_resized_wh = (results.resized['test'].width, results.resized['test'].height)
+        actual_original_wh = (resizedImages.original.width, resizedImages.original.height)
+        actual_resized_wh = (resizedImages.resized['test'].width, resizedImages.resized['test'].height)
 
         # assert the original matches
         assert expected_original_wh[0] == actual_original_wh[0]
@@ -389,11 +441,19 @@ class TestResizingMethods(unittest.TestCase):
         expected_resized_wh = (120, 160)
 
         r = imagehelper.resizer.Resizer()
-        results = r.resize(imagefile=get_imagefile(), resizesSchema=schema, selected_resizes=('test', ), optimize_original=False, optimize_resized=True)
+        resizedImages = r.resize(imagefile=get_imagefile(),
+                                 resizesSchema=schema,
+                                 selected_resizes=('test', ),
+                                 optimize_original=False,
+                                 optimize_resized=True,
+                                 )
+
+        # audit the payload
+        self._check_resizedImages(resizedImages)
 
         # what do we have ?
-        actual_original_wh = (results.original.width, results.original.height)
-        actual_resized_wh = (results.resized['test'].width, results.resized['test'].height)
+        actual_original_wh = (resizedImages.original.width, resizedImages.original.height)
+        actual_resized_wh = (resizedImages.resized['test'].width, resizedImages.resized['test'].height)
 
         # assert the original matches
         assert expected_original_wh[0] == actual_original_wh[0]
@@ -420,11 +480,19 @@ class TestResizingMethods(unittest.TestCase):
         expected_resized_wh = (1200, 1600)
 
         r = imagehelper.resizer.Resizer()
-        results = r.resize(imagefile=get_imagefile(), resizesSchema=schema, selected_resizes=('test', ), optimize_original=False, optimize_resized=True)
+        resizedImages = r.resize(imagefile=get_imagefile(),
+                                 resizesSchema=schema,
+                                 selected_resizes=('test', ),
+                                 optimize_original=False,
+                                 optimize_resized=True,
+                                 )
+
+        # audit the payload
+        self._check_resizedImages(resizedImages)
 
         # what do we have ?
-        actual_original_wh = (results.original.width, results.original.height)
-        actual_resized_wh = (results.resized['test'].width, results.resized['test'].height)
+        actual_original_wh = (resizedImages.original.width, resizedImages.original.height)
+        actual_resized_wh = (resizedImages.resized['test'].width, resizedImages.resized['test'].height)
 
         # assert the original matches
         assert expected_original_wh[0] == actual_original_wh[0]
@@ -451,11 +519,19 @@ class TestResizingMethods(unittest.TestCase):
         expected_resized_wh = (240, 320)
 
         r = imagehelper.resizer.Resizer()
-        results = r.resize(imagefile=get_imagefile(), resizesSchema=schema, selected_resizes=('test', ), optimize_original=False, optimize_resized=True)
+        resizedImages = r.resize(imagefile=get_imagefile(),
+                                 resizesSchema=schema,
+                                 selected_resizes=('test', ),
+                                 optimize_original=False,
+                                 optimize_resized=True,
+                                 )
+
+        # audit the payload
+        self._check_resizedImages(resizedImages)
 
         # what do we have ?
-        actual_original_wh = (results.original.width, results.original.height)
-        actual_resized_wh = (results.resized['test'].width, results.resized['test'].height)
+        actual_original_wh = (resizedImages.original.width, resizedImages.original.height)
+        actual_resized_wh = (resizedImages.resized['test'].width, resizedImages.resized['test'].height)
 
         # assert the original matches
         assert expected_original_wh[0] == actual_original_wh[0]

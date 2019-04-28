@@ -130,6 +130,9 @@ class ResizerFactory(object):
                 usually:
                     file
                     cgi.fi
+            `file_b64`
+                b64 encoding of the image file. this is to support serialized
+                messagebrokers for workers like celery
         """
         resizer = Resizer(resizerConfig=self.resizerConfig)
         if imagefile is not None and file_b64 is not None:
@@ -176,6 +179,15 @@ class Resizer(object):
 
         if we pass in cgi.FieldStorage, it seems to bool() to None even when there is a value
         the workaround (grr) is to check against None
+
+        args:
+            `imagefile`
+                the image as a file
+            `imageWrapper`
+                the image wrapped in a `imagehelper.image_wrapper.ImageWrapper`
+            `file_b64`
+                b64 encoding of the image file. this is to support serialized
+                messagebrokers for workers like celery
         """
         if self._wrappedImage is not None:
             raise errors.ImageError_DuplicateAction("We already have registered a file.")
@@ -224,13 +236,22 @@ class Resizer(object):
         original_allow_animated = None,
     ):
         """
-            Returns a dict of resized images
-            calls self.register_image_file() if needed
+        Returns a dict of resized images
+        calls self.register_image_file() if needed
 
-            this resizes the images.
-            it returns the images and updates the internal dict.
+        this resizes the images.
+        it returns the images and updates the internal dict.
 
-            the internal dict will have an @archive object as well
+        the internal dict will have an @archive object as well
+
+        args:
+            `imagefile`
+                the image as a file
+            `imageWrapper`
+                the image wrapped in a `imagehelper.image_wrapper.ImageWrapper`
+            `file_b64`
+                b64 encoding of the image file. this is to support serialized
+                messagebrokers for workers like celery
         """
         if resizesSchema is None:
             if self._resizerConfig:
@@ -263,7 +284,11 @@ class Resizer(object):
             raise errors.ImageError_ConfigError("We have no selected_resizes...  error")
 
         if (imagefile is not None) or (imageWrapper is not None) or (file_b64 is not None):
-            self.register_image_file(imagefile=imagefile, imageWrapper=imageWrapper, file_b64=file_b64, optimize_original=optimize_original)
+            self.register_image_file(imagefile=imagefile,
+                                     imageWrapper=imageWrapper,
+                                     file_b64=file_b64,
+                                     optimize_original=optimize_original,
+                                     )
         else:
             if optimize_original:
                 self.optimize_original()

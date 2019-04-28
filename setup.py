@@ -56,7 +56,6 @@ setup(
         "Intended Audience :: Developers",
         "Topic :: Multimedia :: Graphics :: Graphics Conversion",
         "Topic :: Software Development :: Libraries :: Python Modules",
-        "Development Status :: 4 - Beta",
     ],
     tests_require = requires,
     install_requires = requires,
