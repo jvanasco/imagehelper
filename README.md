@@ -451,13 +451,3 @@ See the Todo file
 The code is licensed under the BSD license.
 
 The sample image is licensed under the Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported (CC BY-NC-ND 3.0) http://creativecommons.org/licenses/by-nc-nd/3.0/
-
-
-
-
-
-
-
-TODO:
-    More TESTS!
-	resize animated images
