@@ -132,6 +132,7 @@ def autodetect_support(test_libraries=None):
         else:
             log.debug('xxx unsupported code: %s : %s', library, result.status_code)
             # leave None for every other code
+    global _OPTIMIZE_SUPPORT_DETECTED
     _OPTIMIZE_SUPPORT_DETECTED = True
 
 
