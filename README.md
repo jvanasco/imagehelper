@@ -416,7 +416,6 @@ You can disable any png operator by changing the package level variable to False
 	OPTIMIZE_OPTIPNG_USE = True
 	OPTIMIZE_ADVPNG_USE = True
 
-
 #### pngcrush
 
 	pngcrush -rem alla -nofilecheck -bail -blacken -reduce -cc
@@ -438,12 +437,24 @@ The advpng level can be set by setting the package level variable to a new integ
 	OPTIMIZE_ADVPNG_LEVEL = 4  # 4 is max
 
 
+### what external libraries are needed to be installed
+
+None. These are all optional!  But here you go
+
+
+#### ubuntu
+
+	apt-get install advancecomp  # advpng
+	apt-get install gifsicle
+	apt-get install libjpeg-turbo-progs  # jpegtran
+	apt-get install jpegoptim
+	apt-get install optipng
+	apt-get install pngcrush
 
 
 ## ToDo
 
 See the Todo file
-
 
 
 ## License

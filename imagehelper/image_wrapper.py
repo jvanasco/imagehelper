@@ -119,7 +119,7 @@ def autodetect_support(test_libraries=None):
     """
     log.debug("autodetect_support")
     if test_libraries is None:
-        test_libraries = list(OPTIMIZE_SUPPORT.keys())
+        test_libraries = sorted(OPTIMIZE_SUPPORT.keys())
     for library in test_libraries:
         _binary = OPTIMIZE_SUPPORT[library]['binary'] or library
         result = envoy.run("""%s %s""" % (_binary, OPTIMIZE_SUPPORT[library]['*autodetect_args']))
@@ -129,9 +129,21 @@ def autodetect_support(test_libraries=None):
         elif result.status_code == 127:
             log.debug('!!! unavailable: %s', library)
             OPTIMIZE_SUPPORT[library]['available'] = False
+        elif result.status_code == 0:
+            # on ubuntu:
+            # gifsicle  - stdout
+            # optipng   - stdout
+            # jpegoptim - stderr
+            txt = result.std_out.lower() or result.std_err.lower()
+            if ('--' in txt) and (library in txt):
+                log.debug('   available:    %s', library)
+                OPTIMIZE_SUPPORT[library]['available'] = True
+            else:
+                log.debug('xxx unsupported code: %s : %s', library, result.status_code)
         else:
             log.debug('xxx unsupported code: %s : %s', library, result.status_code)
             # leave None for every other code
+        OPTIMIZE_SUPPORT[library]['*autodetect-status_code'] = result.status_code
     global _OPTIMIZE_SUPPORT_DETECTED
     _OPTIMIZE_SUPPORT_DETECTED = True
 
