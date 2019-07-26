@@ -276,7 +276,7 @@ this is simple.
 		resizer = nullResizerFactory.resizer(
 			imagefile = uploaded_image_file,
 		)
-	except imagehelper.errors.ImageError_Parsing, e:
+	except imagehelper.errors.ImageError_Parsing as exc:
 		raise ValueError('Invalid Filetype')
 
 	# grab the original file for advanced ops

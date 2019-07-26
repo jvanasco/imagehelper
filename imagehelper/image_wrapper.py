@@ -536,10 +536,10 @@ class ImageWrapper(object):
             raise
             raise errors.ImageError_Parsing(utils.ImageErrorCodes.INVALID_FILETYPE)
 
-        except errors.ImageError as e:
+        except errors.ImageError as exc:
             raise
 
-        except Exception as e:
+        except Exception as exc:
             raise
 
     def resize(self, instructions_dict, FilelikePreference=None, ):

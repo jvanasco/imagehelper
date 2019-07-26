@@ -457,7 +457,7 @@ class SaverManager(_SaverCoreManager):
                 # log for removal/tracking & return
                 files_saved[size] = (target_filename, bucket_name)
 
-        except Exception as e:
+        except Exception as exc:
             # if we have ANY issues, we want to delete everything from amazon s3. otherwise this stuff is just hiding up there
             log.debug("Error uploading... rolling back s3 items")
             files_saved = self.files_delete(files_saved)
