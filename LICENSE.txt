@@ -1,4 +1,4 @@
-The sample image ("tests/henry.jpg") is licensed under the Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported (CC BY-NC-ND 3.0)
+The sample image ("tests/test-data/henry.jpg") is licensed under the Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported (CC BY-NC-ND 3.0)
 	http://creativecommons.org/licenses/by-nc-nd/3.0/
 
 The sample image is Copyright (c) 2012, Jonathan Vanasco

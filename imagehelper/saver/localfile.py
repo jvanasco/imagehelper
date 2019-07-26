@@ -228,8 +228,7 @@ class SaverManager(_SaverCoreManager):
                             _fh.write(resizerResultset.resized[size].file.getvalue())
 
                     except Exception as exc:
-                        import pdb
-                        pdb.set_trace()
+                        log.debug("encountered unexpected exception `%s` in `saver.localfile.SaverManager.files_save`", exc)
                         raise
 
                     # log to external plugin too
@@ -273,9 +272,8 @@ class SaverManager(_SaverCoreManager):
 
         except Exception as exc:
             # if we have ANY issues, we want to delete everything from amazon s3. otherwise this stuff is just hiding up there
-            log.debug("Error uploading... rolling back s3 items")
+            log.debug("Error uploading... rolling back s3 items. unexpected exception `%s` in `saver.localfile.SaverManager.files_save`", exc)
             _saves = self.files_delete(_saves)
-            raise
             raise errors.ImageError_SaverUpload('error uploading')
 
         return _saves
@@ -318,7 +316,8 @@ class SaverSimpleAccess(_SaverCoreManager):
             _uploads = self.simple_saves_mapping(subdir_name, filename)
 
             return _saves
-        except:
+        except Exception as exc:
+            log.debug("encountered unexpected exception `%s` in `saver.localfile.SaverSimpleAccess.files_save`", exc)
             raise
 
     def simple_saves_mapping(self, subdir_name, filename):

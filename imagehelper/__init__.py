@@ -1,4 +1,4 @@
-__VERSION__ = '0.4.2'
+__VERSION__ = '0.4.2rc1'
 
 from . import _io
 from . import errors

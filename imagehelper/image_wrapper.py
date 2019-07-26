@@ -12,7 +12,7 @@ import six
 try:
     from PIL import Image
 except ImportError:
-    raise ValueError("Image is required")
+    raise ImportError("Image library (Pillow) is required")
 import envoy
 # from subprocess import call
 
@@ -102,17 +102,17 @@ def autodetect_support(test_libraries=None):
     ``test_libraries`` should be a list of keys in the OPTIMIZE_SUPPORT list
     if not supplied, all will be tested
     this only needs to be done once per application
-    
+
     it tests if a program exists by invoking the `help` subcommand for
     each shell command. this runs relatively quickly, but calls multiple
     external programs. Python3 has `shutil.which` but this library supports
     Python2
-    
+
     if you have a forking application, you should run before forking:
-    
+
         import imagehelper
         imagehelper.image_wrapper.autodetect_support()
-    
+
     otherwise, the first invocation of .optimize() will cause this to run
     once run, `_OPTIMIZE_SUPPORT_DETECTED` will be set, blocking further
     autodetections
@@ -266,7 +266,7 @@ class BasicImage(object):
         elif hasattr(self.file, 'read'):
             fileInput.write(self.file.read())
         else:
-            raise ValueError("not sure what to do")
+            raise ValueError("not sure what to do; this `file` object is not what I expected.")
         fileInput.seek(0)
         fileOutput = tempfile.NamedTemporaryFile()  # keep this open for the next block
 
@@ -283,7 +283,7 @@ class BasicImage(object):
         _optimized = False
         optimizations = []
         if self.format_standardized == 'jpg':
-        
+
             if OPTIMIZE_SUPPORT['jpegtran']['available'] and OPTIMIZE_SUPPORT['jpegtran']['use']:
                 _binary = OPTIMIZE_SUPPORT['jpegtran']['binary'] or 'jpegtran'
                 _progressive = '-progressive' if OPTIMIZE_SUPPORT['jpegtran']['options']['progressive'] else ''
@@ -377,7 +377,7 @@ class BasicImage(object):
 
             log.debug("optimization_savings = %s" % optimization_savings)
             self.optimization_savings = optimization_savings
-        
+
         # done with these, so close
         fileInput.close()
         fileOutput.close()
@@ -495,7 +495,7 @@ class ImageWrapper(object):
 
             else:
                 # just be safe with an extra else
-                raise ValueError("where do i go? ")
+                log.debug("isinstance(imagefile) is not expected. type() is `%s`", type(imagefile))
                 raise errors.ImageError_Parsing(utils.ImageErrorCodes.UNSUPPORTED_IMAGE_CLASS)
 
             if FilelikePreference is None:
@@ -532,14 +532,16 @@ class ImageWrapper(object):
             )
             self.basicImage = wrappedImage
 
-        except IOError:
-            raise
+        except IOError as exc:
+            log.debug("encountered an IOError. Exception is: `%s`", exc)
             raise errors.ImageError_Parsing(utils.ImageErrorCodes.INVALID_FILETYPE)
 
         except errors.ImageError as exc:
+            log.debug("encountered ImageError exception: `%s`", exc)
             raise
 
         except Exception as exc:
+            log.debug("encountered unknown exception: `%s`", exc)
             raise
 
     def resize(self, instructions_dict, FilelikePreference=None, ):
@@ -606,7 +608,7 @@ class ImageWrapper(object):
             if 'allow_animated' in instructions_dict:
                 allow_animated = instructions_dict['allow_animated']
             if not allow_animated:
-                raise ValueError("Image is Animated!")
+                raise errors.ImageError_InstructionsError("Image is Animated but instructions do not allow it!")
 
         resized_image = self.pilObject.copy()
 

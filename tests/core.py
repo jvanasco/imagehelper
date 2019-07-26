@@ -61,7 +61,7 @@ def get_imagefile():
     if _img is None:
         # py3-  r= _io.TextIOWrapper
         # py3-  rb= _io.BufferedReader
-        img = open('tests/henry.jpg', _io.FileReadArgs)
+        img = open('tests/test-data/henry.jpg', _io.FileReadArgs)
         img.seek(0)
         data = img.read()
         img.close()

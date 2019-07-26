@@ -22,6 +22,10 @@ class ImageError_DuplicateAction(ImageError):
     pass
 
 
+class ImageError_InstructionsError(ImageError):
+    pass
+
+
 class ImageError_MissingFile(ImageError):
     pass
 

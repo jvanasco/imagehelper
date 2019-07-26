@@ -135,7 +135,7 @@ _img = None
 def get_imagefile():
     global _img
     if _img is None:
-        img = open('tests/henry.jpg', _io.FileReadArgs)
+        img = open('tests/test-data/henry.jpg', _io.FileReadArgs)
         img.seek(0)
         data = img.read()
         img.close()
@@ -182,15 +182,15 @@ def demo_factory():
     resizer = resizerFactory.resizer(imagefile=get_imagefile())
     resizedImages = resizer.resize()
 
-    if not os.path.exists('tests/output'):
-        os.makedirs('tests/output')
+    if not os.path.exists('tests/test-output'):
+        os.makedirs('tests/test-output')
     for k in resizedImages.resized.keys():
-        _filename = 'tests/output/%s.%s' % (k, resizesSchema[k]['format'])
+        _filename = 'tests/test-output/%s.%s' % (k, resizesSchema[k]['format'])
         print(". writing %s" % _filename)
         open(_filename, _io.FileWriteArgs).write(resizedImages.resized[k].file.getvalue())
 
     resizedImages.original.optimize()
-    open('tests/output/original.png', _io.FileWriteArgs).write(resizedImages.original.file.getvalue())
+    open('tests/test-output/original.png', _io.FileWriteArgs).write(resizedImages.original.file.getvalue())
     print("<<< demo_factory | done")
 
 def demo_s3():
@@ -225,7 +225,7 @@ def demo_s3_alt():
     uploaded_resizes = uploader.files_save(resizedImages, guid, archive_original=False)
     print(". uploaded_resizes! %s" % uploaded_resizes)
 
-    uploaded_all = dict(uploaded_original.items() + uploaded_resizes.items())
+    uploaded_all = dict(list(uploaded_original.items()) + list(uploaded_resizes.items()))
 
     deleted = uploader.files_delete(uploaded_all)
     print(". deleted! %s" % deleted)

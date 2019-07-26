@@ -10,7 +10,7 @@ from . import utils
 try:
     from PIL import Image
 except ImportError:
-    raise ValueError('')
+    raise ImportError("Image library (Pillow) is required")
 
 
 # ==============================================================================

@@ -459,9 +459,8 @@ class SaverManager(_SaverCoreManager):
 
         except Exception as exc:
             # if we have ANY issues, we want to delete everything from amazon s3. otherwise this stuff is just hiding up there
-            log.debug("Error uploading... rolling back s3 items")
+            log.debug("Error uploading... rolling back s3 items. encounted `%s` in `saver.s3.SaverManager.files_save`", exc)
             files_saved = self.files_delete(files_saved)
-            raise
             raise errors.ImageError_S3Upload('error uploading')
 
         return files_saved
@@ -526,7 +525,8 @@ class SaverSimpleAccess(_SaverCoreManager):
             files_saved = self.simple_saves_mapping(bucket_name, filename)
 
             return files_saved
-        except:
+        except Exception as exc:
+            log.debug("encountered unexpected exception `%s` in `saver.s3.SaverSimpleAccess.files_save`", exc)
             raise
 
     def simple_saves_mapping(self, bucket_name, filename):

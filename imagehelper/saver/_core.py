@@ -4,7 +4,7 @@ abstracted classes, more like interfaces
 
 
 class SaverConfig(object):
-        pass
+    pass
 
 
 class SaverLogger(object):

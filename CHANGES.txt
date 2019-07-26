@@ -1,7 +1,8 @@
-0.4.3
+unreleased - 0.4.3rc1
 -----
-* moved tests around
-* cleaned up some python
+* moved tests and test-data
+* cleaned up Python exceptions
+* added new `errors.ImageError_InstructionsError`
 
 0.4.2
 -----
