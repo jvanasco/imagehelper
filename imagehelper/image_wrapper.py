@@ -1,6 +1,7 @@
 from __future__ import division
 
 import logging
+
 log = logging.getLogger(__name__)
 
 # stdlib
@@ -13,6 +14,7 @@ try:
 except ImportError:
     raise ImportError("Image library (Pillow) is required")
 import envoy
+
 # from subprocess import call
 
 
@@ -27,22 +29,17 @@ from . import _io
 
 USE_THUMBNAIL = False
 
-_valid_types = [cgi.FieldStorage,
-                _io._CoreFileType,
-                _io.StringIO,
-                tempfile.SpooledTemporaryFile,
-                ]
-_valid_types_nameless = [_io.StringIO,
-                         tempfile.SpooledTemporaryFile,
-                         ]
+_valid_types = [
+    cgi.FieldStorage,
+    _io._CoreFileType,
+    _io.StringIO,
+    tempfile.SpooledTemporaryFile,
+]
+_valid_types_nameless = [_io.StringIO, tempfile.SpooledTemporaryFile]
 if _io.cStringIO:
     # this only happens in Python2
-    _valid_types.extend((_io.cStringIO.InputType,
-                         _io.cStringIO.OutputType,
-                         ))
-    _valid_types_nameless.extend((_io.cStringIO.InputType,
-                                  _io.cStringIO.OutputType,
-                                  ))
+    _valid_types.extend((_io.cStringIO.InputType, _io.cStringIO.OutputType))
+    _valid_types_nameless.extend((_io.cStringIO.InputType, _io.cStringIO.OutputType))
 
 _valid_types = tuple(_valid_types)
 _valid_types_nameless = tuple(_valid_types_nameless)
@@ -54,44 +51,46 @@ _valid_types_nameless = tuple(_valid_types_nameless)
 # these are set to True by imagehelper/__init__.py on import
 _OPTIMIZE_SUPPORT_DETECTED = None
 OPTIMIZE_SUPPORT = {
-    'advpng': {'available': None,
-               'use': True,
-               'options': {'level': 4,  # 4 is max
-                           },
-               'binary': None,
-               '*autodetect_args': '--help',
-               },
-    'gifsicle': {'available': None,
-                 'use': True,
-                 'options': {'level': 3,
-                             },
-                 'binary': None,
-                 '*autodetect_args': '--help',
-                 },
-    'jpegtran': {'available': None,
-                 'use': True,
-                 'options': {'progressive': True,
-                             },
-                 'binary': None,
-                 '*autodetect_args': '--help',
-                 },
-    'jpegoptim': {'available': None,
-                  'use': True,
-                  'binary': None,
-                  '*autodetect_args': '--help',
-                  },
-    'optipng': {'available': None,
-                'use': True,
-                'options': {'level': 3,  # 6 would be best
-                            },
-                'binary': None,
-                '*autodetect_args': '--help',
-                },
-    'pngcrush': {'available': None,
-                 'use': True,
-                 'binary': None,
-                 '*autodetect_args': '--help',
-                 },
+    "advpng": {
+        "available": None,
+        "use": True,
+        "options": {"level": 4},  # 4 is max
+        "binary": None,
+        "*autodetect_args": "--help",
+    },
+    "gifsicle": {
+        "available": None,
+        "use": True,
+        "options": {"level": 3},
+        "binary": None,
+        "*autodetect_args": "--help",
+    },
+    "jpegtran": {
+        "available": None,
+        "use": True,
+        "options": {"progressive": True},
+        "binary": None,
+        "*autodetect_args": "--help",
+    },
+    "jpegoptim": {
+        "available": None,
+        "use": True,
+        "binary": None,
+        "*autodetect_args": "--help",
+    },
+    "optipng": {
+        "available": None,
+        "use": True,
+        "options": {"level": 3},  # 6 would be best
+        "binary": None,
+        "*autodetect_args": "--help",
+    },
+    "pngcrush": {
+        "available": None,
+        "use": True,
+        "binary": None,
+        "*autodetect_args": "--help",
+    },
 }
 
 
@@ -119,29 +118,31 @@ def autodetect_support(test_libraries=None):
     if test_libraries is None:
         test_libraries = sorted(OPTIMIZE_SUPPORT.keys())
     for library in test_libraries:
-        _binary = OPTIMIZE_SUPPORT[library]['binary'] or library
-        result = envoy.run("""%s %s""" % (_binary, OPTIMIZE_SUPPORT[library]['*autodetect_args']))
+        _binary = OPTIMIZE_SUPPORT[library]["binary"] or library
+        result = envoy.run(
+            """%s %s""" % (_binary, OPTIMIZE_SUPPORT[library]["*autodetect_args"])
+        )
         if result.status_code == 1:
-            log.debug('   available:    %s', library)
-            OPTIMIZE_SUPPORT[library]['available'] = True
+            log.debug("   available:    %s", library)
+            OPTIMIZE_SUPPORT[library]["available"] = True
         elif result.status_code == 127:
-            log.debug('!!! unavailable: %s', library)
-            OPTIMIZE_SUPPORT[library]['available'] = False
+            log.debug("!!! unavailable: %s", library)
+            OPTIMIZE_SUPPORT[library]["available"] = False
         elif result.status_code == 0:
             # on ubuntu:
             # gifsicle  - stdout
             # optipng   - stdout
             # jpegoptim - stderr
             txt = result.std_out.lower() or result.std_err.lower()
-            if ('--' in txt) and (library in txt):
-                log.debug('   available:    %s', library)
-                OPTIMIZE_SUPPORT[library]['available'] = True
+            if ("--" in txt) and (library in txt):
+                log.debug("   available:    %s", library)
+                OPTIMIZE_SUPPORT[library]["available"] = True
             else:
-                log.debug('xxx unsupported code: %s : %s', library, result.status_code)
+                log.debug("xxx unsupported code: %s : %s", library, result.status_code)
         else:
-            log.debug('xxx unsupported code: %s : %s', library, result.status_code)
+            log.debug("xxx unsupported code: %s : %s", library, result.status_code)
             # leave None for every other code
-        OPTIMIZE_SUPPORT[library]['*autodetect-status_code'] = result.status_code
+        OPTIMIZE_SUPPORT[library]["*autodetect-status_code"] = result.status_code
     global _OPTIMIZE_SUPPORT_DETECTED
     _OPTIMIZE_SUPPORT_DETECTED = True
 
@@ -170,6 +171,7 @@ class BasicImage(object):
         `file_md5`
             property to calculate the file's md5
     """
+
     def __init__(
         self,
         fileObject,
@@ -234,7 +236,7 @@ class BasicImage(object):
         """proxied format; PIL version"""
         return utils.PIL_type_to_extension(self.format)
 
-    def optimize(self, ):
+    def optimize(self,):
         """this does some heavy lifting
 
             unix/mac only feature; sorry.
@@ -244,7 +246,7 @@ class BasicImage(object):
 
             this will replace the self.file object
         """
-        if self.format_standardized not in ('jpg', 'png', 'gif'):
+        if self.format_standardized not in ("jpg", "png", "gif"):
             return
         log.debug("optimizing a file.  format is: %s" % self.format_standardized)
 
@@ -258,12 +260,14 @@ class BasicImage(object):
         # this does suck.
         self.file.seek(0)
         fileInput = tempfile.NamedTemporaryFile()
-        if hasattr(self.file, 'getvalue'):
+        if hasattr(self.file, "getvalue"):
             fileInput.write(self.file.getvalue())
-        elif hasattr(self.file, 'read'):
+        elif hasattr(self.file, "read"):
             fileInput.write(self.file.read())
         else:
-            raise ValueError("not sure what to do; this `file` object is not what I expected.")
+            raise ValueError(
+                "not sure what to do; this `file` object is not what I expected."
+            )
         fileInput.seek(0)
         fileOutput = tempfile.NamedTemporaryFile()  # keep this open for the next block
 
@@ -279,77 +283,113 @@ class BasicImage(object):
 
         _optimized = False
         optimizations = []
-        if self.format_standardized == 'jpg':
+        if self.format_standardized == "jpg":
 
-            if OPTIMIZE_SUPPORT['jpegtran']['available'] and OPTIMIZE_SUPPORT['jpegtran']['use']:
-                _binary = OPTIMIZE_SUPPORT['jpegtran']['binary'] or 'jpegtran'
-                _progressive = '-progressive' if OPTIMIZE_SUPPORT['jpegtran']['options']['progressive'] else ''
-                r = envoy.run("""%s -copy all -optimize %s -outfile %s %s""" % (_binary, _progressive, _fname_output, _fname_input))
+            if (
+                OPTIMIZE_SUPPORT["jpegtran"]["available"]
+                and OPTIMIZE_SUPPORT["jpegtran"]["use"]
+            ):
+                _binary = OPTIMIZE_SUPPORT["jpegtran"]["binary"] or "jpegtran"
+                _progressive = (
+                    "-progressive"
+                    if OPTIMIZE_SUPPORT["jpegtran"]["options"]["progressive"]
+                    else ""
+                )
+                r = envoy.run(
+                    """%s -copy all -optimize %s -outfile %s %s"""
+                    % (_binary, _progressive, _fname_output, _fname_input)
+                )
                 if r.status_code != 127:
                     _optimized = True
-                    optimizations.append(('jpegtran', True))
+                    optimizations.append(("jpegtran", True))
                 else:
-                    optimizations.append(('jpegtran', False))
+                    optimizations.append(("jpegtran", False))
 
-            if OPTIMIZE_SUPPORT['jpegoptim']['available'] and OPTIMIZE_SUPPORT['jpegoptim']['use']:
+            if (
+                OPTIMIZE_SUPPORT["jpegoptim"]["available"]
+                and OPTIMIZE_SUPPORT["jpegoptim"]["use"]
+            ):
                 print("optimizing with jpegoptim")
-                _binary = OPTIMIZE_SUPPORT['jpegoptim']['binary'] or 'jpegoptim'
-                r = envoy.run("""%s --strip-all -q %s""" % (_binary, _fname_output, ))
+                _binary = OPTIMIZE_SUPPORT["jpegoptim"]["binary"] or "jpegoptim"
+                r = envoy.run("""%s --strip-all -q %s""" % (_binary, _fname_output))
                 if r.status_code != 127:
                     _optimized = True
-                    optimizations.append(('jpegoptim', True))
+                    optimizations.append(("jpegoptim", True))
                 else:
-                    optimizations.append(('jpegoptim', False))
+                    optimizations.append(("jpegoptim", False))
 
-        elif self.format_standardized == 'gif':
+        elif self.format_standardized == "gif":
 
-            if OPTIMIZE_SUPPORT['gifsicle']['available'] and OPTIMIZE_SUPPORT['gifsicle']['use']:
-                _binary = OPTIMIZE_SUPPORT['gifsicle']['binary'] or 'gifsicle'
-                _gifsicle_level = OPTIMIZE_SUPPORT['gifsicle']['options']['level']
-                r = envoy.run("""%s -O%d %s --output %s""" % (_binary, _gifsicle_level, _fname_input, _fname_output))
+            if (
+                OPTIMIZE_SUPPORT["gifsicle"]["available"]
+                and OPTIMIZE_SUPPORT["gifsicle"]["use"]
+            ):
+                _binary = OPTIMIZE_SUPPORT["gifsicle"]["binary"] or "gifsicle"
+                _gifsicle_level = OPTIMIZE_SUPPORT["gifsicle"]["options"]["level"]
+                r = envoy.run(
+                    """%s -O%d %s --output %s"""
+                    % (_binary, _gifsicle_level, _fname_input, _fname_output)
+                )
                 if r.status_code != 127:
                     _optimized = True
-                    optimizations.append(('gifsicle', True))
+                    optimizations.append(("gifsicle", True))
                 else:
-                    optimizations.append(('gifsicle', False))
+                    optimizations.append(("gifsicle", False))
 
-        elif self.format_standardized == 'png':
+        elif self.format_standardized == "png":
 
-            if OPTIMIZE_SUPPORT['pngcrush']['available'] and OPTIMIZE_SUPPORT['pngcrush']['use']:
-                _binary = OPTIMIZE_SUPPORT['pngcrush']['binary'] or 'pngcrush'
+            if (
+                OPTIMIZE_SUPPORT["pngcrush"]["available"]
+                and OPTIMIZE_SUPPORT["pngcrush"]["use"]
+            ):
+                _binary = OPTIMIZE_SUPPORT["pngcrush"]["binary"] or "pngcrush"
                 # envoy.run("""pngcrush -rem alla -reduce -brute -q %s %s""" % (_fname_input, _fname_output))
                 # envoy.run("""pngcrush -rem alla -reduce -q %s %s""" % (_fname_input, _fname_output))
-                r = envoy.run("""%s -rem alla -nofilecheck -bail -blacken -reduce -cc %s %s""" % (_binary, _fname_input, _fname_output))
+                r = envoy.run(
+                    """%s -rem alla -nofilecheck -bail -blacken -reduce -cc %s %s"""
+                    % (_binary, _fname_input, _fname_output)
+                )
                 if r.status_code != 127:
                     _fname_input = _fname_output
                     _optimized = True
-                    optimizations.append(('pngcrush', True))
+                    optimizations.append(("pngcrush", True))
                 else:
-                    optimizations.append(('pngcrush', False))
+                    optimizations.append(("pngcrush", False))
 
-            if OPTIMIZE_SUPPORT['optipng']['available'] and OPTIMIZE_SUPPORT['optipng']['use']:
-                _binary = OPTIMIZE_SUPPORT['optipng']['binary'] or 'optipng'
-                _optipng_level = OPTIMIZE_SUPPORT['optipng']['options']['level']
+            if (
+                OPTIMIZE_SUPPORT["optipng"]["available"]
+                and OPTIMIZE_SUPPORT["optipng"]["use"]
+            ):
+                _binary = OPTIMIZE_SUPPORT["optipng"]["binary"] or "optipng"
+                _optipng_level = OPTIMIZE_SUPPORT["optipng"]["options"]["level"]
                 # note that we do `--out OUTPUT --(stop) INPUT
-                r = envoy.run("""%s -i0 -o%d -out %s -- %s""" % (_binary, _optipng_level, _fname_output, _fname_input))
+                r = envoy.run(
+                    """%s -i0 -o%d -out %s -- %s"""
+                    % (_binary, _optipng_level, _fname_output, _fname_input)
+                )
                 if r.status_code != 127:
                     _fname_input = _fname_output
                     _optimized = True
-                    optimizations.append(('optipng', True))
+                    optimizations.append(("optipng", True))
                 else:
-                    optimizations.append(('optipng', False))
+                    optimizations.append(("optipng", False))
 
-            if OPTIMIZE_SUPPORT['advpng']['available'] and OPTIMIZE_SUPPORT['advpng']['use']:
-                _binary = OPTIMIZE_SUPPORT['advpng']['binary'] or 'advpng'
-                _advpng_level = OPTIMIZE_SUPPORT['advpng']['options']['level']
+            if (
+                OPTIMIZE_SUPPORT["advpng"]["available"]
+                and OPTIMIZE_SUPPORT["advpng"]["use"]
+            ):
+                _binary = OPTIMIZE_SUPPORT["advpng"]["binary"] or "advpng"
+                _advpng_level = OPTIMIZE_SUPPORT["advpng"]["options"]["level"]
                 # note that we do `--out OUTPUT --(stop) INPUT
-                r = envoy.run("""%s -%d -z %s""" % (_binary, _advpng_level, _fname_output))
+                r = envoy.run(
+                    """%s -%d -z %s""" % (_binary, _advpng_level, _fname_output)
+                )
                 if r.status_code != 127:
                     _fname_input = _fname_output
                     _optimized = True
-                    optimizations.append(('advpng', True))
+                    optimizations.append(("advpng", True))
                 else:
-                    optimizations.append(('advpng', False))
+                    optimizations.append(("advpng", False))
 
         # stash this onto the object
         self.optimizations = optimizations
@@ -390,6 +430,7 @@ class ResizedImage(BasicImage):
 
 class FakedOriginal(BasicImage):
     """sometimes we need to fake an original file"""
+
     format = None
     mode = None
     width = None
@@ -398,7 +439,7 @@ class FakedOriginal(BasicImage):
     file_md5 = None
 
     def __init__(self, original_filename):
-        file_ext = original_filename.split('.')[-1].lower()
+        file_ext = original_filename.split(".")[-1].lower()
         self.format = utils.standardized_to_PIL_type(file_ext)
 
 
@@ -415,7 +456,7 @@ class ImageWrapper(object):
         if self.pilObject is not None:
             self.pilObject.close()
 
-    def __init__(self, imagefile=None, imagefile_name=None, FilelikePreference=None, ):
+    def __init__(self, imagefile=None, imagefile_name=None, FilelikePreference=None):
         """
         registers and validates the image file
         note that we do copy the image file
@@ -444,22 +485,26 @@ class ImageWrapper(object):
             raise errors.ImageError_MissingFile(utils.ImageErrorCodes.MISSING_FILE)
 
         if not isinstance(imagefile, _valid_types):
-            raise errors.ImageError_Parsing(utils.ImageErrorCodes.UNSUPPORTED_IMAGE_CLASS)
+            raise errors.ImageError_Parsing(
+                utils.ImageErrorCodes.UNSUPPORTED_IMAGE_CLASS
+            )
 
         try:
             # try to cache this all
             file_data = None
             file_name = None
             if isinstance(imagefile, cgi.FieldStorage):
-                if not hasattr(imagefile, 'filename'):
-                    raise errors.ImageError_Parsing(utils.ImageErrorCodes.MISSING_FILENAME_METHOD)
+                if not hasattr(imagefile, "filename"):
+                    raise errors.ImageError_Parsing(
+                        utils.ImageErrorCodes.MISSING_FILENAME_METHOD
+                    )
                 imagefile.file.seek(0)
                 file_data = imagefile.file.read()
 
-                file_name = ''
-                if hasattr(imagefile.file, 'name'):
+                file_name = ""
+                if hasattr(imagefile.file, "name"):
                     file_name = imagefile.file.name
-                elif hasattr(imagefile, 'filename'):
+                elif hasattr(imagefile, "filename"):
                     file_name = imagefile.filename
 
                 # be kind, rewind; the input obj we no longer care about
@@ -469,7 +514,7 @@ class ImageWrapper(object):
             elif isinstance(imagefile, _valid_types_nameless):
                 imagefile.seek(0)
                 file_data = imagefile.read()
-                file_name = imagefile_name or ''
+                file_name = imagefile_name or ""
 
                 # be kind, rewind; the input obj we no longer care about
                 # but someone else might care
@@ -481,10 +526,10 @@ class ImageWrapper(object):
                 file_data = imagefile.read()
                 # default
                 file_name = imagefile_name
-                if hasattr(imagefile, 'name'):  # Py3 object may not have this
+                if hasattr(imagefile, "name"):  # Py3 object may not have this
                     file_name = imagefile.name
-                if file_name == '<fdopen>':
-                    file_name = imagefile_name or ''
+                if file_name == "<fdopen>":
+                    file_name = imagefile_name or ""
 
                 # be kind, rewind; the input obj we no longer care about
                 # but someone else might care
@@ -492,8 +537,13 @@ class ImageWrapper(object):
 
             else:
                 # just be safe with an extra else
-                log.debug("isinstance(imagefile) is not expected. type() is `%s`", type(imagefile))
-                raise errors.ImageError_Parsing(utils.ImageErrorCodes.UNSUPPORTED_IMAGE_CLASS)
+                log.debug(
+                    "isinstance(imagefile) is not expected. type() is `%s`",
+                    type(imagefile),
+                )
+                raise errors.ImageError_Parsing(
+                    utils.ImageErrorCodes.UNSUPPORTED_IMAGE_CLASS
+                )
 
             if FilelikePreference is None:
                 if _io.cStringIO:
@@ -519,13 +569,15 @@ class ImageWrapper(object):
             # finally, stash our data
             wrappedImage = BasicImage(
                 fh_imageData,
-                name = fh_name,
-                format = self.pilObject.format,
-                mode = self.pilObject.mode,
-                width = self.pilObject.size[0],
-                height = self.pilObject.size[1],
-                is_image_animated = utils.is_image_animated(self.pilObject),
-                animated_image_totalframes = utils.animated_image_totalframes(self.pilObject),
+                name=fh_name,
+                format=self.pilObject.format,
+                mode=self.pilObject.mode,
+                width=self.pilObject.size[0],
+                height=self.pilObject.size[1],
+                is_image_animated=utils.is_image_animated(self.pilObject),
+                animated_image_totalframes=utils.animated_image_totalframes(
+                    self.pilObject
+                ),
             )
             self.basicImage = wrappedImage
 
@@ -541,7 +593,7 @@ class ImageWrapper(object):
             log.debug("encountered unknown exception: `%s`", exc)
             raise
 
-    def resize(self, instructions_dict, FilelikePreference=None, ):
+    def resize(self, instructions_dict, FilelikePreference=None):
         """this does the heavy lifting
 
         be warned - this uses a bit of memory!
@@ -602,35 +654,37 @@ class ImageWrapper(object):
         # we analyze the pilObject, because `copy()` only works on the frame
         if utils.is_image_animated(self.pilObject):
             allow_animated = False
-            if 'allow_animated' in instructions_dict:
-                allow_animated = instructions_dict['allow_animated']
+            if "allow_animated" in instructions_dict:
+                allow_animated = instructions_dict["allow_animated"]
             if not allow_animated:
-                raise errors.ImageError_InstructionsError("Image is Animated but instructions do not allow it!")
+                raise errors.ImageError_InstructionsError(
+                    "Image is Animated but instructions do not allow it!"
+                )
 
         resized_image = self.pilObject.copy()
 
         if resized_image.palette:
             resized_image = resized_image.convert()
 
-        constraint_method = 'fit-within'
-        if 'constraint-method' in instructions_dict:
-            constraint_method = instructions_dict['constraint-method']
+        constraint_method = "fit-within"
+        if "constraint-method" in instructions_dict:
+            constraint_method = instructions_dict["constraint-method"]
 
-        if constraint_method != 'passthrough:no-resize':
+        if constraint_method != "passthrough:no-resize":
 
             # t_ = target
             # i_ = image / real
 
             (i_w, i_h) = self.pilObject.size
 
-            t_w = instructions_dict['width']
-            t_h = instructions_dict['height']
+            t_w = instructions_dict["width"]
+            t_h = instructions_dict["height"]
 
             crop = ()
 
             # notice that we only scale DOWN (ie: check that t_x < i_x
 
-            if constraint_method in ('fit-within', 'fit-within:crop-to'):
+            if constraint_method in ("fit-within", "fit-within:crop-to"):
 
                 # figure out the proportions
                 proportion_w = 1
@@ -640,7 +694,7 @@ class ImageWrapper(object):
                 if t_h < i_h:
                     proportion_h = t_h / i_h
 
-                if constraint_method == 'fit-within':
+                if constraint_method == "fit-within":
                     # peg to the SMALLEST proportion so the entire image fits
                     if proportion_w < proportion_h:
                         proportion_h = proportion_w
@@ -650,7 +704,7 @@ class ImageWrapper(object):
                     t_w = int(i_w * proportion_w)
                     t_h = int(i_h * proportion_h)
 
-                elif constraint_method == 'fit-within:crop-to':
+                elif constraint_method == "fit-within:crop-to":
                     # peg so the smallest dimension fills the canvas, then crop the rest.
                     if proportion_w > proportion_h:
                         proportion_h = proportion_w
@@ -688,19 +742,19 @@ class ImageWrapper(object):
 
                         crop = (x0, y0, x1, y1)
 
-            elif constraint_method == 'fit-within:ensure-width':
+            elif constraint_method == "fit-within:ensure-width":
                 proportion = 1
                 if t_w < i_w:
                     proportion = t_w / i_w
                 t_h = int(i_h * proportion)
 
-            elif constraint_method == 'fit-within:ensure-height':
+            elif constraint_method == "fit-within:ensure-height":
                 proportion = 1
                 if t_h < i_h:
                     proportion = t_h / i_h
                 t_w = int(i_w * proportion)
 
-            elif constraint_method == 'smallest:ensure-minimum':
+            elif constraint_method == "smallest:ensure-minimum":
                 # useful for things like og:image where you want at least a 200px image
 
                 # figure out the proportions
@@ -708,64 +762,69 @@ class ImageWrapper(object):
                 proportion_h = t_h / i_h
 
                 # we don't want to scale up...
-                if (proportion_h > 1 or proportion_w > 1):
+                if proportion_h > 1 or proportion_w > 1:
                     proportion_h = 1
                     proportion_w = 1
 
-                use_scale = 'h'
+                use_scale = "h"
                 scale_factor = proportion_h
                 if proportion_w > proportion_h:
-                    use_scale = 'w'
+                    use_scale = "w"
                     scale_factor = proportion_w
 
                 t_h = int(i_h * scale_factor)
                 t_w = int(i_w * scale_factor)
 
-            elif constraint_method == 'exact:proportion':
+            elif constraint_method == "exact:proportion":
                 proportion_w = 1
                 proportion_h = 1
                 if t_w < i_w:
                     proportion_w = t_w / i_w
                 if t_h < i_h:
                     proportion_h = t_h / i_h
-                if (proportion_w != proportion_h):
-                    raise errors.ImageError_ResizeError('item can not be scaled to exact size')
+                if proportion_w != proportion_h:
+                    raise errors.ImageError_ResizeError(
+                        "item can not be scaled to exact size"
+                    )
 
-            elif constraint_method == 'exact:no-resize':
+            elif constraint_method == "exact:no-resize":
                 if (t_w != i_w) or (t_h != i_h):
-                    raise errors.ImageError_ResizeError('item is not exact size')
+                    raise errors.ImageError_ResizeError("item is not exact size")
 
             else:
-                raise errors.ImageError_ResizeError('Invalid constraint-method for size recipe: "%s"' % constraint_method)
+                raise errors.ImageError_ResizeError(
+                    'Invalid constraint-method for size recipe: "%s"'
+                    % constraint_method
+                )
 
             if (i_w != t_w) or (i_h != t_h):
                 if USE_THUMBNAIL:
                     # the thumbnail is faster, but has been looking uglier in recent versions
                     resized_image.thumbnail([t_w, t_h], Image.ANTIALIAS)
                 else:
-                    resized_image = resized_image.resize((t_w, t_h, ), Image.ANTIALIAS)
+                    resized_image = resized_image.resize((t_w, t_h), Image.ANTIALIAS)
 
             if len(crop):
                 resized_image = resized_image.crop(crop)
                 resized_image.load()
 
-        format = 'JPEG'
-        if 'format' in instructions_dict:
-            format = instructions_dict['format']
+        format = "JPEG"
+        if "format" in instructions_dict:
+            format = instructions_dict["format"]
 
         # returns uppercase
         format = utils.derive_output_format(format, self.get_original().format)
 
         def _get_pil_options(_format):
             pil_options = {}
-            if format in ('JPEG', 'PDF', ):
-                for i in ('quality', 'optimize', 'progressive'):
-                    k = 'save_%s' % i
+            if format in ("JPEG", "PDF"):
+                for i in ("quality", "optimize", "progressive"):
+                    k = "save_%s" % i
                     if k in instructions_dict:
                         pil_options[i] = instructions_dict[k]
-            elif format == 'PNG':
-                for i in ('optimize', 'transparency', 'bits', 'dictionary'):
-                    k = 'save_%s' % i
+            elif format == "PNG":
+                for i in ("optimize", "transparency", "bits", "dictionary"):
+                    k = "save_%s" % i
                     if k in instructions_dict:
                         pil_options[i] = instructions_dict[k]
             return pil_options
@@ -781,5 +840,5 @@ class ImageWrapper(object):
             resized_image_file,
             format=format,
             width=resized_image.size[0],
-            height=resized_image.size[1]
+            height=resized_image.size[1],
         )

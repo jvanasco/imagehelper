@@ -19,41 +19,41 @@ from imagehelper import _io
 
 
 resizesSchema = {
-    'thumb1': {
-        'width': 120,
-        'height': 120,
-        'save_quality': 50,
-        'suffix': 't1',
-        'format': 'JPEG',
-        'constraint-method': 'fit-within',
-        'filename_template': '%(guid)s.%(format)s',
-        's3_headers': {'x-amz-acl': 'public-read'}
+    "thumb1": {
+        "width": 120,
+        "height": 120,
+        "save_quality": 50,
+        "suffix": "t1",
+        "format": "JPEG",
+        "constraint-method": "fit-within",
+        "filename_template": "%(guid)s.%(format)s",
+        "s3_headers": {"x-amz-acl": "public-read"},
     },
-    't2': {
-        'width': 120,
-        'height': 120,
-        'save_quality': 50,
-        'suffix': 't2',
-        'format': 'PDF',
-        'constraint-method': 'fit-within:ensure-width',
+    "t2": {
+        "width": 120,
+        "height": 120,
+        "save_quality": 50,
+        "suffix": "t2",
+        "format": "PDF",
+        "constraint-method": "fit-within:ensure-width",
     },
-    'thumb3': {
-        'width': 120,
-        'height': 120,
-        'format': 'GIF',
-        'constraint-method': 'fit-within:ensure-height',
+    "thumb3": {
+        "width": 120,
+        "height": 120,
+        "format": "GIF",
+        "constraint-method": "fit-within:ensure-height",
     },
-    't4': {
-        'width': 120,
-        'height': 120,
-        'save_optimize': True,
-        'filename_template': '%(guid)s---%(suffix)s.%(format)s',
-        'suffix': 't4',
-        'format': 'PNG',
-        'constraint-method': 'fit-within:crop-to',
+    "t4": {
+        "width": 120,
+        "height": 120,
+        "save_optimize": True,
+        "filename_template": "%(guid)s---%(suffix)s.%(format)s",
+        "suffix": "t4",
+        "format": "PNG",
+        "constraint-method": "fit-within:crop-to",
     },
 }
-selected_resizes = ['thumb1', 't2', 'thumb3', 't4']
+selected_resizes = ["thumb1", "t2", "thumb3", "t4"]
 
 _img = None
 
@@ -63,7 +63,7 @@ def get_imagefile():
     if _img is None:
         # py3-  r= _io.TextIOWrapper
         # py3-  rb= _io.BufferedReader
-        img = open('tests/test-data/henry.jpg', _io.FileReadArgs)
+        img = open("tests/test-data/henry.jpg", _io.FileReadArgs)
         img.seek(0)
         data = img.read()
         img.close()
@@ -79,21 +79,21 @@ def newSaverConfig():
     save the files into AmazonS3
     """
     Config = configparser.ConfigParser()
-    Config.read('aws.cfg')
-    AWS_KEY_PUBLIC = Config.get('aws', 'AWS_KEY_PUBLIC')
-    AWS_KEY_SECRET = Config.get('aws', 'AWS_KEY_SECRET')
-    AWS_BUCKET_PUBLIC = Config.get('aws', 'AWS_BUCKET_PUBLIC')
-    AWS_BUCKET_SECRET = Config.get('aws', 'AWS_BUCKET_SECRET')
-    AWS_BUCKET_ALT = Config.get('aws', 'AWS_BUCKET_ALT')
+    Config.read("aws.cfg")
+    AWS_KEY_PUBLIC = Config.get("aws", "AWS_KEY_PUBLIC")
+    AWS_KEY_SECRET = Config.get("aws", "AWS_KEY_SECRET")
+    AWS_BUCKET_PUBLIC = Config.get("aws", "AWS_BUCKET_PUBLIC")
+    AWS_BUCKET_SECRET = Config.get("aws", "AWS_BUCKET_SECRET")
+    AWS_BUCKET_ALT = Config.get("aws", "AWS_BUCKET_ALT")
 
     saverConfig = imagehelper.saver.s3.SaverConfig(
-        key_public = AWS_KEY_PUBLIC,
-        key_private = AWS_KEY_SECRET,
-        bucket_public_name = AWS_BUCKET_PUBLIC,
-        bucket_archive_name = AWS_BUCKET_SECRET,
-        bucket_public_headers = {'x-amz-acl': 'public-read'},
-        bucket_archive_headers = {},
-        archive_original = True
+        key_public=AWS_KEY_PUBLIC,
+        key_private=AWS_KEY_SECRET,
+        bucket_public_name=AWS_BUCKET_PUBLIC,
+        bucket_archive_name=AWS_BUCKET_SECRET,
+        bucket_public_headers={"x-amz-acl": "public-read"},
+        bucket_archive_headers={},
+        archive_original=True,
     )
 
     return saverConfig
@@ -104,14 +104,14 @@ def newSaverConfig_Localfile():
     save the files into a folder with the same names as our AWS buckets
     """
     Config = configparser.ConfigParser()
-    Config.read('aws.cfg')
-    AWS_BUCKET_PUBLIC = Config.get('aws', 'AWS_BUCKET_PUBLIC')
-    AWS_BUCKET_SECRET = Config.get('aws', 'AWS_BUCKET_SECRET')
+    Config.read("aws.cfg")
+    AWS_BUCKET_PUBLIC = Config.get("aws", "AWS_BUCKET_PUBLIC")
+    AWS_BUCKET_SECRET = Config.get("aws", "AWS_BUCKET_SECRET")
 
     saverConfig = imagehelper.saver.localfile.SaverConfig(
-        subdir_public_name = AWS_BUCKET_PUBLIC,
-        subdir_archive_name = AWS_BUCKET_SECRET,
-        archive_original = True
+        subdir_public_name=AWS_BUCKET_PUBLIC,
+        subdir_archive_name=AWS_BUCKET_SECRET,
+        archive_original=True,
     )
 
     return saverConfig
@@ -119,10 +119,10 @@ def newSaverConfig_Localfile():
 
 def newResizerConfig(optimize_original=True, optimize_resized=True):
     resizerConfig = imagehelper.resizer.ResizerConfig(
-        resizesSchema = resizesSchema,
-        selected_resizes = selected_resizes,
-        optimize_original = optimize_original,
-        optimize_resized = optimize_resized,
+        resizesSchema=resizesSchema,
+        selected_resizes=selected_resizes,
+        optimize_original=optimize_original,
+        optimize_resized=optimize_resized,
     )
     return resizerConfig
 
@@ -133,7 +133,6 @@ def newSaverLogger():
 
 
 class CustomSaverLogger(imagehelper.saver.s3.SaverLogger):
-
     def __init__(self):
         self._saves = []
         self._deletes = []
@@ -146,13 +145,12 @@ class CustomSaverLogger(imagehelper.saver.s3.SaverLogger):
 
     def log_delete(self, bucket_name=None, key=None):
         # todo: change to logger and/or mock
-        print ("CustomSaverLogger.log_delete")
-        print ("\t %s, %s" % (bucket_name, key))
+        print("CustomSaverLogger.log_delete")
+        print("\t %s, %s" % (bucket_name, key))
         self._deletes.append((bucket_name, key))
 
 
 class _ImagehelperTestingMixin(object):
-
     def _check_resizedImages(self, resizedImages):
         # ensure the original has a file size
         self.assertNotEqual(resizedImages.original.file_size, 0)
@@ -162,8 +160,7 @@ class _ImagehelperTestingMixin(object):
             self.assertNotEqual(resizedImages.resized[_size].file_size, 0)
 
 
-class TestResize(unittest.TestCase, _ImagehelperTestingMixin, ):
-
+class TestResize(unittest.TestCase, _ImagehelperTestingMixin):
     def test_direct_resize(self):
 
         # new resizer config
@@ -173,7 +170,7 @@ class TestResize(unittest.TestCase, _ImagehelperTestingMixin, ):
         resizer = imagehelper.resizer.Resizer(resizerConfig=resizerConfig)
 
         # try to register the image
-        resizer.register_image_file(imagefile=get_imagefile(), )
+        resizer.register_image_file(imagefile=get_imagefile())
 
         try:
             # resize the image
@@ -193,8 +190,7 @@ class TestResize(unittest.TestCase, _ImagehelperTestingMixin, ):
         self._check_resizedImages(resizedImages)
 
 
-class TestS3(unittest.TestCase, _ImagehelperTestingMixin, ):
-
+class TestS3(unittest.TestCase, _ImagehelperTestingMixin):
     def test_s3_factory(self):
 
         # generate the configs
@@ -203,7 +199,11 @@ class TestS3(unittest.TestCase, _ImagehelperTestingMixin, ):
         saverLogger = newSaverLogger()
 
         # generate the factory
-        saverManagerFactory = imagehelper.saver.s3.SaverManagerFactory(saverConfig=saverConfig, saverLogger=saverLogger, resizerConfig=resizerConfig)
+        saverManagerFactory = imagehelper.saver.s3.SaverManagerFactory(
+            saverConfig=saverConfig,
+            saverLogger=saverLogger,
+            resizerConfig=resizerConfig,
+        )
 
         # grab a manager
         saverManager = saverManagerFactory.saver_manager()
@@ -242,7 +242,11 @@ class TestS3(unittest.TestCase, _ImagehelperTestingMixin, ):
         saverLogger = CustomSaverLogger()
 
         # upload the resized items
-        uploader = imagehelper.saver.s3.SaverManager(saverConfig=saverConfig, resizerConfig=resizerConfig, saverLogger=saverLogger)
+        uploader = imagehelper.saver.s3.SaverManager(
+            saverConfig=saverConfig,
+            resizerConfig=resizerConfig,
+            saverLogger=saverLogger,
+        )
 
         guid = "123"
         uploaded = uploader.files_save(resizedImages, guid)
@@ -272,21 +276,31 @@ class TestS3(unittest.TestCase, _ImagehelperTestingMixin, ):
         # new s3 logger
         # saverLogger = imagehelper.saver.s3.SaverLogger()
         saverLogger = CustomSaverLogger()
-        
+
         # upload the resized items
-        uploader = imagehelper.saver.s3.SaverSimpleAccess(saverConfig=saverConfig, resizerConfig=resizerConfig, saverLogger=saverLogger)
+        uploader = imagehelper.saver.s3.SaverSimpleAccess(
+            saverConfig=saverConfig,
+            resizerConfig=resizerConfig,
+            saverLogger=saverLogger,
+        )
 
         guid = "123"
         filename = "%s.jpg" % guid
         bucket_name = saverConfig.bucket_public_name
-        uploaded = uploader.file_save(bucket_name, filename, resizedImages.resized['thumb1'], upload_type="public", dry_run=False, )
+        uploaded = uploader.file_save(
+            bucket_name,
+            filename,
+            resizedImages.resized["thumb1"],
+            upload_type="public",
+            dry_run=False,
+        )
         assert uploaded
         assert len(saverLogger._saves) == 1
-        
+
         s3_url = "https://%s.s3.amazonaws.com/%s" % (bucket_name, filename)
         resp = requests.get(s3_url)
         assert resp.status_code == 200
-        assert resp.headers['Content-Type'] == 'image/jpeg'
+        assert resp.headers["Content-Type"] == "image/jpeg"
 
         # but still rely on the parent class' call `files_delete` (fileS)
         deleted = uploader.files_delete(uploaded)
@@ -299,8 +313,7 @@ class TestS3(unittest.TestCase, _ImagehelperTestingMixin, ):
         assert resp2.status_code == 403
 
 
-class TestLocalfile(unittest.TestCase, _ImagehelperTestingMixin, ):
-
+class TestLocalfile(unittest.TestCase, _ImagehelperTestingMixin):
     def test_localfile__saver_manager(self):
         """
         test saving files with the `localfile.SaverManager`
@@ -326,12 +339,16 @@ class TestLocalfile(unittest.TestCase, _ImagehelperTestingMixin, ):
         saverLogger = imagehelper.saver.localfile.SaverLogger()
 
         # upload the resized items
-        saver = imagehelper.saver.localfile.SaverManager(saverConfig=saverConfig, resizerConfig=resizerConfig, saverLogger=saverLogger)
+        saver = imagehelper.saver.localfile.SaverManager(
+            saverConfig=saverConfig,
+            resizerConfig=resizerConfig,
+            saverLogger=saverLogger,
+        )
 
         guid = "123"
         uploaded = saver.files_save(resizedImages, guid)
         deleted = saver.files_delete(uploaded)
-        
+
     def test_localfile__saver_simple_access(self):
         """
         test saving files with the `localfile.SaverSimpleAccess`
@@ -357,39 +374,44 @@ class TestLocalfile(unittest.TestCase, _ImagehelperTestingMixin, ):
         saverLogger = imagehelper.saver.localfile.SaverLogger()
 
         # upload the resized items
-        saver = imagehelper.saver.localfile.SaverSimpleAccess(saverConfig=saverConfig, resizerConfig=resizerConfig, saverLogger=saverLogger)
+        saver = imagehelper.saver.localfile.SaverSimpleAccess(
+            saverConfig=saverConfig,
+            resizerConfig=resizerConfig,
+            saverLogger=saverLogger,
+        )
 
-        subdir_name = 'test_localfile_simple'
+        subdir_name = "test_localfile_simple"
         filename = "thumb1.jpg"
-        
+
         # note we call `file_save` (file)
-        uploaded = saver.file_save(subdir_name, filename, resizedImages.resized['thumb1'])
+        uploaded = saver.file_save(
+            subdir_name, filename, resizedImages.resized["thumb1"]
+        )
         assert uploaded
-        
+
         # test the directory is there
-        _subdirs = os.listdir('localfile-output')
-        assert 'test_localfile_simple' in _subdirs
+        _subdirs = os.listdir("localfile-output")
+        assert "test_localfile_simple" in _subdirs
 
         # but still rely on the parent class' call `files_delete` (fileS)
         deleted = saver.files_delete(uploaded)
 
         # test the directory is now not-there, because it was cleaned up
-        _subdirs = os.listdir('localfile-output')
-        assert 'test_localfile_simple' not in _subdirs
-        
+        _subdirs = os.listdir("localfile-output")
+        assert "test_localfile_simple" not in _subdirs
 
-class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin, ):
 
+class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin):
     def test_fit_within(self):
-        method = 'fit-within'
+        method = "fit-within"
         schema = {
-            'test': {
-                'width': 120,
-                'height': 120,
-                'save_optimize': True,
-                'format': 'PNG',
-                'constraint-method': method,
-            },
+            "test": {
+                "width": 120,
+                "height": 120,
+                "save_optimize": True,
+                "format": "PNG",
+                "constraint-method": method,
+            }
         }
 
         # what do we expect ?
@@ -397,19 +419,26 @@ class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin, ):
         expected_resized_wh = (90, 120)
 
         r = imagehelper.resizer.Resizer()
-        resizedImages = r.resize(imagefile=get_imagefile(),
-                                 resizesSchema=schema,
-                                 selected_resizes=('test', ),
-                                 optimize_original=False,
-                                 optimize_resized=True,
-                                 )
+        resizedImages = r.resize(
+            imagefile=get_imagefile(),
+            resizesSchema=schema,
+            selected_resizes=("test",),
+            optimize_original=False,
+            optimize_resized=True,
+        )
 
         # audit the payload
         self._check_resizedImages(resizedImages)
 
         # what do we have ?
-        actual_original_wh = (resizedImages.original.width, resizedImages.original.height)
-        actual_resized_wh = (resizedImages.resized['test'].width, resizedImages.resized['test'].height)
+        actual_original_wh = (
+            resizedImages.original.width,
+            resizedImages.original.height,
+        )
+        actual_resized_wh = (
+            resizedImages.resized["test"].width,
+            resizedImages.resized["test"].height,
+        )
 
         # assert the original matches
         assert expected_original_wh[0] == actual_original_wh[0]
@@ -420,15 +449,15 @@ class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin, ):
         assert expected_resized_wh[1] == actual_resized_wh[1]
 
     def test_fit_within_crop_to(self):
-        method = 'fit-within:crop-to'
+        method = "fit-within:crop-to"
         schema = {
-            'test': {
-                'width': 120,
-                'height': 120,
-                'save_optimize': True,
-                'format': 'PNG',
-                'constraint-method': method,
-            },
+            "test": {
+                "width": 120,
+                "height": 120,
+                "save_optimize": True,
+                "format": "PNG",
+                "constraint-method": method,
+            }
         }
 
         # what do we expect ?
@@ -436,19 +465,26 @@ class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin, ):
         expected_resized_wh = (120, 120)
 
         r = imagehelper.resizer.Resizer()
-        resizedImages = r.resize(imagefile=get_imagefile(),
-                                 resizesSchema=schema,
-                                 selected_resizes=('test', ),
-                                 optimize_original=False,
-                                 optimize_resized=True,
-                                 )
+        resizedImages = r.resize(
+            imagefile=get_imagefile(),
+            resizesSchema=schema,
+            selected_resizes=("test",),
+            optimize_original=False,
+            optimize_resized=True,
+        )
 
         # audit the payload
         self._check_resizedImages(resizedImages)
 
         # what do we have ?
-        actual_original_wh = (resizedImages.original.width, resizedImages.original.height)
-        actual_resized_wh = (resizedImages.resized['test'].width, resizedImages.resized['test'].height)
+        actual_original_wh = (
+            resizedImages.original.width,
+            resizedImages.original.height,
+        )
+        actual_resized_wh = (
+            resizedImages.resized["test"].width,
+            resizedImages.resized["test"].height,
+        )
 
         # assert the original matches
         assert expected_original_wh[0] == actual_original_wh[0]
@@ -459,15 +495,15 @@ class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin, ):
         assert expected_resized_wh[1] == actual_resized_wh[1]
 
     def test_fit_within_ensure_width(self):
-        method = 'fit-within:ensure-width'
+        method = "fit-within:ensure-width"
         schema = {
-            'test': {
-                'width': 120,
-                'height': 120,
-                'save_optimize': True,
-                'format': 'PNG',
-                'constraint-method': method,
-            },
+            "test": {
+                "width": 120,
+                "height": 120,
+                "save_optimize": True,
+                "format": "PNG",
+                "constraint-method": method,
+            }
         }
 
         # what do we expect ?
@@ -475,19 +511,26 @@ class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin, ):
         expected_resized_wh = (120, 160)
 
         r = imagehelper.resizer.Resizer()
-        resizedImages = r.resize(imagefile=get_imagefile(),
-                                 resizesSchema=schema,
-                                 selected_resizes=('test', ),
-                                 optimize_original=False,
-                                 optimize_resized=True,
-                                 )
+        resizedImages = r.resize(
+            imagefile=get_imagefile(),
+            resizesSchema=schema,
+            selected_resizes=("test",),
+            optimize_original=False,
+            optimize_resized=True,
+        )
 
         # audit the payload
         self._check_resizedImages(resizedImages)
 
         # what do we have ?
-        actual_original_wh = (resizedImages.original.width, resizedImages.original.height)
-        actual_resized_wh = (resizedImages.resized['test'].width, resizedImages.resized['test'].height)
+        actual_original_wh = (
+            resizedImages.original.width,
+            resizedImages.original.height,
+        )
+        actual_resized_wh = (
+            resizedImages.resized["test"].width,
+            resizedImages.resized["test"].height,
+        )
 
         # assert the original matches
         assert expected_original_wh[0] == actual_original_wh[0]
@@ -498,15 +541,15 @@ class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin, ):
         assert expected_resized_wh[1] == actual_resized_wh[1]
 
     def test_fit_within_ensure_height(self):
-        method = 'fit-within:ensure-height'
+        method = "fit-within:ensure-height"
         schema = {
-            'test': {
-                'width': 120,
-                'height': 120,
-                'save_optimize': True,
-                'format': 'PNG',
-                'constraint-method': method,
-            },
+            "test": {
+                "width": 120,
+                "height": 120,
+                "save_optimize": True,
+                "format": "PNG",
+                "constraint-method": method,
+            }
         }
 
         # what do we expect ?
@@ -514,18 +557,25 @@ class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin, ):
         expected_resized_wh = (90, 120)
 
         r = imagehelper.resizer.Resizer()
-        resizedImages = r.resize(imagefile=get_imagefile(),
-                                 resizesSchema=schema,
-                                 selected_resizes=('test', ),
-                                 optimize_original=False,
-                                 optimize_resized=True,
-                                 )
+        resizedImages = r.resize(
+            imagefile=get_imagefile(),
+            resizesSchema=schema,
+            selected_resizes=("test",),
+            optimize_original=False,
+            optimize_resized=True,
+        )
         # audit the payload
         self._check_resizedImages(resizedImages)
 
         # what do we have ?
-        actual_original_wh = (resizedImages.original.width, resizedImages.original.height)
-        actual_resized_wh = (resizedImages.resized['test'].width, resizedImages.resized['test'].height)
+        actual_original_wh = (
+            resizedImages.original.width,
+            resizedImages.original.height,
+        )
+        actual_resized_wh = (
+            resizedImages.resized["test"].width,
+            resizedImages.resized["test"].height,
+        )
 
         # assert the original matches
         assert expected_original_wh[0] == actual_original_wh[0]
@@ -536,15 +586,15 @@ class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin, ):
         assert expected_resized_wh[1] == actual_resized_wh[1]
 
     def test_fit_within_smallest_ensure_minimum(self):
-        method = 'smallest:ensure-minimum'
+        method = "smallest:ensure-minimum"
         schema = {
-            'test': {
-                'width': 120,
-                'height': 120,
-                'save_optimize': True,
-                'format': 'PNG',
-                'constraint-method': method,
-            },
+            "test": {
+                "width": 120,
+                "height": 120,
+                "save_optimize": True,
+                "format": "PNG",
+                "constraint-method": method,
+            }
         }
 
         # what do we expect ?
@@ -552,19 +602,26 @@ class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin, ):
         expected_resized_wh = (120, 160)
 
         r = imagehelper.resizer.Resizer()
-        resizedImages = r.resize(imagefile=get_imagefile(),
-                                 resizesSchema=schema,
-                                 selected_resizes=('test', ),
-                                 optimize_original=False,
-                                 optimize_resized=True,
-                                 )
+        resizedImages = r.resize(
+            imagefile=get_imagefile(),
+            resizesSchema=schema,
+            selected_resizes=("test",),
+            optimize_original=False,
+            optimize_resized=True,
+        )
 
         # audit the payload
         self._check_resizedImages(resizedImages)
 
         # what do we have ?
-        actual_original_wh = (resizedImages.original.width, resizedImages.original.height)
-        actual_resized_wh = (resizedImages.resized['test'].width, resizedImages.resized['test'].height)
+        actual_original_wh = (
+            resizedImages.original.width,
+            resizedImages.original.height,
+        )
+        actual_resized_wh = (
+            resizedImages.resized["test"].width,
+            resizedImages.resized["test"].height,
+        )
 
         # assert the original matches
         assert expected_original_wh[0] == actual_original_wh[0]
@@ -575,15 +632,15 @@ class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin, ):
         assert expected_resized_wh[1] == actual_resized_wh[1]
 
     def test_fit_within_exact_no_resize(self):
-        method = 'exact:no-resize'
+        method = "exact:no-resize"
         schema = {
-            'test': {
-                'width': 1200,
-                'height': 1600,
-                'save_optimize': True,
-                'format': 'PNG',
-                'constraint-method': method,
-            },
+            "test": {
+                "width": 1200,
+                "height": 1600,
+                "save_optimize": True,
+                "format": "PNG",
+                "constraint-method": method,
+            }
         }
 
         # what do we expect ?
@@ -591,19 +648,26 @@ class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin, ):
         expected_resized_wh = (1200, 1600)
 
         r = imagehelper.resizer.Resizer()
-        resizedImages = r.resize(imagefile=get_imagefile(),
-                                 resizesSchema=schema,
-                                 selected_resizes=('test', ),
-                                 optimize_original=False,
-                                 optimize_resized=True,
-                                 )
+        resizedImages = r.resize(
+            imagefile=get_imagefile(),
+            resizesSchema=schema,
+            selected_resizes=("test",),
+            optimize_original=False,
+            optimize_resized=True,
+        )
 
         # audit the payload
         self._check_resizedImages(resizedImages)
 
         # what do we have ?
-        actual_original_wh = (resizedImages.original.width, resizedImages.original.height)
-        actual_resized_wh = (resizedImages.resized['test'].width, resizedImages.resized['test'].height)
+        actual_original_wh = (
+            resizedImages.original.width,
+            resizedImages.original.height,
+        )
+        actual_resized_wh = (
+            resizedImages.resized["test"].width,
+            resizedImages.resized["test"].height,
+        )
 
         # assert the original matches
         assert expected_original_wh[0] == actual_original_wh[0]
@@ -614,15 +678,15 @@ class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin, ):
         assert expected_resized_wh[1] == actual_resized_wh[1]
 
     def test_fit_within_exact_proportion(self):
-        method = 'exact:proportion'
+        method = "exact:proportion"
         schema = {
-            'test': {
-                'width': 240,
-                'height': 320,
-                'save_optimize': True,
-                'format': 'PNG',
-                'constraint-method': method,
-            },
+            "test": {
+                "width": 240,
+                "height": 320,
+                "save_optimize": True,
+                "format": "PNG",
+                "constraint-method": method,
+            }
         }
 
         # what do we expect ?
@@ -630,19 +694,26 @@ class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin, ):
         expected_resized_wh = (240, 320)
 
         r = imagehelper.resizer.Resizer()
-        resizedImages = r.resize(imagefile=get_imagefile(),
-                                 resizesSchema=schema,
-                                 selected_resizes=('test', ),
-                                 optimize_original=False,
-                                 optimize_resized=True,
-                                 )
+        resizedImages = r.resize(
+            imagefile=get_imagefile(),
+            resizesSchema=schema,
+            selected_resizes=("test",),
+            optimize_original=False,
+            optimize_resized=True,
+        )
 
         # audit the payload
         self._check_resizedImages(resizedImages)
 
         # what do we have ?
-        actual_original_wh = (resizedImages.original.width, resizedImages.original.height)
-        actual_resized_wh = (resizedImages.resized['test'].width, resizedImages.resized['test'].height)
+        actual_original_wh = (
+            resizedImages.original.width,
+            resizedImages.original.height,
+        )
+        actual_resized_wh = (
+            resizedImages.resized["test"].width,
+            resizedImages.resized["test"].height,
+        )
 
         # assert the original matches
         assert expected_original_wh[0] == actual_original_wh[0]

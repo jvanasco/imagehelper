@@ -1,11 +1,14 @@
-0.4.3
+0.5.0
 -----
+2019.08.02
+This was going to be 0.4.5, but a new kwarg was added to the localfile logger which may be backwards incompatible
 * moved tests and test-data
 * cleaned up Python exceptions
 * cleaned up docstrings
 * added new `errors.ImageError_InstructionsError`
 * added some tests, specifically for localfile and s3 "simple saving"
 * localfile saving now logs the "filepath" (new kwarg to logger)
+* adopted black formatting
 
 0.4.2
 -----

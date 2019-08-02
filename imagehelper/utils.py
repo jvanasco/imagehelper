@@ -1,4 +1,5 @@
 import logging
+
 log = logging.getLogger(__name__)
 
 # stdlib
@@ -18,37 +19,38 @@ from . import _io
 
 class ImageErrorCodes(object):
     """Consolidating codes and error messages"""
+
     INVALID_FILETYPE = 1
     INVALID_OTHER = 2
     NO_IMAGE = 3
     MISSING_FILE = 4
-    UNSUPPORTED_IMAGE_CLASS = 5   # Must be cgi.FieldStorage or file
+    UNSUPPORTED_IMAGE_CLASS = 5  # Must be cgi.FieldStorage or file
     INVALID_REBUILD = 6
     MISSING_FILENAME_METHOD = 7
 
 
 _PIL_type_to_content_type = {
-    'gif': 'image/gif',
-    'jpg': 'image/jpeg',
-    'jpeg': 'image/jpeg',
-    'pdf': 'application/pdf',
-    'png': 'image/png',
+    "gif": "image/gif",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "pdf": "application/pdf",
+    "png": "image/png",
 }
 
 _PIL_type_to_standardized = {
-    'gif': 'gif',
-    'jpg': 'jpg',
-    'jpeg': 'jpg',
-    'pdf': 'pdf',
-    'png': 'png',
+    "gif": "gif",
+    "jpg": "jpg",
+    "jpeg": "jpg",
+    "pdf": "pdf",
+    "png": "png",
 }
 
 _standardized_to_PIL_type = {
-    'gif': 'GIF',
-    'jpg': 'JPEG',
-    'jpeg': 'JPEG',
-    'pdf': 'PDF',
-    'png': 'PNG',
+    "gif": "GIF",
+    "jpg": "JPEG",
+    "jpeg": "JPEG",
+    "pdf": "PDF",
+    "png": "PNG",
 }
 
 
@@ -75,12 +77,12 @@ def animated_image_totalframes(im):
 def derive_output_format(format, original_format):
     """returns uppercase"""
     format = format.upper()
-    if format in ('AUTO', 'ORIGINAL', ):
+    if format in ("AUTO", "ORIGINAL"):
         _og_format = original_format.upper()
-        if _og_format in ('PNG', 'GIF'):
-            format = 'PNG'
+        if _og_format in ("PNG", "GIF"):
+            format = "PNG"
         else:
-            format = 'JPEG'
+            format = "JPEG"
     return format
 
 
@@ -88,28 +90,28 @@ def PIL_type_to_content_type(ctype):
     ctype = ctype.lower()
     if ctype in _PIL_type_to_content_type:
         return _PIL_type_to_content_type[ctype]
-    raise ValueError('invalid ctype')
+    raise ValueError("invalid ctype")
 
 
 def PIL_type_to_standardized(ctype):
     ctype = ctype.lower()
     if ctype in _PIL_type_to_standardized:
         return _PIL_type_to_standardized[ctype]
-    raise ValueError('invalid ctype - `%s`' % ctype)
+    raise ValueError("invalid ctype - `%s`" % ctype)
 
 
 def PIL_type_to_extension(ctype):
     ctype = ctype.lower()
     if ctype in _PIL_type_to_standardized:
         return _PIL_type_to_standardized[ctype]
-    raise ValueError('invalid ctype')
+    raise ValueError("invalid ctype")
 
 
 def standardized_to_PIL_type(ctype):
     ctype = ctype.lower()
     if ctype in _standardized_to_PIL_type:
         return _standardized_to_PIL_type[ctype]
-    raise ValueError('invalid ctype')
+    raise ValueError("invalid ctype")
 
 
 def file_size(fileobj):
@@ -124,7 +126,7 @@ def file_md5(fileobj):
     fileobj.seek(0)
     md5 = hashlib.md5()
     block_size = md5.block_size * 128
-    for chunk in iter(lambda: fileobj.read(block_size), b''):
+    for chunk in iter(lambda: fileobj.read(block_size), b""):
         md5.update(chunk)
     fileobj.seek(0)
     return md5.hexdigest()

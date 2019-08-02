@@ -8,7 +8,6 @@ class SaverConfig(object):
 
 
 class SaverLogger(object):
-
     def log_save(self, **kwargs):
         pass
 
@@ -17,7 +16,6 @@ class SaverLogger(object):
 
 
 class SaverManagerFactory(object):
-
     def manager(self):
         pass
 
@@ -26,8 +24,7 @@ class SaverManagerFactory(object):
 
 
 class _SaverCoreManager(object):
-
-    def files_delete(self, files_saved, dry_run=False, ):
+    def files_delete(self, files_saved, dry_run=False):
         """
         workhorse for deletion
 
@@ -40,19 +37,28 @@ class _SaverCoreManager(object):
 
 
 class SaverManager(_SaverCoreManager):
-
-    def generate_filenames(self, resizerResultset, guid, selected_resizes=None, archive_original=None):
+    def generate_filenames(
+        self, resizerResultset, guid, selected_resizes=None, archive_original=None
+    ):
         pass
 
-    def files_save(self, resizerResultset, guid, selected_resizes=None, archive_original=None, dry_run=False, ):
+    def files_save(
+        self,
+        resizerResultset,
+        guid,
+        selected_resizes=None,
+        archive_original=None,
+        dry_run=False,
+    ):
         pass
 
     # _SaverCoreManager.files_delete
 
 
 class SaverSimpleAccess(_SaverCoreManager):
-
-    def file_save(self, bucket_name, filename, wrappedFile, upload_type="public", dry_run=False, ):
+    def file_save(
+        self, bucket_name, filename, wrappedFile, upload_type="public", dry_run=False
+    ):
         pass
 
     def simple_saves_mapping(self, bucket_name, filename):

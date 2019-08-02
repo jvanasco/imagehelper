@@ -15,6 +15,7 @@ import six
 # Python2 - cStringIO.OutputType
 # Python2 - cStringIO.StringIO
 from six.moves import StringIO  # Py3= io.StringIO ; Py2= StringIO.StringIO
+
 cStringIO = None
 if six.PY2:
     try:
@@ -29,12 +30,13 @@ if six.PY2:
     _CoreFileType = file
     _DefaultMemoryType = cStringIO.StringIO if cStringIO else StringIO
     _FallbackFileType = tempfile.SpooledTemporaryFile
-    FileReadArgs = 'r'
-    FileWriteArgs = 'w'
+    FileReadArgs = "r"
+    FileWriteArgs = "w"
 else:
     import io
+
     _CoreFileType = io.IOBase
     _DefaultMemoryType = io.BytesIO
     _FallbackFileType = _DefaultMemoryType
-    FileReadArgs = 'rb'
-    FileWriteArgs = 'wb'
+    FileReadArgs = "rb"
+    FileWriteArgs = "wb"
