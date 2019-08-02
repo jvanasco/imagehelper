@@ -39,71 +39,71 @@ Imagine that you have a site that allows for user generated uploads, or you want
 
 You can create a schema of image sizes...
 
-	IMAGE_SIZES = {
-		'thumb': {
-			'width': 32,
-			'height': 32,
-			'save_quality': 50,
-			'suffix': 't1',
-			'format':'JPEG',
-			'constraint-method': 'fit-within',
-			'filename_template': '%(guid)s-120x120.%(format)s',
-		},
-		'og:image': {
-			'width': 200,
-			'height': 200,
-			'save_quality': 50,
-			'suffix': 'og',
-			'format':'JPEG',
-			'constraint-method': 'ensure-minimum',
-			'filename_template': '%(guid)s-og.%(format)s',
-		},
-	}
+    IMAGE_SIZES = {
+        'thumb': {
+            'width': 32,
+            'height': 32,
+            'save_quality': 50,
+            'suffix': 't1',
+            'format':'JPEG',
+            'constraint-method': 'fit-within',
+            'filename_template': '%(guid)s-120x120.%(format)s',
+        },
+        'og:image': {
+            'width': 200,
+            'height': 200,
+            'save_quality': 50,
+            'suffix': 'og',
+            'format':'JPEG',
+            'constraint-method': 'ensure-minimum',
+            'filename_template': '%(guid)s-og.%(format)s',
+        },
+    }
 
 And easily upload them:
 
-	# create some configs in your app
+    # create some configs in your app
 
-	# config object for IMAGE_SIZES
-	resizerConfig = imagehelper.resizer.ResizerConfig(
-		resizesSchema=IMAGE_SIZES,
-		optimize_original=True,
-    	optimize_resized=True,
+    # config object for IMAGE_SIZES
+    resizerConfig = imagehelper.resizer.ResizerConfig(
+        resizesSchema=IMAGE_SIZES,
+        optimize_original=True,
+        optimize_resized=True,
     )
 
-	# config object for S3
-	saverConfig= imagehelper.saver.s3.SaverConfig(
-		key_public = AWS_KEY_PUBLIC,
-		key_private = AWS_KEY_SECRET,
-		bucket_public_name = AWS_BUCKET_PUBLIC,
-		bucket_archive_name = AWS_BUCKET_SECRET,
-	)
+    # config object for S3
+    saverConfig= imagehelper.saver.s3.SaverConfig(
+        key_public = AWS_KEY_PUBLIC,
+        key_private = AWS_KEY_SECRET,
+        bucket_public_name = AWS_BUCKET_PUBLIC,
+        bucket_archive_name = AWS_BUCKET_SECRET,
+    )
 
-	# create some factories.
-	# factories are unnecessary. they just generate the workhorse objects for you
-	# they're very useful for cutting down code
-	# build one, then stash in your app
+    # create some factories.
+    # factories are unnecessary. they just generate the workhorse objects for you
+    # they're very useful for cutting down code
+    # build one, then stash in your app
 
-	USE_FACTORY = True
-	if USE_FACTORY:
-		rFactory = imagehelper.resizer.ResizerFactory(resizerConfig=resizerConfig)
-		s3Factory = imagehelper.saver.s3.s3ManagerFactory(saverConfig=saverConfig, resizerConfig=rConfig, saverLogger=saverLogger)
+    USE_FACTORY = True
+    if USE_FACTORY:
+        rFactory = imagehelper.resizer.ResizerFactory(resizerConfig=resizerConfig)
+        s3Factory = imagehelper.saver.s3.s3ManagerFactory(saverConfig=saverConfig, resizerConfig=rConfig, saverLogger=saverLogger)
 
-		resizer = rFactory.resizer()
-		s3Manager = s3Factory.saver_manager()
+        resizer = rFactory.resizer()
+        s3Manager = s3Factory.saver_manager()
 
-	else:
-		resizer = imagehelper.resizer.Resizer(resizerConfig=resizerConfig)
-		s3Manager = imagehelper.saver.s3.s3Manager(saverConfig=saverConfig, resizerConfig=resizerConfig, saverLogger=saverLogger)
+    else:
+        resizer = imagehelper.resizer.Resizer(resizerConfig=resizerConfig)
+        s3Manager = imagehelper.saver.s3.s3Manager(saverConfig=saverConfig, resizerConfig=resizerConfig, saverLogger=saverLogger)
 
-	# resize !
-	resizedImages = resizer.resize(imagefile=get_imagefile())
+    # resize !
+    resizedImages = resizer.resize(imagefile=get_imagefile())
 
-	# upload the resized items
-	uploaded_files = s3Manager.files_save(resizedImages, guid="123")
+    # upload the resized items
+    uploaded_files = s3Manager.files_save(resizedImages, guid="123")
 
-	# want to delete them?
-	deleted = s3Manager.files_delete(uploaded_files)
+    # want to delete them?
+    deleted = s3Manager.files_delete(uploaded_files)
 
 Behind the scenes, imagehelper does all the math and uploading.
 
@@ -168,10 +168,10 @@ Here's a more in depth description
 5. You can define your own S3 logger, a class that provides two methods:
 
     class SaverLogger(object):
-		def log_save(self, bucket_name=None, key=None, file_size=None, file_md5=None):
-			pass
-		def log_delete(self, bucket_name=None, key=None):
-			pass
+        def log_save(self, bucket_name=None, key=None, file_size=None, file_md5=None):
+            pass
+        def log_delete(self, bucket_name=None, key=None):
+            pass
 
 This will allow you to log what is uploaded into Amazon AWS on your side.  This is hugely helpful, because Amazon uploads are not transaction safe to your application logic.  there are some built-in precautions for this... but it's best to play things safely.
 
@@ -180,19 +180,19 @@ Items are currented saved to Amazon S3 as such:
 
 Public:
 
-* Template:	`%(guid)s-%(suffix)s.%(format)s`
+* Template: `%(guid)s-%(suffix)s.%(format)s`
 * Tokens:
-  *	`guid`: you must supply a guid for the file
-  *	`suffix`: this is set in the resize schema
-  *	`format`: this is dictated by the PIL format type
+  * `guid`: you must supply a guid for the file
+  * `suffix`: this is set in the resize schema
+  * `format`: this is dictated by the PIL format type
 
 
 Archive:
 
 * Template: `%(guid)s.%(format)s`
 * Tokens:
-  *	`guid`: you must supply a guid for the file
-  *	`format`: this is dictated by the original format type PIL found
+  * `guid`: you must supply a guid for the file
+  * `format`: this is dictated by the original format type PIL found
 
 Here is an example photo_resize schema:
 
@@ -252,15 +252,15 @@ if you don't have a current mapping of the files to delete in s3 but you do have
 
     ## fake the sizes that would be generated off a resize
     resizer = imagehelper.resizer.Resizer(
-    	resizerConfig=resizerConfig,
-		optimize_original=True,
-		optimize_resized=True,
-	)
+        resizerConfig=resizerConfig,
+        optimize_original=True,
+        optimize_resized=True,
+    )
     fakedResizedImages = resizer.fake_resultset(original_filename = archive_filename)
 
     ## generate the filenames
-	deleter = imagehelper.saver.s3.SaverManager(saverConfig=saverConfig, resizerConfig=resizerConfig)
-	targetFilenames = build.generate_filenames(fakedResizedImages, guid)
+    deleter = imagehelper.saver.s3.SaverManager(saverConfig=saverConfig, resizerConfig=resizerConfig)
+    targetFilenames = build.generate_filenames(fakedResizedImages, guid)
 
 the `original_filename` is needed in fake_resultset, because a resultset tracks the original file and it's type.  as of the 0.1.0 branch, only the extension of the filename is utilized.
 
@@ -275,17 +275,17 @@ this is simple.
 
 2. validate it
 
-	try:
-		resizer = nullResizerFactory.resizer(
-			imagefile = uploaded_image_file,
-		)
-	except imagehelper.errors.ImageError_Parsing as exc:
-		raise ValueError('Invalid Filetype')
+    try:
+        resizer = nullResizerFactory.resizer(
+            imagefile = uploaded_image_file,
+        )
+    except imagehelper.errors.ImageError_Parsing as exc:
+        raise ValueError('Invalid Filetype')
 
-	# grab the original file for advanced ops
-	resizerImage = resizer.get_original()
-	if resizerImage.file_size > MAX_FILESIZE_PHOTO_UPLOAD:
-		raise ValueError('Too Big!')
+    # grab the original file for advanced ops
+    resizerImage = resizer.get_original()
+    if resizerImage.file_size > MAX_FILESIZE_PHOTO_UPLOAD:
+        raise ValueError('Too Big!')
 
 
 passing an imagefile to `ResizerFactory.resizer` or `Resizer.__init__` will register the file with the resizer.  This action creates an `image_wrapper.ImageWrapper` object from the file, which contains the original file and a PIL/Pillow object.  If PIL/Pillow can not read the file, an error will be raised.
@@ -319,32 +319,32 @@ celery message brokers require serialized data.
 in order to pass the task to celery, you will need to serialize/deserialize the data.  imagehelper provides convenience functionality for this
 
     nullResizerFactory = imagehelper.resizer.ResizerFactory()
-	resizer = nullResizerFactory.resizer(
-		imagefile = uploaded_file,
-	)
+    resizer = nullResizerFactory.resizer(
+        imagefile = uploaded_file,
+    )
 
-	# grab the original file for advanced ops
-	resizerImage = resizer.get_original()
+    # grab the original file for advanced ops
+    resizerImage = resizer.get_original()
 
-	# serialize the image
-	instructions = {
-		'image_md5': resizerImage.file_md5,
-		'image_b64': resizerImage.file_b64,
-		'image_format': resizerImage.format,
-	}
+    # serialize the image
+    instructions = {
+        'image_md5': resizerImage.file_md5,
+        'image_b64': resizerImage.file_b64,
+        'image_format': resizerImage.format,
+    }
 
-	# send to celery
-	deferred_task = celery_tasks.do_something.apply_async((id, instructions,))
+    # send to celery
+    deferred_task = celery_tasks.do_something.apply_async((id, instructions,))
 
 
-	# in celery...
-	@task
-	def do_something(id, instructions):
-		## resize the images
-		resizer = resizerFactory.resizer(
-			file_b64 = instructions['image_b64'],
-		)
-		resizedImages = resizer.resize()
+    # in celery...
+    @task
+    def do_something(id, instructions):
+        ## resize the images
+        resizer = resizerFactory.resizer(
+            file_b64 = instructions['image_b64'],
+        )
+        resizedImages = resizer.resize()
 
 
 ## How are optimizations handled?
@@ -364,20 +364,20 @@ Not everyone has every program installed on their machines
 
 if you are on a forking server, you can do this before the fork and save yourself a tiny bit of cpu cycles. yay.
 
-	import imagehelper
-	imagehelper.image_wrapper.autodetect_support()
+    import imagehelper
+    imagehelper.image_wrapper.autodetect_support()
 
 The `autodetect_support` routing will set 
 
-	imagehelper.image_wrapper[ program ]['available']
+    imagehelper.image_wrapper[ program ]['available']
 
 if you want to enable/disable them manuall, just edit
 
-	imagehelper.image_wrapper[ program ]['use']
+    imagehelper.image_wrapper[ program ]['use']
 
 you can also set a custom binary
 
-	imagehelper.image_wrapper[ program ]['binary']
+    imagehelper.image_wrapper[ program ]['binary']
 
 autodetection is handled by invoking each program's help command to see if it is installed
 
@@ -386,13 +386,13 @@ autodetection is handled by invoking each program's help command to see if it is
 
 jpegs are optimized in a two-stage process.
 
-	jpegtran is used to do an initial optimization and ensure a progressive jpeg.  all the jpeg markers are preserved.
-	jpegoptim is used on the output of the above, in this stage all jpeg markers are removed.
+    jpegtran is used to do an initial optimization and ensure a progressive jpeg.  all the jpeg markers are preserved.
+    jpegoptim is used on the output of the above, in this stage all jpeg markers are removed.
 
 The exact arguments are:
 
-	"""jpegtran -copy all -optimize -progressive -outfile %s %s""" % (fileOutput.name, fileInput.name)
-	"""jpegoptim --strip-all -q %s""" % (fileOutput.name, )
+    """jpegtran -copy all -optimize -progressive -outfile %s %s""" % (fileOutput.name, fileInput.name)
+    """jpegoptim --strip-all -q %s""" % (fileOutput.name, )
 
 ### GIF
 
@@ -406,7 +406,7 @@ Gifsicle is given the following params
 
 The 03 level can be affected by changing the package level variable to a new integer (1-3)
 
-	imagehelper.image_wrapper.OPTIMIZE_GIFSICLE_LEVEL = 3
+    imagehelper.image_wrapper.OPTIMIZE_GIFSICLE_LEVEL = 3
 
 
 ### PNG
@@ -415,29 +415,29 @@ The package will try to use multiple png operators in sequence.
 
 You can disable any png operator by changing the package level variable to False
 
-	OPTIMIZE_PNGCRUSH_USE = True
-	OPTIMIZE_OPTIPNG_USE = True
-	OPTIMIZE_ADVPNG_USE = True
+    OPTIMIZE_PNGCRUSH_USE = True
+    OPTIMIZE_OPTIPNG_USE = True
+    OPTIMIZE_ADVPNG_USE = True
 
 #### pngcrush
 
-	pngcrush -rem alla -nofilecheck -bail -blacken -reduce -cc
+    pngcrush -rem alla -nofilecheck -bail -blacken -reduce -cc
 
 #### optipng
 
-	optipng -i0 -o3
+    optipng -i0 -o3
 
 The optipng level can be set by setting the package level variable to a new integer (1-3)
 
-	OPTIMIZE_OPTIPNG_LEVEL = 3  # 6 would be best
+    OPTIMIZE_OPTIPNG_LEVEL = 3  # 6 would be best
 
 #### advpng
 
-	advpng -4 -z
+    advpng -4 -z
 
 The advpng level can be set by setting the package level variable to a new integer (1-4)
 
-	OPTIMIZE_ADVPNG_LEVEL = 4  # 4 is max
+    OPTIMIZE_ADVPNG_LEVEL = 4  # 4 is max
 
 
 ### what external libraries are needed to be installed
@@ -447,12 +447,12 @@ None. These are all optional!  But here you go
 
 #### ubuntu
 
-	apt-get install advancecomp  # advpng
-	apt-get install gifsicle
-	apt-get install libjpeg-turbo-progs  # jpegtran
-	apt-get install jpegoptim
-	apt-get install optipng
-	apt-get install pngcrush
+    apt-get install advancecomp  # advpng
+    apt-get install gifsicle
+    apt-get install libjpeg-turbo-progs  # jpegtran
+    apt-get install jpegoptim
+    apt-get install optipng
+    apt-get install pngcrush
 
 
 ## ToDo
