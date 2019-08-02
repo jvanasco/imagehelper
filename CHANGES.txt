@@ -2,7 +2,10 @@ unreleased - 0.4.3rc1
 -----
 * moved tests and test-data
 * cleaned up Python exceptions
+* cleaned up docstrings
 * added new `errors.ImageError_InstructionsError`
+* added some tests, specifically for localfile simple saving
+* localfile saving now logs the filepath
 
 0.4.2
 -----

@@ -6,12 +6,6 @@ from . import errors
 from . import image_wrapper
 from . import utils
 
-# PyPi
-try:
-    from PIL import Image
-except ImportError:
-    raise ImportError("Image library (Pillow) is required")
-
 
 # ==============================================================================
 

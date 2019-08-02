@@ -8,7 +8,6 @@ import cgi
 import tempfile
 
 # PyPi
-import six
 try:
     from PIL import Image
 except ImportError:
@@ -93,7 +92,6 @@ OPTIMIZE_SUPPORT = {
                  'binary': None,
                  '*autodetect_args': '--help',
                  },
-
 }
 
 
@@ -171,7 +169,6 @@ class BasicImage(object):
 
         `file_md5`
             property to calculate the file's md5
-
     """
     def __init__(
         self,

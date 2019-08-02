@@ -13,23 +13,6 @@ with open(os.path.join(os.path.dirname(__file__),
         re.S).match(v_file.read()).group(1)
 
 
-def get_docs():
-    result = []
-    in_docs = False
-    f = open(os.path.join(os.path.dirname(__file__), 'imagehelper/__init__.py'))
-    try:
-        for line in f:
-            if in_docs:
-                if line.lstrip().startswith(':copyright:'):
-                    break
-                result.append(line[4:].rstrip())
-            elif line.strip() == 'r"""':
-                in_docs = True
-    finally:
-        f.close()
-    return '\n'.join(result)
-
-
 requires = [
     "certifi",
     "envoy",
@@ -46,7 +29,7 @@ setup(
     url='http://github.com/jvanasco/imagehelper',
     packages=find_packages(exclude=('tests',)),
     description='simple utilites for image resizing and uploading and stuff like that',
-    long_description=get_docs(),
+    long_description="""The `imagehelper` package offers a simple interface for image resizing, optimizing and uploading. Core image resizing operations are handled by the `Pillow` (PIL) package; S3 uploading is handled by `boto`, and there are hooks for optimizing the images with the commandline tools: `advpng`,  `gifsicle`, `jpegtran`, `jpegoptim`, `optipng` and `pngcrush.`""",
     zip_safe=False,
     test_suite='tests',
     classifiers=[

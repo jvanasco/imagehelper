@@ -3,7 +3,7 @@ log = logging.getLogger(__name__)
 
 from imagehelper import errors
 from imagehelper import utils
-from .utils import *
+from .utils import *  # noqa
 from . import _core
 
 try:
@@ -104,6 +104,9 @@ class SaverManagerFactory(object):
 
 
 class _SaverCoreManager(object):
+    """
+    based on interface defined in `_core.SaverCoreManager`
+    """
 
     _resizerConfig = None
     _saverConfig = None
@@ -210,7 +213,12 @@ class _SaverCoreManager(object):
 
 
 class SaverManager(_SaverCoreManager):
-    """`SaverManager` handles all the actual uploading and deleting"""
+    """
+    `SaverManager` handles all the actual uploading and deleting
+
+    based on interface defined in `_core._SaverCoreManager`
+    but inherits from this file's '`_SaverCoreManager`
+    """
 
     def __init__(self, saverConfig=None, saverLogger=None, resizerConfig=None):
         if not resizerConfig:

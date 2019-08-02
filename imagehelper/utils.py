@@ -7,7 +7,6 @@ import hashlib
 import os
 
 # PyPi
-import six
 from PIL import ImageSequence
 
 # local

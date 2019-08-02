@@ -2,10 +2,11 @@ from __future__ import print_function
 
 # stdlib
 import unittest
-import pdb
+import pdb  # noqa
+import os
 
 # pypi
-import six
+import six  # noqa
 from six.moves import configparser
 
 # local
@@ -73,6 +74,9 @@ def get_imagefile():
 
 
 def newSaverConfig():
+    """
+    save the files into AmazonS3
+    """
     Config = configparser.ConfigParser()
     Config.read('aws.cfg')
     AWS_KEY_PUBLIC = Config.get('aws', 'AWS_KEY_PUBLIC')
@@ -95,18 +99,18 @@ def newSaverConfig():
 
 
 def newSaverConfig_Localfile():
+    """
+    save the files into a folder with the same names as our AWS buckets
+    """
     Config = configparser.ConfigParser()
     Config.read('aws.cfg')
-    AWS_KEY_PUBLIC = Config.get('aws', 'AWS_KEY_PUBLIC')
-    AWS_KEY_SECRET = Config.get('aws', 'AWS_KEY_SECRET')
     AWS_BUCKET_PUBLIC = Config.get('aws', 'AWS_BUCKET_PUBLIC')
     AWS_BUCKET_SECRET = Config.get('aws', 'AWS_BUCKET_SECRET')
-    AWS_BUCKET_ALT = Config.get('aws', 'AWS_BUCKET_ALT')
 
     saverConfig = imagehelper.saver.localfile.SaverConfig(
-    subdir_public_name = AWS_BUCKET_PUBLIC,
-    subdir_archive_name = AWS_BUCKET_SECRET,
-    archive_original = True
+        subdir_public_name = AWS_BUCKET_PUBLIC,
+        subdir_archive_name = AWS_BUCKET_SECRET,
+        archive_original = True
     )
 
     return saverConfig
@@ -146,7 +150,7 @@ class _ImagehelperTestingMixin(object):
         # ensure the original has a file size
         self.assertNotEqual(resizedImages.original.file_size, 0)
 
-        # ensure every resize has a file_size        
+        # ensure every resize has a file_size
         for _size in resizedImages.resized.keys():
             self.assertNotEqual(resizedImages.resized[_size].file_size, 0)
 
@@ -239,7 +243,10 @@ class TestS3(unittest.TestCase, _ImagehelperTestingMixin, ):
 
 class TestLocalfile(unittest.TestCase, _ImagehelperTestingMixin, ):
 
-    def test_localfile(self):
+    def test_localfile_manager(self):
+        """
+        test saving files with the `localfile.SaverManager`
+        """
 
         # new resizer config
         resizerConfig = newResizerConfig()
@@ -266,6 +273,51 @@ class TestLocalfile(unittest.TestCase, _ImagehelperTestingMixin, ):
         guid = "123"
         uploaded = saver.files_save(resizedImages, guid)
         deleted = saver.files_delete(uploaded)
+        
+    def test_localfile_simple(self):
+        """
+        test saving files with the `localfile.SaverSimpleAccess`
+        """
+
+        # new resizer config
+        resizerConfig = newResizerConfig()
+        # build a factory
+        resizerFactory = imagehelper.resizer.ResizerFactory(resizerConfig=resizerConfig)
+
+        # grab a resizer
+        resizer = resizerFactory.resizer()
+
+        # resize !
+        resizedImages = resizer.resize(imagefile=get_imagefile())
+
+        # audit the payload
+        self._check_resizedImages(resizedImages)
+
+        # new s3 config
+        saverConfig = newSaverConfig_Localfile()
+        # new s3 logger
+        saverLogger = imagehelper.saver.localfile.SaverLogger()
+
+        # upload the resized items
+        saver = imagehelper.saver.localfile.SaverSimpleAccess(saverConfig=saverConfig, resizerConfig=resizerConfig, saverLogger=saverLogger)
+
+        subdir_name = 'test_localfile_simple'
+        filename = "thumb1.jpg"
+        
+        # note we call `file_save` (file)
+        uploaded = saver.file_save(subdir_name, filename, resizedImages.resized['thumb1'])
+        
+        # test the directory is there
+        _subdirs = os.listdir('localfile-output')
+        assert 'test_localfile_simple' in _subdirs
+
+        # but still rely on the parent class' call `files_delete` (fileS)
+        deleted = saver.files_delete(uploaded)
+
+        # test the directory is now not-there, because it was cleaned up
+        _subdirs = os.listdir('localfile-output')
+        assert 'test_localfile_simple' not in _subdirs
+        
 
 class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin, ):
 

@@ -1,8 +1,8 @@
-__VERSION__ = '0.4.2rc1'
+__VERSION__ = '0.4.3'
 
-from . import _io
-from . import errors
-from . import image_wrapper
-from . import resizer
-from . import utils
-from . import saver
+from . import _io  # noqa
+from . import errors  # noqa
+from . import image_wrapper  # noqa
+from . import resizer  # noqa
+from . import utils  # noqa
+from . import saver  # noqa

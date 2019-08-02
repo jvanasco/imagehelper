@@ -8,7 +8,7 @@ import os
 from imagehelper import _io
 from imagehelper import errors
 from imagehelper import utils
-from .utils import *
+from .utils import *  # noqa
 from . import _core
 
 
@@ -16,9 +16,10 @@ from . import _core
 
 
 class SaverConfig(object):
-    """Configuration for a localfile saving implementation
+    """
+    Configuration for a localfile saving implementation
 
-        we will save to a `filedir`
+    we will save to a `filedir`
     """
     subdir_public_name = None
     subdir_archive_name = None
@@ -39,11 +40,29 @@ class SaverConfig(object):
 
 
 class SaverLogger(_core.SaverLogger):
+    """
+    Abstract interface for logging saves.
+    This should be subclassed and provided to a factory
+    """
 
-    def log_save(self, subdir_name=None, filename=None, file_size=None, file_md5=None, ):
+    def log_save(self, subdir_name=None, filename=None, file_size=None, file_md5=None, filepath=None):
+        """
+        kwargs:
+            subdir_name : name of the subdirectory
+            filename : name of the file
+            file_size : size of the file in bytes
+            file_md5 : md5 value of the file (hex)
+            filepath : full filepath for the save. this may be relative but must include the directory above `subdir`
+        """
         pass
 
-    def log_delete(self, subdir_name=None, filename=None):
+    def log_delete(self, subdir_name=None, filename=None, filepath=None):
+        """
+        kwargs:
+            subdir_name : name of the subdirectory
+            filename : name of the file
+            filepath : full filepath for the save. this may be relative but must include the directory above `subdir`
+        """
         pass
 
 
@@ -68,6 +87,9 @@ class SaverManagerFactory(object):
 
 
 class _SaverCoreManager(object):
+    """
+    based on interface defined in `_core.SaverCoreManager`
+    """
 
     _resizerConfig = None
     _saverConfig = None
@@ -76,27 +98,38 @@ class _SaverCoreManager(object):
     filename_template = "%(guid)s-%(suffix)s.%(format)s"
     filename_template_archive = "%(guid)s.%(format)s"
 
-    def files_delete(self, files_saved, dry_run=False, ):
+    def files_delete(self, files_saved, dry_run=False, remove_empty_dirs=True):
         """does not actually delete"""
         for size in list(files_saved.keys()):
 
             # grab the stash
             (target_filename, subdir_name) = files_saved[size]
 
+            target_dirname = os.path.join(self._saverConfig.filedir, subdir_name)
+            if not os.path.exists(target_dirname):
+                raise ValueError("Directory %s does not exist!" % target_dirname)
+            target_filepath = os.path.join(target_dirname, target_filename)
+
             # delete it
             log.debug("going to delete %s " %
-                      (target_filename,))
+                      (target_filepath,))
 
             if not dry_run:
-
-                # TODO - delete
+            
+                os.unlink(target_filepath)
 
                 # external logging
                 if self._saverLogger:
                     self._saverLogger.log_delete(
-                        subdir_name=subdir_name,
-                        filename=target_filename,
+                        subdir_name = subdir_name,
+                        filename = target_filename,
+                        filepath = target_filepath,
                     )
+
+                # cleanup path
+                if remove_empty_dirs:
+                    if len(os.listdir(target_dirname)) == 0:
+                        os.rmdir(target_dirname)
 
             # internal cleanup
             del files_saved[size]
@@ -105,7 +138,12 @@ class _SaverCoreManager(object):
 
 
 class SaverManager(_SaverCoreManager):
-    """`SaverManager` handles all the actual uploading and deleting"""
+    """
+    `SaverManager` handles all the actual uploading and deleting
+    
+    based on interface defined in `_core._SaverCoreManager`
+    but inherits from this file's '`_SaverCoreManager`
+    """
 
     def __init__(self, saverConfig=None, saverLogger=None, resizerConfig=None):
         if not resizerConfig:
@@ -115,8 +153,9 @@ class SaverManager(_SaverCoreManager):
         self._resizerConfig = resizerConfig
 
     def _validate__selected_resizes(self, resizerResultset, selected_resizes):
-        """shared validation
-            returns `dict` selected_resizes
+        """
+        shared validation
+        returns: `dict` selected_resizes
         """
 
         # default to the resized images
@@ -138,12 +177,12 @@ class SaverManager(_SaverCoreManager):
 
     def generate_filenames(self, resizerResultset, guid, selected_resizes=None, archive_original=None):
         """
-            generates the filenames s3 would save to;
-            this is useful for planning/testing or deleting old files
+        generates the filenames s3 would save to;
+        this is useful for planning/testing or deleting old files
 
-            Returns a `dict` of target filenames
-                keys = resized size
-                values = tuple (target_filename, subdir)
+        Returns a `dict` of target filenames:
+            keys = resized size
+            values = tuple (target_filename, subdir)
         """
         if guid is None:
             raise errors.ImageError_ArgsError("""You must supply a `guid` for
@@ -186,8 +225,8 @@ class SaverManager(_SaverCoreManager):
 
     def files_save(self, resizerResultset, guid, selected_resizes=None, archive_original=None, dry_run=False, ):
         """
-            Returns a dict of resized images
-            calls self.register_image_file() if needed
+        Returns a `dict` of resized images
+        calls `self.register_image_file()`` if needed
         """
         if guid is None:
             raise errors.ImageError_ArgsError("""You must supply a `guid` for
@@ -238,6 +277,7 @@ class SaverManager(_SaverCoreManager):
                             filename = _filename,
                             file_size = resizerResultset.resized[size].file_size,
                             file_md5 = resizerResultset.resized[size].file_md5,
+                            filepath = target_file,
                         )
 
                 # log for removal/tracking & return
@@ -265,6 +305,7 @@ class SaverManager(_SaverCoreManager):
                             filename = _filename,
                             file_size = resizerResultset.original.file_size,
                             file_md5 = resizerResultset.original.file_md5,
+                            filepath = target_file,
                         )
 
                 # log for removal/tracking & return
@@ -286,9 +327,7 @@ class SaverSimpleAccess(_SaverCoreManager):
         self._saverLogger = saverLogger
         self._resizerConfig = resizerConfig
 
-    def file_save(self, subdir_name, filename, wrappedFile, upload_type="public", dry_run=False, ):
-        if upload_type not in ("public", "archive"):
-            raise ValueError("upload_type must be `public` or `archive`")
+    def file_save(self, subdir_name, filename, wrappedFile, dry_run=False, ):
 
         _saves = {}
         try:
@@ -301,7 +340,7 @@ class SaverSimpleAccess(_SaverCoreManager):
             if not dry_run:
                 # upload
                 with open(target_file, _io.FileWriteArgs) as _fh:
-                    _fh.write(resizerResultset.resized[size].file.getvalue())
+                    _fh.write(wrappedFile.file.getvalue())
 
                 # log to external plugin too
                 if self._saverLogger:
@@ -310,10 +349,11 @@ class SaverSimpleAccess(_SaverCoreManager):
                         filename = filename,
                         file_size = wrappedFile.file_size,
                         file_md5 = wrappedFile.file_md5,
+                        filepath = target_file,
                     )
 
             # log for removal/tracking & return
-            _uploads = self.simple_saves_mapping(subdir_name, filename)
+            _saves = self.simple_saves_mapping(subdir_name, filename)
 
             return _saves
         except Exception as exc:

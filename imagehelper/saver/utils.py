@@ -1,4 +1,4 @@
-from imagehelper import utils
+from .. import utils
 from six import string_types
 
 
