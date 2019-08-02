@@ -8,6 +8,7 @@ import os
 # pypi
 import six  # noqa
 from six.moves import configparser
+import requests
 
 # local
 import imagehelper
@@ -133,15 +134,21 @@ def newSaverLogger():
 
 class CustomSaverLogger(imagehelper.saver.s3.SaverLogger):
 
+    def __init__(self):
+        self._saves = []
+        self._deletes = []
+
     def log_save(self, bucket_name=None, key=None, file_size=None, file_md5=None):
         # todo: change to logger and/or mock
         print("CustomSaverLogger.log_save")
         print("\t %s, %s, %s, %s" % (bucket_name, key, file_size, file_md5))
+        self._saves.append((bucket_name, key, file_size, file_md5))
 
     def log_delete(self, bucket_name=None, key=None):
         # todo: change to logger and/or mock
         print ("CustomSaverLogger.log_delete")
         print ("\t %s, %s" % (bucket_name, key))
+        self._deletes.append((bucket_name, key))
 
 
 class _ImagehelperTestingMixin(object):
@@ -209,7 +216,10 @@ class TestS3(unittest.TestCase, _ImagehelperTestingMixin, ):
         assert saverManager._saverLogger == saverLogger
         assert saverManager._resizerConfig == resizerConfig
 
-    def test_s3(self):
+    def test_s3__saver_manager(self):
+        """
+        test saving files with the `localfile.SaverManager`
+        """
 
         # new resizer config
         resizerConfig = newResizerConfig()
@@ -228,10 +238,8 @@ class TestS3(unittest.TestCase, _ImagehelperTestingMixin, ):
         # new s3 config
         saverConfig = newSaverConfig()
         # new s3 logger
-        if False:
-            saverLogger = imagehelper.saver.s3.SaverLogger()
-        else:
-            saverLogger = CustomSaverLogger()
+        # saverLogger = imagehelper.saver.s3.SaverLogger()
+        saverLogger = CustomSaverLogger()
 
         # upload the resized items
         uploader = imagehelper.saver.s3.SaverManager(saverConfig=saverConfig, resizerConfig=resizerConfig, saverLogger=saverLogger)
@@ -240,10 +248,60 @@ class TestS3(unittest.TestCase, _ImagehelperTestingMixin, ):
         uploaded = uploader.files_save(resizedImages, guid)
         deleted = uploader.files_delete(uploaded)
 
+    def test_s3__saver_simple_access(self):
+        """
+        test saving files with the `localfile.SaverSimpleAccess`
+        """
+
+        # new resizer config
+        resizerConfig = newResizerConfig()
+        # build a factory
+        resizerFactory = imagehelper.resizer.ResizerFactory(resizerConfig=resizerConfig)
+
+        # grab a resizer
+        resizer = resizerFactory.resizer()
+
+        # resize !
+        resizedImages = resizer.resize(imagefile=get_imagefile())
+
+        # audit the payload
+        self._check_resizedImages(resizedImages)
+
+        # new s3 config
+        saverConfig = newSaverConfig()
+        # new s3 logger
+        # saverLogger = imagehelper.saver.s3.SaverLogger()
+        saverLogger = CustomSaverLogger()
+        
+        # upload the resized items
+        uploader = imagehelper.saver.s3.SaverSimpleAccess(saverConfig=saverConfig, resizerConfig=resizerConfig, saverLogger=saverLogger)
+
+        guid = "123"
+        filename = "%s.jpg" % guid
+        bucket_name = saverConfig.bucket_public_name
+        uploaded = uploader.file_save(bucket_name, filename, resizedImages.resized['thumb1'], upload_type="public", dry_run=False, )
+        assert uploaded
+        assert len(saverLogger._saves) == 1
+        
+        s3_url = "https://%s.s3.amazonaws.com/%s" % (bucket_name, filename)
+        resp = requests.get(s3_url)
+        assert resp.status_code == 200
+        assert resp.headers['Content-Type'] == 'image/jpeg'
+
+        # but still rely on the parent class' call `files_delete` (fileS)
+        deleted = uploader.files_delete(uploaded)
+        assert isinstance(deleted, dict)
+        assert len(deleted.items()) == 0
+        assert len(saverLogger._deletes) == 1
+
+        # and check it's not available any longer
+        resp2 = requests.get(s3_url)
+        assert resp2.status_code == 403
+
 
 class TestLocalfile(unittest.TestCase, _ImagehelperTestingMixin, ):
 
-    def test_localfile_manager(self):
+    def test_localfile__saver_manager(self):
         """
         test saving files with the `localfile.SaverManager`
         """
@@ -274,7 +332,7 @@ class TestLocalfile(unittest.TestCase, _ImagehelperTestingMixin, ):
         uploaded = saver.files_save(resizedImages, guid)
         deleted = saver.files_delete(uploaded)
         
-    def test_localfile_simple(self):
+    def test_localfile__saver_simple_access(self):
         """
         test saving files with the `localfile.SaverSimpleAccess`
         """
@@ -293,9 +351,9 @@ class TestLocalfile(unittest.TestCase, _ImagehelperTestingMixin, ):
         # audit the payload
         self._check_resizedImages(resizedImages)
 
-        # new s3 config
+        # new saver config
         saverConfig = newSaverConfig_Localfile()
-        # new s3 logger
+        # new logger
         saverLogger = imagehelper.saver.localfile.SaverLogger()
 
         # upload the resized items
@@ -306,6 +364,7 @@ class TestLocalfile(unittest.TestCase, _ImagehelperTestingMixin, ):
         
         # note we call `file_save` (file)
         uploaded = saver.file_save(subdir_name, filename, resizedImages.resized['thumb1'])
+        assert uploaded
         
         # test the directory is there
         _subdirs = os.listdir('localfile-output')

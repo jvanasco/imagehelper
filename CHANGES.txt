@@ -1,11 +1,11 @@
-unreleased - 0.4.3rc1
+0.4.3
 -----
 * moved tests and test-data
 * cleaned up Python exceptions
 * cleaned up docstrings
 * added new `errors.ImageError_InstructionsError`
-* added some tests, specifically for localfile simple saving
-* localfile saving now logs the filepath
+* added some tests, specifically for localfile and s3 "simple saving"
+* localfile saving now logs the "filepath" (new kwarg to logger)
 
 0.4.2
 -----
