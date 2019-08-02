@@ -12,7 +12,7 @@ This package was in the process of being largely rewritten... It really needs to
 
 `imagehelper` requires `Pillow`. Earlier versions relied on `PIL` or supported both. This is an old package.
 
-it will try to import `boto` for communicating with s3.  If you don't want to use s3, no worries.
+it will try to import `boto` for communicating with AmazonS3.  If you don't want to use S3, no worries - you can save to a local file.
 
 The package was originally aimed at thumbnails, but it works for all resizing needs that are aimed at downsampling images.
 
@@ -133,8 +133,6 @@ Behind the scenes, imagehelper does all the math and uploading.
 
 
 
-
-
 ## Usage...
 
 Check out the demo.py module - it offers a narrative demo of how to use the package. Be sure to include some Amazon S3 credentials in an `aws.cfg` file.  a template is provided.
@@ -147,7 +145,7 @@ The general program flow is this:
 2. Create `Factory` objects to hold the `Configuration` objects.
 3. Obtain a `Worker` object from the `Factory` to do the actual work (resizing or uploading)
 
-You should typically create Configuration and Factory objects during application startup, and create/destroy a work for each request or event.
+You should typically create "Configuration" and "Factory" objects during application startup, and create/destroy a work for each request or event.
 
 Here's a more in depth description
 
@@ -156,11 +154,11 @@ Here's a more in depth description
 * keys prepended with `save_` are passed on to PIL during the call to `save` (the prefix is removed)
 * you can decide what type of resizing you want.  sometimes you want to crop, other times you want to fit within a box, other times you want to ensure a height or width.  this makes your designers happy.
 
-2. create an array of image_resizes_selected -- the keys in the above schema you want to resize.
+2. create an array of `image_resizes_selected` -- the keys in the above schema you want to resize.
 
-3. you can pass these arguments into the routines themselves, or generate a ResizeConfig object an a resize factory that you stash into your app settings.
+3. you can pass these arguments into the routines themselves, or generate a `imagehelper.resizer.ResizerConfig` object or a `imagehelper.resizer.ResizerFactory` that you stash into your application.
 
-4. If you're saving to S3, create an S3 config object to store your info.  note that you can specify a public and private bucket.
+4. If you're saving to AmazonS3, create an `imagehelper.saver.s3.SaverConfig` config object to store your info.  note that you can specify a public and private bucket.
 
 * resized thumbnails are saved to the public bucket
 *  the original item is optionally saved to the archive, which is not viewable to the public.  this is so you can do different sizing schemes in the future.
@@ -262,18 +260,18 @@ if you don't have a current mapping of the files to delete in s3 but you do have
     deleter = imagehelper.saver.s3.SaverManager(saverConfig=saverConfig, resizerConfig=resizerConfig)
     targetFilenames = build.generate_filenames(fakedResizedImages, guid)
 
-the `original_filename` is needed in fake_resultset, because a resultset tracks the original file and it's type.  as of the 0.1.0 branch, only the extension of the filename is utilized.
+the `original_filename` is needed in `fake_resultset`, because a resultset tracks the original file and it's type.  as of the `0.1.0` branch, only the extension of the filename is utilized.
 
 
 ## FAQ - validate uploaded image ?
 
-this is simple.
+This is simple.
 
-1. create a dumb resizer factory
+1. Create a dumb resizer factory
 
     nullResizerFactory = imagehelper.resizer.ResizerFactory()
 
-2. validate it
+2. Validate it
 
     try:
         resizer = nullResizerFactory.resizer(
@@ -288,7 +286,7 @@ this is simple.
         raise ValueError('Too Big!')
 
 
-passing an imagefile to `ResizerFactory.resizer` or `Resizer.__init__` will register the file with the resizer.  This action creates an `image_wrapper.ImageWrapper` object from the file, which contains the original file and a PIL/Pillow object.  If PIL/Pillow can not read the file, an error will be raised.
+Passing an imagefile to `ResizerFactory.resizer` or `Resizer.__init__` will register the file with the resizer.  This action creates an `image_wrapper.ImageWrapper` object from the file, which contains the original file and a PIL/Pillow object.  If PIL/Pillow can not read the file, an error will be raised.
 
 
 ## FAQ - what sort of file types are supported ?
@@ -303,20 +301,20 @@ imagehelper tries to support most common file objects
 * `cgi.FieldStorage`
 * `StringIO.StringIO`, `cStringIO.InputType`, `cStringIO.OutputType`
 
-we try to be kind and rewind.  we call seek(0) on the underlying file when approprite, but sometimes forget.
+We try to "be kind and rewind" and call `seek(0)` on the underlying file when appropriate - but sometimes we forget.
 
-the resize operations accepts the following file kwargs:
+The resize operations accepts the following file kwargs:
 
 * `imagefile` -- one of the above file objects
 * `imageWrapper` -- an instance of `imagehelper.image_wrapper.ImageWrapper`
-* `file_b64` -- a base64 encoded file datastream. this will decoded into a cStringIO object for operations.
+* `file_b64` -- a base64 encoded file datastream. this will decoded into a `cStringIO` object for operations.
 
 
 ## FAQ - using celery ?
 
-celery message brokers require serialized data.
+Celery message brokers require serialized data.
 
-in order to pass the task to celery, you will need to serialize/deserialize the data.  imagehelper provides convenience functionality for this
+In order to pass the task to celery, you will need to serialize/deserialize the data.  imagehelper provides convenience functionality for this
 
     nullResizerFactory = imagehelper.resizer.ResizerFactory()
     resizer = nullResizerFactory.resizer(
@@ -413,7 +411,7 @@ The 03 level can be affected by changing the package level variable to a new int
 
 The package will try to use multiple png operators in sequence.
 
-You can disable any png operator by changing the package level variable to False
+You can disable any png operator by changing the package level variable to `False`
 
     OPTIMIZE_PNGCRUSH_USE = True
     OPTIMIZE_OPTIPNG_USE = True
