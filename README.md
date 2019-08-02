@@ -164,17 +164,15 @@ Here's a more in depth description
 *  the original item is optionally saved to the archive, which is not viewable to the public.  this is so you can do different sizing schemes in the future.
 
 5. You can define your own Amazon S3 logger, a class that provides two methods:
-
-
+	<code><pre>
     class SaverLogger(object):
         def log_save(self, bucket_name=None, key=None, file_size=None, file_md5=None):
             pass
         def log_delete(self, bucket_name=None, key=None):
             pass
-
+	</pre></code>
 
 This will allow you to log what is uploaded into Amazon AWS on your side.  This is hugely helpful, because Amazon uploads are not transaction safe to your application logic.  there are some built-in precautions for this... but it's best to play things safely.
-
 
 Items are currented saved to Amazon S3 as such:
 
