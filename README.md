@@ -8,7 +8,7 @@ This package was in the process of being largely rewritten... It really needs to
 
 `imagehelper` allows you to define a schema for resizing images as a simple `dict`, and will then easily resize them.
 
-`imagehelper` also supports uploading the resized images - and an archival version - onto amazon's s3.
+`imagehelper` also supports uploading the resized images - and an archival version - onto Amazon's S3 service.
 
 `imagehelper` requires `Pillow`. Earlier versions relied on `PIL` or supported both. This is an old package.
 
@@ -137,7 +137,7 @@ Behind the scenes, imagehelper does all the math and uploading.
 
 ## Usage...
 
-Check out the demo.py module - it offers a narrative demo of how to use the package. Be sure to include some amazon s3 credentials in an `aws.cfg` file.  a template is provided.
+Check out the demo.py module - it offers a narrative demo of how to use the package. Be sure to include some Amazon S3 credentials in an `aws.cfg` file.  a template is provided.
 
 imagehelper is NOT designed for one-off resizing needs.  it's designed for a use in applications where you're repeatedly doing the same resizing.
 
@@ -173,25 +173,28 @@ Here's a more in depth description
 		def log_delete(self, bucket_name=None, key=None):
 			pass
 
-This will allow you to log what is uploaded into amazon aws on your side.  This is hugely helpful, because amazon uploads are not transaction safe to your application logic.  there are some built-in precautions for this... but it's best to play things safely.
+This will allow you to log what is uploaded into Amazon AWS on your side.  This is hugely helpful, because Amazon uploads are not transaction safe to your application logic.  there are some built-in precautions for this... but it's best to play things safely.
 
 
-items are currented saved to amazon s3 as such:
+Items are currented saved to Amazon S3 as such:
 
-public:
-	%(guid)s-%(suffix)s.%(format)s
+Public:
 
-	guid- you must supply a guid for the file
-	suffix- this is set in the resize schema
-	format- this is dictated by the PIL format type
+* Template:	`%(guid)s-%(suffix)s.%(format)s`
+* Tokens:
+  *	`guid`: you must supply a guid for the file
+  *	`suffix`: this is set in the resize schema
+  *	`format`: this is dictated by the PIL format type
 
 
-archive:
-	%(guid)s.%(format)s
-	guid- you must supply a guid for the file
-	format- this is dictated by the original format type PIL found
+Archive:
 
-here's an example photo_resize schema
+* Template: `%(guid)s.%(format)s`
+* Tokens:
+  *	`guid`: you must supply a guid for the file
+  *	`format`: this is dictated by the original format type PIL found
+
+Here is an example photo_resize schema:
 
     'jpeg_thumbnail-120': {
         'width': 120,
@@ -206,10 +209,10 @@ here's an example photo_resize schema
     },
 
 
-this would create a file on amazon s3 with a GUID you supply like 123123123g:
+This would create a file on Amazon S3 with a `guid` you supply, such as `123123123`:
 
-	/my-test/123123123-t120.jpg
-	_bucket_/_guid_-_suffix_._format_
+    /my-test/123123123-t120.jpg
+    _bucket_/_guid_-_suffix_._format_
 
 string templates may be used to affect how this is saved. read the source for more info.
 
@@ -217,7 +220,7 @@ string templates may be used to affect how this is saved. read the source for mo
 
 If you upload something via `imagehelper.saver.s3.S3Uploader().s3_upload()`, the task is considered to be "all or nothing".
 
-The actual uploading occurs within a try/except block, and a failure will "roll back" and delete everything that has been successfully uploaded.
+The actual uploading occurs within a try/except block, and a failure will "rollback" and delete everything that has been successfully uploaded.
 
 If you want to integrate with something like the Zope `transaction` package, `imagehelper.saver.s3.S3Uploader().files_delete()` is a public function that expects as input the output of the `s3_upload` function -- a `dict` of `tuples` where the `keys` are resize names (from the schema) and the `values` are the `(filename, bucket)`.
 
@@ -346,7 +349,7 @@ in order to pass the task to celery, you will need to serialize/deserialize the 
 
 ## How are optimizations handled?
 
-Image optimizations are handled by piping the image through external programs.  The idea (and settings) were borrowed from the mac app ImageOptim https://github.com/pornel/ImageOptim / https://imageoptim.com/
+Image optimizations are handled by piping the image through external programs.  The idea (and settings) were borrowed from the mac app ImageOptim (https://github.com/pornel/ImageOptim or https://imageoptim.com/)
 
 The default image Optimizations are LOSSLESS
 
