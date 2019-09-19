@@ -184,7 +184,6 @@ Public:
   * `suffix`: this is set in the resize schema
   * `format`: this is dictated by the PIL format type
 
-
 Archive:
 
 * Template: `%(guid)s.%(format)s`

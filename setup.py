@@ -6,7 +6,9 @@ from setuptools import setup, find_packages
 with open(
     os.path.join(os.path.dirname(__file__), "imagehelper", "__init__.py")
 ) as v_file:
-    VERSION = re.compile(r".*__VERSION__ = \"(.*?)\"", re.S).match(v_file.read()).group(1)
+    VERSION = (
+        re.compile(r".*__VERSION__ = \"(.*?)\"", re.S).match(v_file.read()).group(1)
+    )
 
 
 requires = ["certifi", "envoy", "six", "Pillow"]
