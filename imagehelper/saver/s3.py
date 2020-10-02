@@ -194,14 +194,14 @@ class _SaverCoreManager(object):
     def files_delete(self, files_saved, dry_run=False):
         """workhorse for deletion
 
-            `files_saved`
-                `dict`
-                format =
-                    files_saved[size] = (target_filename, bucket_name)
+        `files_saved`
+            `dict`
+            format =
+                files_saved[size] = (target_filename, bucket_name)
 
-            `dry_run`
-                default = `False`
-                should we just pretend to save?
+        `dry_run`
+            default = `False`
+            should we just pretend to save?
         """
 
         # setup the s3 connection
@@ -311,31 +311,31 @@ class SaverManager(_SaverCoreManager):
         self, resizerResultset, guid, selected_resizes=None, archive_original=None
     ):
         """
-            generates the filenames s3 would save to;
-            this is useful for planning/testing or deleting old files
+        generates the filenames s3 would save to;
+        this is useful for planning/testing or deleting old files
 
-            Returns a `dict` of target filenames
-                keys = resized size
-                values = tuple (target_filename, bucket_name)
+        Returns a `dict` of target filenames
+            keys = resized size
+            values = tuple (target_filename, bucket_name)
 
-            `resizerResultset`
-                a `resizer.ResizerResultset` object
-                    `resized` - dict of images that were resized
-                    `original ` - original file
+        `resizerResultset`
+            a `resizer.ResizerResultset` object
+                `resized` - dict of images that were resized
+                `original ` - original file
 
-            `guid`
-                a `uuid` or similar name that forms the basis for storage
-                the guid is passed into the template in self._resizerConfig
+        `guid`
+            a `uuid` or similar name that forms the basis for storage
+            the guid is passed into the template in self._resizerConfig
 
-            `selected_resizes`
-                default = `None` -- all keys of resizerResultset.resized
-                a `list` of keys to save
-                we default to saving all the resized images
+        `selected_resizes`
+            default = `None` -- all keys of resizerResultset.resized
+            a `list` of keys to save
+            we default to saving all the resized images
 
-            `archive_original`
-                default = `None`
-                should we archive the original ?
-                implicit/explicit archival option.  see `def check_archive_original`
+        `archive_original`
+            default = `None`
+            should we archive the original ?
+            implicit/explicit archival option.  see `def check_archive_original`
 
         """
         if guid is None:
@@ -393,37 +393,37 @@ class SaverManager(_SaverCoreManager):
         dry_run=False,
     ):
         """
-            Returns a dict of resized images
-            calls self.register_image_file() if needed
+        Returns a dict of resized images
+        calls self.register_image_file() if needed
 
-            this resizes the images.
-            it returns the images and updates the internal dict.
+        this resizes the images.
+        it returns the images and updates the internal dict.
 
-            `resizerResultset`
-                a `resizer.ResizerResultset` object
-                    `resized` - dict of images that were resized
-                    `original ` - original file
+        `resizerResultset`
+            a `resizer.ResizerResultset` object
+                `resized` - dict of images that were resized
+                `original ` - original file
 
-            `guid`
-                a `uuid` or similar name that forms the basis for storage
-                the guid is passed to the template in `self.generate_filenames`
+        `guid`
+            a `uuid` or similar name that forms the basis for storage
+            the guid is passed to the template in `self.generate_filenames`
 
-            `selected_resizes`
-                default = `None` -- all keys of resizerResultset.resized
-                a `list` of keys to save
-                we default to saving all the resized images
-                if you don't want to resize any images:
-                    pass in an empty list -- []
-                    passing in `None` will run the default images
+        `selected_resizes`
+            default = `None` -- all keys of resizerResultset.resized
+            a `list` of keys to save
+            we default to saving all the resized images
+            if you don't want to resize any images:
+                pass in an empty list -- []
+                passing in `None` will run the default images
 
-            `archive_original`
-                default = `None`
-                should we archive the original ?
-                implicit/explicit archival option.  see `def check_archive_original`
+        `archive_original`
+            default = `None`
+            should we archive the original ?
+            implicit/explicit archival option.  see `def check_archive_original`
 
-            `dry_run`
-                default = `False`
-                should we just pretend to upload
+        `dry_run`
+            default = `False`
+            should we just pretend to upload
         """
         if boto is None:
             raise NO_BOTO

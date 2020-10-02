@@ -17,96 +17,95 @@ from imagehelper import _io
 # ------------------------------------------------------------------------------
 
 Config = configparser.ConfigParser()
-Config.read('aws.cfg')
-AWS_KEY_PUBLIC = Config.get('aws', 'AWS_KEY_PUBLIC')
-AWS_KEY_SECRET = Config.get('aws', 'AWS_KEY_SECRET')
-AWS_BUCKET_PUBLIC = Config.get('aws', 'AWS_BUCKET_PUBLIC')
-AWS_BUCKET_SECRET = Config.get('aws', 'AWS_BUCKET_SECRET')
-AWS_BUCKET_ALT = Config.get('aws', 'AWS_BUCKET_ALT')
+Config.read("aws.cfg")
+AWS_KEY_PUBLIC = Config.get("aws", "AWS_KEY_PUBLIC")
+AWS_KEY_SECRET = Config.get("aws", "AWS_KEY_SECRET")
+AWS_BUCKET_PUBLIC = Config.get("aws", "AWS_BUCKET_PUBLIC")
+AWS_BUCKET_SECRET = Config.get("aws", "AWS_BUCKET_SECRET")
+AWS_BUCKET_ALT = Config.get("aws", "AWS_BUCKET_ALT")
 
 saverConfig = imagehelper.saver.s3.SaverConfig(
-    key_public = AWS_KEY_PUBLIC,
-    key_private = AWS_KEY_SECRET,
-    bucket_public_name = AWS_BUCKET_PUBLIC,
-    bucket_archive_name = AWS_BUCKET_SECRET,
-    bucket_public_headers = {'x-amz-acl': 'public-read'},
-    bucket_archive_headers = {},
-    archive_original = True
+    key_public=AWS_KEY_PUBLIC,
+    key_private=AWS_KEY_SECRET,
+    bucket_public_name=AWS_BUCKET_PUBLIC,
+    bucket_archive_name=AWS_BUCKET_SECRET,
+    bucket_public_headers={"x-amz-acl": "public-read"},
+    bucket_archive_headers={},
+    archive_original=True,
 )
 
 # ------------------------------------------------------------------------------
 
 resizesSchema = {
-    'thumb1': {
-        'width': 120,
-        'height': 120,
-        'save_quality': 50,
-        'suffix': 't1',
-        'format': 'JPEG',
-        'constraint-method': 'fit-within',
-        's3_bucket_public': AWS_BUCKET_ALT,
-        'filename_template': '%(guid)s.%(format)s',
-        's3_headers': {'x-amz-acl': 'public-read'}
+    "thumb1": {
+        "width": 120,
+        "height": 120,
+        "save_quality": 50,
+        "suffix": "t1",
+        "format": "JPEG",
+        "constraint-method": "fit-within",
+        "s3_bucket_public": AWS_BUCKET_ALT,
+        "filename_template": "%(guid)s.%(format)s",
+        "s3_headers": {"x-amz-acl": "public-read"},
     },
-    't2': {
-        'width': 120,
-        'height': 120,
-        'save_quality': 50,
-        'suffix': 't2',
-        'format': 'PDF',
-        'constraint-method': 'fit-within:ensure-width',
+    "t2": {
+        "width": 120,
+        "height": 120,
+        "save_quality": 50,
+        "suffix": "t2",
+        "format": "PDF",
+        "constraint-method": "fit-within:ensure-width",
     },
-    'thumb3': {
-        'width': 120,
-        'height': 120,
-        'format': 'GIF',
-        'constraint-method': 'fit-within:ensure-height',
+    "thumb3": {
+        "width": 120,
+        "height": 120,
+        "format": "GIF",
+        "constraint-method": "fit-within:ensure-height",
     },
-    't4': {
-        'width': 120,
-        'height': 120,
-        'save_optimize': True,
-        'filename_template': '%(guid)s---%(suffix)s.%(format)s',
-        'suffix': 't4',
-        'format': 'PNG',
-        'constraint-method': 'fit-within:crop-to',
+    "t4": {
+        "width": 120,
+        "height": 120,
+        "save_optimize": True,
+        "filename_template": "%(guid)s---%(suffix)s.%(format)s",
+        "suffix": "t4",
+        "format": "PNG",
+        "constraint-method": "fit-within:crop-to",
     },
 }
-selected_resizes = ['thumb1', 't2', 'thumb3', 't4']
+selected_resizes = ["thumb1", "t2", "thumb3", "t4"]
 
 resizesSchema_alt = {
-    'og:image': {
-        'width': 3200,
-        'height': 3200,
-        'save_quality': 50,
-        'suffix': 'og',
-        'format': 'JPEG',
-        'constraint-method': 'smallest:ensure-minimum',
-        'filename_template': '%(guid)s-og.%(format)s',
+    "og:image": {
+        "width": 3200,
+        "height": 3200,
+        "save_quality": 50,
+        "suffix": "og",
+        "format": "JPEG",
+        "constraint-method": "smallest:ensure-minimum",
+        "filename_template": "%(guid)s-og.%(format)s",
     },
-    'og:image2': {
-        'width': 200,
-        'height': 200,
-        'save_quality': 50,
-        'suffix': 'og',
-        'format': 'JPEG',
-        'constraint-method': 'smallest:ensure-minimum',
-        'filename_template': '%(guid)s-og.%(format)s',
+    "og:image2": {
+        "width": 200,
+        "height": 200,
+        "save_quality": 50,
+        "suffix": "og",
+        "format": "JPEG",
+        "constraint-method": "smallest:ensure-minimum",
+        "filename_template": "%(guid)s-og.%(format)s",
     },
-    'og:image3': {
-        'width': 300,
-        'height': 200,
-        'save_quality': 50,
-        'suffix': 'og',
-        'format': 'JPEG',
-        'constraint-method': 'smallest:ensure-minimum',
-        'filename_template': '%(guid)s-og.%(format)s',
+    "og:image3": {
+        "width": 300,
+        "height": 200,
+        "save_quality": 50,
+        "suffix": "og",
+        "format": "JPEG",
+        "constraint-method": "smallest:ensure-minimum",
+        "filename_template": "%(guid)s-og.%(format)s",
     },
 }
 
 
 class CustomSaverLogger(imagehelper.saver.s3.SaverLogger):
-
     def log_save(self, bucket_name=None, key=None, file_size=None, file_md5=None):
         print("CustomSaverLogger.log_save")
         print("\t %s, %s, %s, %s" % (bucket_name, key, file_size, file_md5))
@@ -135,7 +134,7 @@ _img = None
 def get_imagefile():
     global _img
     if _img is None:
-        img = open('tests/test-data/henry.jpg', _io.FileReadArgs)
+        img = open("tests/test-data/henry.jpg", _io.FileReadArgs)
         img.seek(0)
         data = img.read()
         img.close()
@@ -146,7 +145,7 @@ def get_imagefile():
     return _img
 
 
-guid = '123'
+guid = "123"
 
 
 def demo_direct():
@@ -182,16 +181,21 @@ def demo_factory():
     resizer = resizerFactory.resizer(imagefile=get_imagefile())
     resizedImages = resizer.resize()
 
-    if not os.path.exists('tests/test-output'):
-        os.makedirs('tests/test-output')
+    if not os.path.exists("tests/test-output"):
+        os.makedirs("tests/test-output")
     for k in resizedImages.resized.keys():
-        _filename = 'tests/test-output/%s.%s' % (k, resizesSchema[k]['format'])
+        _filename = "tests/test-output/%s.%s" % (k, resizesSchema[k]["format"])
         print(". writing %s" % _filename)
-        open(_filename, _io.FileWriteArgs).write(resizedImages.resized[k].file.getvalue())
+        open(_filename, _io.FileWriteArgs).write(
+            resizedImages.resized[k].file.getvalue()
+        )
 
     resizedImages.original.optimize()
-    open('tests/test-output/original.png', _io.FileWriteArgs).write(resizedImages.original.file.getvalue())
+    open("tests/test-output/original.png", _io.FileWriteArgs).write(
+        resizedImages.original.file.getvalue()
+    )
     print("<<< demo_factory | done")
+
 
 def demo_s3():
     "demo s3 uploading"
@@ -201,7 +205,9 @@ def demo_s3():
     resizedImages = resizer.resize()
 
     # upload the resized items
-    uploader = imagehelper.saver.s3.SaverManager(saverConfig=saverConfig, resizerConfig=resizerConfig, saverLogger=saverLogger)
+    uploader = imagehelper.saver.s3.SaverManager(
+        saverConfig=saverConfig, resizerConfig=resizerConfig, saverLogger=saverLogger
+    )
     uploaded = uploader.files_save(resizedImages, guid)
     print(". uploaded! %s" % uploaded)
 
@@ -218,14 +224,20 @@ def demo_s3_alt():
     resizedImages = resizer.resize()
 
     # upload the resized items
-    uploader = imagehelper.saver.s3.SaverManager(saverConfig=saverConfig, resizerConfig=resizerConfig, saverLogger=saverLogger)
-    uploaded_original = uploader.files_save(resizedImages, guid, selected_resizes=[], archive_original=True)
+    uploader = imagehelper.saver.s3.SaverManager(
+        saverConfig=saverConfig, resizerConfig=resizerConfig, saverLogger=saverLogger
+    )
+    uploaded_original = uploader.files_save(
+        resizedImages, guid, selected_resizes=[], archive_original=True
+    )
     print(". uploaded_original! %s" % uploaded_original)
 
     uploaded_resizes = uploader.files_save(resizedImages, guid, archive_original=False)
     print(". uploaded_resizes! %s" % uploaded_resizes)
 
-    uploaded_all = dict(list(uploaded_original.items()) + list(uploaded_resizes.items()))
+    uploaded_all = dict(
+        list(uploaded_original.items()) + list(uploaded_resizes.items())
+    )
 
     deleted = uploader.files_delete(uploaded_all)
     print(". deleted! %s" % deleted)
@@ -239,7 +251,14 @@ def _print_ResizedImages(resizedImages):
     print(".. for the resizes...")
     print(".. resize | file_size |  file_md5")
     for k in resizedImages.resized.keys():
-        print(". ", k, "|", resizedImages.resized[k].file_size, "|", resizedImages.resized[k].file_md5)
+        print(
+            ". ",
+            k,
+            "|",
+            resizedImages.resized[k].file_size,
+            "|",
+            resizedImages.resized[k].file_md5,
+        )
 
 
 def demo_alt_resizing():
@@ -260,7 +279,12 @@ def demo_alt_resizing():
     # but instead we are deferring the imagefile into the resize() function
     resizedImages = resizerFactory.resizer().resize(imagefile=get_imagefile())
     for k in resizedImages.resized.keys():
-        print(". ", k, resizedImages.resized[k].file_size, resizedImages.resized[k].file_md5)
+        print(
+            ". ",
+            k,
+            resizedImages.resized[k].file_size,
+            resizedImages.resized[k].file_md5,
+        )
     _print_ResizedImages(resizedImages)
 
     print("<<< demo_alt_resizing | done")
@@ -287,7 +311,7 @@ def demo_serialze():
     file_md5 = resizer.get_original().file_md5
     file_b64 = resizer.get_original().file_b64
 
-    resizer = resizerFactory.resizer(file_b64 = file_b64)
+    resizer = resizerFactory.resizer(file_b64=file_b64)
     print("<<< demo_serialze | done")
 
 
@@ -301,4 +325,3 @@ if AWS_KEY_PUBLIC:
     demo_s3_alt()
 else:
     print("no AWS_KEY_PUBLIC set, not running s3 ")
-    

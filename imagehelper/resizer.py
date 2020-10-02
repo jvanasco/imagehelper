@@ -14,59 +14,59 @@ from . import utils
 class ResizerConfig(object):
     """ResizerFactory allows you to specify what/how to resize.
 
-        You could subclass this configuator - just instantiate the object with
-            `is_subclass = True`
-        to preserve your vars, or configure one on the fly with __init__()
+    You could subclass this configuator - just instantiate the object with
+        `is_subclass = True`
+    to preserve your vars, or configure one on the fly with __init__()
 
-        `resizesSchema` - a dict in this format:
-            {  'size_name': {
-                    'width': 120,
-                    'height': 120,
-                    'constraint-method': 'fit-within',
-                    'save_quality': 50,
-                    'filename_template': '%(guid)s.%(format)s',
-                    'suffix': 't1',
-                    'format':'JPEG',
-                },
-                'other_size_name': {...},
-            }
+    `resizesSchema` - a dict in this format:
+        {  'size_name': {
+                'width': 120,
+                'height': 120,
+                'constraint-method': 'fit-within',
+                'save_quality': 50,
+                'filename_template': '%(guid)s.%(format)s',
+                'suffix': 't1',
+                'format':'JPEG',
+            },
+            'other_size_name': {...},
+        }
 
-        `selected_resizes`: an array of size names (see above) to be resized
-            if a list or tuple is supplied, it will be copied.
+    `selected_resizes`: an array of size names (see above) to be resized
+        if a list or tuple is supplied, it will be copied.
 
-        width*
-            in pixels
+    width*
+        in pixels
 
-        height*
-            in pixels
+    height*
+        in pixels
 
-        format
-            defaults to JPEG
+    format
+        defaults to JPEG
 
-        constraint-method
-            see below for valid constraint methods
+    constraint-method
+        see below for valid constraint methods
 
 
-        save_
-            keys prepended with `save_` are stripped of "save_" and are then
-            passed on to PIL as kwargs.
-            warning: different formats accept different arguments. view the
-            code in 'resize' to see what works.
+    save_
+        keys prepended with `save_` are stripped of "save_" and are then
+        passed on to PIL as kwargs.
+        warning: different formats accept different arguments. view the
+        code in 'resize' to see what works.
 
-        valid constraint methods:
+    valid constraint methods:
 
-            see `imagehelper.image_wrapper.ImageWrapper().resize()` for full
-            details
+        see `imagehelper.image_wrapper.ImageWrapper().resize()` for full
+        details
 
-            'exact:no-resize'
-            'exact:proportion'
-            'fit-within'
-            'fit-within:crop-to'
-            'fit-within:ensure-height'
-            'fit-within:ensure-width'
-            'smallest:ensure-minimum'
+        'exact:no-resize'
+        'exact:proportion'
+        'fit-within'
+        'fit-within:crop-to'
+        'fit-within:ensure-height'
+        'fit-within:ensure-width'
+        'smallest:ensure-minimum'
 
-            `optimize` - True / False
+        `optimize` - True / False
 
     """
 
@@ -147,8 +147,8 @@ class ResizerFactory(object):
 
 class ResizerResultset(object):
     """A resultset contains two attributes:
-        .original  - image_wrapper.BasicImage
-        .resizes  - dict.  keys = 'sizes', values = image_wrapper.BasicImage
+    .original  - image_wrapper.BasicImage
+    .resizes  - dict.  keys = 'sizes', values = image_wrapper.BasicImage
     """
 
     resized = None

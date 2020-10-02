@@ -153,23 +153,23 @@ def autodetect_support(test_libraries=None):
 class BasicImage(object):
     """A generic wrapper for Images
 
-        `file`
-            a filelike object
-                ie, cStringIO
+    `file`
+        a filelike object
+            ie, cStringIO
 
-        `format`
-        `name`
+    `format`
+    `name`
 
-        `mode`
-        `width`
-        `height`
-            resized file attributes
+    `mode`
+    `width`
+    `height`
+        resized file attributes
 
-        `file_size`
-            property to calculate the file's size
+    `file_size`
+        property to calculate the file's size
 
-        `file_md5`
-            property to calculate the file's md5
+    `file_md5`
+        property to calculate the file's md5
     """
 
     def __init__(
@@ -184,14 +184,14 @@ class BasicImage(object):
         animated_image_totalframes=None,
     ):
         """args
-            `resized_file`
-                * required
-            `format`
-            `name`
-            `mode`
-            `width`
-            `height`
-                default = None
+        `resized_file`
+            * required
+        `format`
+        `name`
+        `mode`
+        `width`
+        `height`
+            default = None
 
         """
         self.file = fileObject
@@ -236,15 +236,17 @@ class BasicImage(object):
         """proxied format; PIL version"""
         return utils.PIL_type_to_extension(self.format)
 
-    def optimize(self,):
+    def optimize(
+        self,
+    ):
         """this does some heavy lifting
 
-            unix/mac only feature; sorry.
+        unix/mac only feature; sorry.
 
-            this function creates an infile and outfile via NamedTemporaryFile
-            it then pipes the file through lossless compression options
+        this function creates an infile and outfile via NamedTemporaryFile
+        it then pipes the file through lossless compression options
 
-            this will replace the self.file object
+        this will replace the self.file object
         """
         if self.format_standardized not in ("jpg", "png", "gif"):
             return
@@ -421,8 +423,7 @@ class BasicImage(object):
 
 
 class ResizedImage(BasicImage):
-    """A class for a ResizedImage Result.
-    """
+    """A class for a ResizedImage Result."""
 
     def __repr__(self):
         return "<ReizedImage at %s - %s >" % (id(self), self.__dict__)

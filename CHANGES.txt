@@ -1,3 +1,7 @@
+unreleased
+	* upgraded black
+	* integrated with pre-commit
+
 0.5.0
 -----
 2019.08.02
