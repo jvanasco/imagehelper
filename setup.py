@@ -19,10 +19,11 @@ requires = [
 ]
 tests_require = [
     "boto",
-    "pytest",
     "requests",
 ]
-testing_extras = tests_require + []
+testing_extras = tests_require + [
+    "pytest",
+]
 
 setup(
     name="imagehelper",
