@@ -76,7 +76,7 @@ And easily upload them:
         key_public = AWS_KEY_PUBLIC,
         key_private = AWS_KEY_SECRET,
         bucket_public_name = AWS_BUCKET_PUBLIC,
-        bucket_archive_name = AWS_BUCKET_SECRET,
+        bucket_archive_name = AWS_BUCKET_ARCHIVE,
     )
 
     # create some factories.
@@ -135,7 +135,7 @@ Behind the scenes, imagehelper does all the math and uploading.
 
 ## Usage...
 
-Check out the demo.py module - it offers a narrative demo of how to use the package. Be sure to include some Amazon S3 credentials in an `aws.cfg` file.  a template is provided.
+Check out the demo.py module - it offers a narrative demo of how to use the package. Be sure to include some Amazon S3 credentials in your environment, as illustrated in the `aws.cfg.template` file.
 
 imagehelper is NOT designed for one-off resizing needs.  it's designed for a use in applications where you're repeatedly doing the same resizing.
 

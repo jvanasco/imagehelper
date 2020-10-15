@@ -6,16 +6,22 @@ import pdb  # noqa
 import os
 
 # pypi
-import six  # noqa
-from six.moves import configparser
 import requests
 
 # local
 import imagehelper
 from imagehelper import _io
 
-
+# by default, do not test S3 connectivity, as that relies on secrets
 TEST_S3 = int(os.environ.get("TEST_S3", 0))
+
+# local - popular
+# github secrets
+AWS_KEY_PUBLIC = os.environ.get("AWS_KEY_PUBLIC", "12345")
+AWS_KEY_SECRET = os.environ.get("AWS_KEY_SECRET", "54321")
+AWS_BUCKET_PUBLIC = os.environ.get("AWS_BUCKET_PUBLIC", "bucket-public")
+AWS_BUCKET_ARCHIVE = os.environ.get("AWS_BUCKET_ARCHIVE", "bucket-archive")
+AWS_BUCKET_ALT = os.environ.get("AWS_BUCKET_ALT", "bucket-alt")
 
 
 # ------------------------------------------------------------------------------
@@ -81,19 +87,11 @@ def newSaverConfig():
     """
     save the files into AmazonS3
     """
-    Config = configparser.ConfigParser()
-    Config.read("aws.cfg")
-    AWS_KEY_PUBLIC = Config.get("aws", "AWS_KEY_PUBLIC")
-    AWS_KEY_SECRET = Config.get("aws", "AWS_KEY_SECRET")
-    AWS_BUCKET_PUBLIC = Config.get("aws", "AWS_BUCKET_PUBLIC")
-    AWS_BUCKET_SECRET = Config.get("aws", "AWS_BUCKET_SECRET")
-    AWS_BUCKET_ALT = Config.get("aws", "AWS_BUCKET_ALT")
-
     saverConfig = imagehelper.saver.s3.SaverConfig(
         key_public=AWS_KEY_PUBLIC,
         key_private=AWS_KEY_SECRET,
         bucket_public_name=AWS_BUCKET_PUBLIC,
-        bucket_archive_name=AWS_BUCKET_SECRET,
+        bucket_archive_name=AWS_BUCKET_ARCHIVE,
         bucket_public_headers={"x-amz-acl": "public-read"},
         bucket_archive_headers={},
         archive_original=True,
@@ -106,14 +104,9 @@ def newSaverConfig_Localfile():
     """
     save the files into a folder with the same names as our AWS buckets
     """
-    Config = configparser.ConfigParser()
-    Config.read("aws.cfg")
-    AWS_BUCKET_PUBLIC = Config.get("aws", "AWS_BUCKET_PUBLIC")
-    AWS_BUCKET_SECRET = Config.get("aws", "AWS_BUCKET_SECRET")
-
     saverConfig = imagehelper.saver.localfile.SaverConfig(
         subdir_public_name=AWS_BUCKET_PUBLIC,
-        subdir_archive_name=AWS_BUCKET_SECRET,
+        subdir_archive_name=AWS_BUCKET_ARCHIVE,
         archive_original=True,
     )
 
