@@ -24,6 +24,9 @@ tests_require = [
 testing_extras = tests_require + [
     "pytest",
 ]
+setup_requires = [
+    "pytest-runner",
+]
 
 setup(
     name="imagehelper",
@@ -46,6 +49,7 @@ setup(
     ],
     install_requires=requires,
     tests_require=tests_require,
+    setup_requires=setup_requires,
     extras={
         "testing": testing_extras,
     },
