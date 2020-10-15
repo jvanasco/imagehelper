@@ -11,8 +11,17 @@ with open(
     )
 
 
-requires = ["certifi", "envoy", "six", "Pillow"]
-tests_require = []
+requires = [
+    "certifi",
+    "envoy",
+    "six",
+    "Pillow",
+]
+tests_require = [
+    "boto",
+    "pytest",
+    "requests",
+]
 testing_extras = []
 
 setup(
