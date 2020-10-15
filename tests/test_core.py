@@ -15,6 +15,9 @@ import imagehelper
 from imagehelper import _io
 
 
+TEST_S3 = int(os.environ.get("TEST_S3", 0))
+
+
 # ------------------------------------------------------------------------------
 
 
@@ -216,6 +219,7 @@ class TestS3(unittest.TestCase, _ImagehelperTestingMixin):
         assert saverManager._saverLogger == saverLogger
         assert saverManager._resizerConfig == resizerConfig
 
+    @unittest.skipUnless(TEST_S3, "S3 Testing Disabled")
     def test_s3__saver_manager(self):
         """
         test saving files with the `localfile.SaverManager`
@@ -252,6 +256,7 @@ class TestS3(unittest.TestCase, _ImagehelperTestingMixin):
         uploaded = uploader.files_save(resizedImages, guid)
         deleted = uploader.files_delete(uploaded)
 
+    @unittest.skipUnless(TEST_S3, "S3 Testing Disabled")
     def test_s3__saver_simple_access(self):
         """
         test saving files with the `localfile.SaverSimpleAccess`

@@ -12,7 +12,8 @@ with open(
 
 
 requires = ["certifi", "envoy", "six", "Pillow"]
-
+tests_require = []
+testing_extras = []
 
 setup(
     name="imagehelper",
@@ -33,6 +34,9 @@ setup(
         "Topic :: Multimedia :: Graphics :: Graphics Conversion",
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
-    tests_require=requires,
     install_requires=requires,
+    tests_require=tests_require,
+    extras={
+        "testing": testing_extras,
+    },
 )
