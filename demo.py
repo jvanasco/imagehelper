@@ -21,14 +21,14 @@ Config.read("aws.cfg")
 AWS_KEY_PUBLIC = Config.get("aws", "AWS_KEY_PUBLIC")
 AWS_KEY_SECRET = Config.get("aws", "AWS_KEY_SECRET")
 AWS_BUCKET_PUBLIC = Config.get("aws", "AWS_BUCKET_PUBLIC")
-AWS_BUCKET_SECRET = Config.get("aws", "AWS_BUCKET_SECRET")
+AWS_BUCKET_ARCHIVE = Config.get("aws", "AWS_BUCKET_ARCHIVE")
 AWS_BUCKET_ALT = Config.get("aws", "AWS_BUCKET_ALT")
 
 saverConfig = imagehelper.saver.s3.SaverConfig(
     key_public=AWS_KEY_PUBLIC,
     key_private=AWS_KEY_SECRET,
     bucket_public_name=AWS_BUCKET_PUBLIC,
-    bucket_archive_name=AWS_BUCKET_SECRET,
+    bucket_archive_name=AWS_BUCKET_ARCHIVE,
     bucket_public_headers={"x-amz-acl": "public-read"},
     bucket_archive_headers={},
     archive_original=True,
