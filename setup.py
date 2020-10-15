@@ -22,7 +22,7 @@ tests_require = [
     "pytest",
     "requests",
 ]
-testing_extras = []
+testing_extras = tests_require + []
 
 setup(
     name="imagehelper",
