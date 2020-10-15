@@ -1,3 +1,5 @@
+![Python package](https://github.com/jvanasco/imagehelper/workflows/Python%20package/badge.svg)
+
 #### IMPORTANT Note:
 
 This package was in the process of being largely rewritten... It really needs to be rewritten, but is production safe
