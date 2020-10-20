@@ -4,6 +4,10 @@
 
 This package was in the process of being largely rewritten... It really needs to be rewritten, but is production safe
 
+## Overview
+
+The `imagehelper` package offers a simple interface for image resizing, optimizing and uploading. Core image resizing operations are handled by the `Pillow` (PIL) package; S3 uploading is handled by `boto`, and there are hooks for optimizing the images with the commandline tools: `advpng`,  `gifsicle`, `jpegtran`, `jpegoptim`, `optipng` and `pngcrush.`
+
 ## About
 
 `imagehelper` is a fork of some image helping routines that were built for FindMeOn.com around 2005.
