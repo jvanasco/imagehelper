@@ -1,2 +1,14 @@
-include aws.cfg.template demo.py CHANGES.txt LICENSE.txt
-recursive-include dir tests
+graft src
+graft tests
+prune tests/test-output
+
+include setup.cfg pyproject.toml
+include tox.ini
+include CHANGES.txt
+include LICENSE.txt
+include README.md
+include TODO.txt
+include aws.cfg.template
+include demo.py
+
+recursive-exclude * __pycache__ *.py[cod] .DS_Store *.cfg

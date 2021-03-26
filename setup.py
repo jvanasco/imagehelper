@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 HERE = os.path.abspath(os.path.dirname(__file__))
 
 # store version in the init.py
-with open(os.path.join(HERE, "imagehelper", "__init__.py")) as v_file:
+with open(os.path.join(HERE, "src", "imagehelper", "__init__.py")) as v_file:
     VERSION = (
         re.compile(r".*__VERSION__ = \"(.*?)\"", re.S).match(v_file.read()).group(1)
     )
@@ -49,7 +49,11 @@ setup(
     ],
     py_modules=["imagehelper"],
     license="BSD",
-    packages=find_packages(exclude=("tests",)),
+    packages=find_packages(
+        where="src",
+    ),
+    package_dir={"": "src"},
+    include_package_data=True,
     zip_safe=False,
     install_requires=requires,
     tests_require=tests_require,
