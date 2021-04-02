@@ -2,8 +2,6 @@ from __future__ import division
 
 import logging
 
-log = logging.getLogger(__name__)
-
 # stdlib
 import cgi
 import tempfile
@@ -15,14 +13,13 @@ except ImportError:
     raise ImportError("Image library (Pillow) is required")
 import envoy
 
-# from subprocess import call
-
-
 # local
 from . import errors
 from . import utils
 from . import _io
 
+
+log = logging.getLogger(__name__)
 
 # ==============================================================================
 
@@ -151,26 +148,27 @@ def autodetect_support(test_libraries=None):
 
 
 class BasicImage(object):
-    """A generic wrapper for Images
-
-    `file`
-        a filelike object
-            ie, cStringIO
-
-    `format`
-    `name`
-
-    `mode`
-    `width`
-    `height`
-        resized file attributes
-
-    `file_size`
-        property to calculate the file's size
-
-    `file_md5`
-        property to calculate the file's md5
     """
+    A generic wrapper for Images
+    """
+
+    # `file` a file-like object; ie, StringIO
+    file = None
+
+    # `format`
+    format = None
+
+    # `name`
+    name = None
+
+    # `mode` file attribute
+    mode = None
+
+    # `width` file attribute
+    width = None
+
+    # `height` file attribute
+    height = None
 
     def __init__(
         self,
@@ -183,16 +181,15 @@ class BasicImage(object):
         is_image_animated=None,
         animated_image_totalframes=None,
     ):
-        """args
-        `resized_file`
-            * required
-        `format`
-        `name`
-        `mode`
-        `width`
-        `height`
-            default = None
-
+        """
+        :arg fileObject: the resized file
+        :param name: default None
+        :param format: default None
+        :param mode: default None
+        :param width: default None
+        :param height: default None
+        :param is_image_animated: default None
+        :param animated_image_totalframes: default None
         """
         self.file = fileObject
         self.file.seek(0)  # be kind, rewind
@@ -767,10 +764,10 @@ class ImageWrapper(object):
                     proportion_h = 1
                     proportion_w = 1
 
-                use_scale = "h"
+                # use_scale = "h"
                 scale_factor = proportion_h
                 if proportion_w > proportion_h:
-                    use_scale = "w"
+                    # use_scale = "w"
                     scale_factor = proportion_w
 
                 t_h = int(i_h * scale_factor)

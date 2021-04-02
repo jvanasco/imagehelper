@@ -1,2 +1,2 @@
-from . import s3  # noqa
-from . import localfile  # noqa
+from . import s3
+from . import localfile

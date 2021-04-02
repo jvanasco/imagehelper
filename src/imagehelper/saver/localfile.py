@@ -6,11 +6,12 @@ log = logging.getLogger(__name__)
 import os
 
 # local
-from imagehelper import _io
-from imagehelper import errors
-from imagehelper import utils
-from .utils import *  # noqa
+from .. import _io
+from .. import errors
+from .. import utils
 from . import _core
+from .utils import check_archive_original
+from .utils import size_to_filename
 
 
 # ==============================================================================

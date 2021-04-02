@@ -1,5 +1,8 @@
 from .. import utils
-from six import string_types
+from .._compat import string_types
+
+
+# ==============================================================================
 
 
 def check_archive_original(resizerResultset, archive_original=None):

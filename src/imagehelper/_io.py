@@ -1,11 +1,16 @@
 """
-this is our consolidated way to figure out what files/filetypes are possible
+consolidated way to figure out what files/filetypes are possible
+
+under Python2:
+    cStringIO is faster than StringIO
+under Python3
+    StringIO is cStringIO
 """
 # stdlib
 import tempfile
 
-# pypi
-import six
+from ._compat import PY2
+from ._compat import StringIO
 
 # ---- StringIO fun ---------
 # Python3 - io.BytesIO
@@ -14,10 +19,8 @@ import six
 # Python2 - cStringIO.InputType
 # Python2 - cStringIO.OutputType
 # Python2 - cStringIO.StringIO
-from six.moves import StringIO  # Py3= io.StringIO ; Py2= StringIO.StringIO
-
 cStringIO = None
-if six.PY2:
+if PY2:
     try:
         # only happens in Python2
         import cStringIO
@@ -26,7 +29,7 @@ if six.PY2:
 # ---- END StringIO fun ---------
 
 
-if six.PY2:
+if PY2:
     _CoreFileType = file
     _DefaultMemoryType = cStringIO.StringIO if cStringIO else StringIO
     _FallbackFileType = tempfile.SpooledTemporaryFile

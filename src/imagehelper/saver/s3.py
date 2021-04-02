@@ -2,9 +2,10 @@ import logging
 
 log = logging.getLogger(__name__)
 
-from imagehelper import errors
-from imagehelper import utils
-from .utils import *  # noqa
+from .. import errors
+from .. import utils
+from .utils import check_archive_original
+from .utils import size_to_filename
 from . import _core
 
 try:
@@ -620,3 +621,6 @@ class SaverSimpleAccess(_SaverCoreManager):
         files_saved = {}
         files_saved["%s||%s" % (bucket_name, filename)] = (filename, bucket_name)
         return files_saved
+
+
+print(4)
