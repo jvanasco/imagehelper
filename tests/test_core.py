@@ -24,6 +24,8 @@ AWS_BUCKET_ARCHIVE = os.environ.get("AWS_BUCKET_ARCHIVE", "bucket-archive")
 AWS_BUCKET_ALT = os.environ.get("AWS_BUCKET_ALT", "bucket-alt")
 
 
+LOCALFILE_DIRECTORY = "tests/localfile-output"
+
 # ------------------------------------------------------------------------------
 
 
@@ -108,6 +110,7 @@ def newSaverConfig_Localfile():
         subdir_public_name=AWS_BUCKET_PUBLIC,
         subdir_archive_name=AWS_BUCKET_ARCHIVE,
         archive_original=True,
+        filedir=LOCALFILE_DIRECTORY,
     )
 
     return saverConfig
@@ -388,14 +391,14 @@ class TestLocalfile(unittest.TestCase, _ImagehelperTestingMixin):
         assert uploaded
 
         # test the directory is there
-        _subdirs = os.listdir("localfile-output")
+        _subdirs = os.listdir(LOCALFILE_DIRECTORY)
         assert "test_localfile_simple" in _subdirs
 
         # but still rely on the parent class' call `files_delete` (fileS)
         deleted = saver.files_delete(uploaded)
 
         # test the directory is now not-there, because it was cleaned up
-        _subdirs = os.listdir("localfile-output")
+        _subdirs = os.listdir(LOCALFILE_DIRECTORY)
         assert "test_localfile_simple" not in _subdirs
 
 

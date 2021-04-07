@@ -7,6 +7,7 @@ under Python3
     StringIO is cStringIO
 """
 # stdlib
+import io
 import tempfile
 
 from ._compat import PY2
@@ -30,15 +31,18 @@ if PY2:
 
 
 if PY2:
-    _CoreFileType = file
+    # Python 2: "file" is built-in
+    _CoreFileTypes = (
+        file,
+        io.IOBase,
+    )
     _DefaultMemoryType = cStringIO.StringIO if cStringIO else StringIO
     _FallbackFileType = tempfile.SpooledTemporaryFile
     FileReadArgs = "r"
     FileWriteArgs = "w"
 else:
-    import io
-
-    _CoreFileType = io.IOBase
+    # Python 3: "file" fully replaced with IOBase
+    _CoreFileTypes = (io.IOBase,)
     _DefaultMemoryType = io.BytesIO
     _FallbackFileType = _DefaultMemoryType
     FileReadArgs = "rb"

@@ -2,28 +2,22 @@ from __future__ import print_function
 
 # stdlib
 import pprint
-import pdb
 import os
-import uuid
-
-# pypi
-from six.moves import configparser
 
 # local
 import imagehelper
 from imagehelper import _io
 
-
 # ------------------------------------------------------------------------------
 
-Config = configparser.ConfigParser()
-Config.read("aws.cfg")
-AWS_KEY_PUBLIC = Config.get("aws", "AWS_KEY_PUBLIC")
-AWS_KEY_SECRET = Config.get("aws", "AWS_KEY_SECRET")
-AWS_BUCKET_PUBLIC = Config.get("aws", "AWS_BUCKET_PUBLIC")
-AWS_BUCKET_ARCHIVE = Config.get("aws", "AWS_BUCKET_ARCHIVE")
-AWS_BUCKET_ALT = Config.get("aws", "AWS_BUCKET_ALT")
+# retrieve credentials/configs from the environment
+AWS_KEY_PUBLIC = os.environ.get("AWS_KEY_PUBLIC")
+AWS_KEY_SECRET = os.environ.get("AWS_KEY_SECRET")
+AWS_BUCKET_PUBLIC = os.environ.get("AWS_BUCKET_PUBLIC")
+AWS_BUCKET_ARCHIVE = os.environ.get("AWS_BUCKET_ARCHIVE")
+AWS_BUCKET_ALT = os.environ.get("AWS_BUCKET_ALT")
 
+# use the credentials to generate a S3Saver configuration
 saverConfig = imagehelper.saver.s3.SaverConfig(
     key_public=AWS_KEY_PUBLIC,
     key_private=AWS_KEY_SECRET,
@@ -34,8 +28,7 @@ saverConfig = imagehelper.saver.s3.SaverConfig(
     archive_original=True,
 )
 
-# ------------------------------------------------------------------------------
-
+# define a schema for resizing
 resizesSchema = {
     "thumb1": {
         "width": 120,
@@ -72,8 +65,11 @@ resizesSchema = {
         "constraint-method": "fit-within:crop-to",
     },
 }
+
+# specify the keys to resize
 selected_resizes = ["thumb1", "t2", "thumb3", "t4"]
 
+# specify an alternate schema for resizing
 resizesSchema_alt = {
     "og:image": {
         "width": 3200,
@@ -105,6 +101,7 @@ resizesSchema_alt = {
 }
 
 
+# this will be used for logging S3 interactions
 class CustomSaverLogger(imagehelper.saver.s3.SaverLogger):
     def log_save(self, bucket_name=None, key=None, file_size=None, file_md5=None):
         print("CustomSaverLogger.log_save")
@@ -181,17 +178,17 @@ def demo_factory():
     resizer = resizerFactory.resizer(imagefile=get_imagefile())
     resizedImages = resizer.resize()
 
-    if not os.path.exists("tests/test-output"):
-        os.makedirs("tests/test-output")
+    if not os.path.exists("demo-output/demo"):
+        os.makedirs("demo-output/demo")
     for k in resizedImages.resized.keys():
-        _filename = "tests/test-output/%s.%s" % (k, resizesSchema[k]["format"])
+        _filename = "demo-output/demo/%s.%s" % (k, resizesSchema[k]["format"])
         print(". writing %s" % _filename)
         open(_filename, _io.FileWriteArgs).write(
             resizedImages.resized[k].file.getvalue()
         )
 
     resizedImages.original.optimize()
-    open("tests/test-output/original.png", _io.FileWriteArgs).write(
+    open("demo-output/demo/original.png", _io.FileWriteArgs).write(
         resizedImages.original.file.getvalue()
     )
     print("<<< demo_factory | done")

@@ -1,6 +1,7 @@
 import os
 import re
-from setuptools import setup, find_packages
+from setuptools import find_packages
+from setuptools import setup
 
 HERE = os.path.abspath(os.path.dirname(__file__))
 
@@ -10,23 +11,21 @@ with open(os.path.join(HERE, "src", "imagehelper", "__init__.py")) as v_file:
         re.compile(r".*__VERSION__ = \"(.*?)\"", re.S).match(v_file.read()).group(1)
     )
 
-description = ("simple utilites for image resizing and uploading and stuff like that",)
-long_description = (
-    """The `imagehelper` package offers a simple interface for image resizing, optimizing and uploading. Core image resizing operations are handled by the `Pillow` (PIL) package; S3 uploading is handled by `boto`, and there are hooks for optimizing the images with the commandline tools: `advpng`,  `gifsicle`, `jpegtran`, `jpegoptim`, `optipng` and `pngcrush.`""",
-)
+description = "Simple utilites for image resizing and uploading and stuff like that."
+long_description = """The `imagehelper` package offers a simple interface for image resizing, optimizing and uploading. Core image resizing operations are handled by the `Pillow` (PIL) package; S3 uploading is handled by `boto`, and there are hooks for optimizing the images with the commandline tools: `advpng`,  `gifsicle`, `jpegtran`, `jpegoptim`, `optipng` and `pngcrush.`"""
 with open(os.path.join(HERE, "README.md")) as fp:
     long_description = fp.read()
 
 requires = [
-    "certifi",
     "envoy",
     "six",
     "Pillow",
 ]
 tests_require = [
     "boto",
-    "requests",
+    "certifi",
     "pytest",
+    "requests",
 ]
 testing_extras = tests_require + []
 

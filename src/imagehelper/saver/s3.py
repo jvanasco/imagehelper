@@ -621,6 +621,3 @@ class SaverSimpleAccess(_SaverCoreManager):
         files_saved = {}
         files_saved["%s||%s" % (bucket_name, filename)] = (filename, bucket_name)
         return files_saved
-
-
-print(4)

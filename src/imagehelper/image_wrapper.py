@@ -28,10 +28,11 @@ USE_THUMBNAIL = False
 
 _valid_types = [
     cgi.FieldStorage,
-    _io._CoreFileType,
     _io.StringIO,
     tempfile.SpooledTemporaryFile,
 ]
+_valid_types.extend(list(_io._CoreFileTypes))
+
 _valid_types_nameless = [_io.StringIO, tempfile.SpooledTemporaryFile]
 if _io.cStringIO:
     # this only happens in Python2
@@ -463,8 +464,8 @@ class ImageWrapper(object):
 
         `imagefile`
                 cgi.FieldStorage
-                _io._CoreFileType = file  # Python2 Only
-                _io._CoreFileType = io.IOBase  # Python3 Only
+                _io._CoreFileTypes = [file, io.IOBase, ]  # Python2 Only
+                _io._CoreFileTypes = [io.IOBase, ]  # Python3 Only
                 _io.StringIO.StringIO  # StringIO.StringIO Py3=io.StringIO
                     _io.cStringIO.InputType  # Python2 Only
                     _io.cStringIO.OutputType # Python2 Only
@@ -518,7 +519,7 @@ class ImageWrapper(object):
                 # but someone else might care
                 imagefile.seek(0)
 
-            elif isinstance(imagefile, _io._CoreFileType):
+            elif isinstance(imagefile, _io._CoreFileTypes):
                 # catch this last
                 imagefile.seek(0)
                 file_data = imagefile.read()

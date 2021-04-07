@@ -2,11 +2,14 @@
 
 #### IMPORTANT Note:
 
-This package was in the process of being largely rewritten... It really needs to be rewritten, but is production safe
+This package was in the process of being largely rewritten... It really needs to be rewritten, but is production safe.
 
 ## Overview
 
 The `imagehelper` package offers a simple interface for image resizing, optimizing and uploading. Core image resizing operations are handled by the `Pillow` (PIL) package; S3 uploading is handled by `boto`, and there are hooks for optimizing the images with the commandline tools: `advpng`,  `gifsicle`, `jpegtran`, `jpegoptim`, `optipng` and `pngcrush.`
+
+This library does not actually resize the images, it is used to define "recipes" for resizing
+images with Pillow and uploading them to S3 with boto.
 
 ## About
 
@@ -18,13 +21,13 @@ The `imagehelper` package offers a simple interface for image resizing, optimizi
 
 `imagehelper` requires `Pillow`. Earlier versions relied on `PIL` or supported both. This is an old package.
 
-it will try to import `boto` for communicating with AmazonS3.  If you don't want to use S3, no worries - you can save to a local file.
+This package will try to import `boto` for communicating with AmazonS3.  If you don't want to use S3, no worries - you can save to a local file.
 
 The package was originally aimed at thumbnails, but it works for all resizing needs that are aimed at downsampling images.
 
 If you have optimization applications like `gifsicle`, `pngcrush` and `jpegtran` installed in your environment, you can 'optimize' the output (and archive) files.
 
-This is a barebones package that has NO FRAMEWORK DEPENDENCIES - which is a good thing.  You define a dict, it does the rest.
+This is a barebones package that has NO FRAMEWORK DEPENDENCIES - which is a good thing. You define a dict, it does the rest.
 
 This package also tries to avoid writing to disk whenever possible, tempfiles (spooled) are avoided unless an external program is called. this tries to pipe everything through file-like in-memory objects
 
@@ -32,11 +35,11 @@ I could only find a single tool for resizing thumbnails on PyPi that did not req
 
 The package is a bit awkard to use for a single task, but it was designed for repetitive tasks - as in a web application.
 
-A typical usage is illustrated in the sections below.  Also check the `demo.py` file to see how neat it can be
+A typical usage is illustrated in the sections below.  Also check the `demo.py` file to see how flexible this can be
 
-This is still in Beta, but has been production safe.
+This package has been used in production for over a decade.
 
-It supports Python2.7 and Python3.  A lot of things could be done better and should be done better, but this works and is relatively fast.
+It supports Python2.7 and Python3. A lot of things could be done better and should be done better, but this works and is relatively fast.
 
 
 ## Why ?
@@ -141,7 +144,7 @@ Behind the scenes, imagehelper does all the math and uploading.
 
 ## Usage...
 
-Check out the demo.py module - it offers a narrative demo of how to use the package. Be sure to include some Amazon S3 credentials in your environment, as illustrated in the `aws.cfg.template` file.
+Check out the demo.py module - it offers a narrative demo of how to use the package. Be sure to include some Amazon S3 credentials in your environment.
 
 imagehelper is NOT designed for one-off resizing needs.  it's designed for a use in applications where you're repeatedly doing the same resizing.
 
