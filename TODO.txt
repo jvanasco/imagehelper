@@ -1,11 +1,14 @@
 TODO
+====
+
+* list minimum `requests` required, otherwise there is an issue on urllib3 versions
+* ensure tests cover: localfile, FileReadArgs, FileWriteArgs
+
+-
+
 * the optimization should allow for configuration and not follow the global method
 * The resize functions (constraint methods) should be moved to an extensible and customizable system.
 * resize animated images
 * gifsicle - check output of interlace and non-interlace options
-* dealing with files/filelike objects was an "elegant hack" under python2. with python3 support it is messy and might not have the expected results.
-
 * testing instructions
-TODO:
-    More TESTS!
-	resize animated images
+* More TESTS!

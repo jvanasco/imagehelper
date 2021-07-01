@@ -9,32 +9,75 @@ from .utils import size_to_filename
 from . import _core
 
 try:
-    import boto
-    import boto.s3
-    import boto.s3.bucket
+    import boto3
 except ImportError:
-    boto = None
+    boto3 = None
 
 
 class NoBoto(ImportError):
     pass
 
 
-NO_BOTO = NoBoto("`boto` was not available for import")
+NO_BOTO = NoBoto("`boto3` was not available for import")
+
+
+# ==============================================================================
+
+
+# note: dirty workaround for boto3
+"""
+boto3 has an absurd flaw in which fileobjects are closed when uploaded
+(see https://github.com/boto/s3transfer/issues/80)
+
+This is a temporary workaround
+"""
+
+from io import BufferedReader
+from io import RawIOBase
+from .._compat import PY2
+
+
+class NonCloseableBufferedReader(BufferedReader):
+
+    """
+    # PY3 Typing;
+
+    from typing import Any
+    from typing import IO
+    from typing import cast
+
+    def __init__(self, raw: IO[bytes], *args: Any, **kwargs: Any):
+       super().__init__(cast(RawIOBase, raw), *args, **kwargs)
+
+    def close(self) -> None:
+       self.flush()
+
+    """
+
+    def __init__(self, raw, *args, **kwargs):
+        if PY2:
+            super(NonCloseableBufferedReader, self).__init__(raw, *args, **kwargs)
+        else:
+            super().__init__(raw, *args, **kwargs)
+
+    def close(self):
+        self.flush()
 
 
 # ==============================================================================
 
 
 class SaverConfig(object):
-    """Configuration info for amazon s3 services"""
+    """
+    Configuration data for Amazon S3 Services
+    """
 
     key_public = None
     key_private = None
     bucket_public_name = None
     bucket_archive_name = None
-    bucket_public_headers = None
-    bucket_archive_headers = None
+    boto3_ExtraArgs_default_public = None
+    boto3_ExtraArgs_default_archive = None
     archive_original = None
 
     def __init__(
@@ -43,17 +86,28 @@ class SaverConfig(object):
         key_private=None,
         bucket_public_name=None,
         bucket_archive_name=None,
-        bucket_public_headers=None,
-        bucket_archive_headers=None,
+        boto3_ExtraArgs_default_public=None,
+        boto3_ExtraArgs_default_archive=None,
         archive_original=None,
+        **kwargs
     ):
         self.key_public = key_public
         self.key_private = key_private
         self.bucket_public_name = bucket_public_name
         self.bucket_archive_name = bucket_archive_name
-        self.bucket_public_headers = bucket_public_headers
-        self.bucket_archive_headers = bucket_archive_headers
+        self.boto3_ExtraArgs_default_public = boto3_ExtraArgs_default_public
+        self.boto3_ExtraArgs_default_archive = boto3_ExtraArgs_default_archive
         self.archive_original = archive_original
+
+        # v0.6.0 removed this options
+        # raise Exceptions to catch incompatibilities; remove in future release
+        if ("bucket_public_headers" in kwargs) or ("bucket_archive_headers" in kwargs):
+            raise ValueError(
+                """`bucket_public_headers` and `bucket_archive_headers` were """
+                """removed in v0.6.0. Please consider """
+                """`boto3_ExtraArgs_default_public` and """
+                """`boto3_ExtraArgs_default_archive`."""
+            )
 
 
 class SaverLogger(_core.SaverLogger):
@@ -123,51 +177,70 @@ class _SaverCoreManager(object):
     _resizerConfig = None
     _saverConfig = None
     _saverLogger = None
-    _s3Connection = None
-    _s3_buckets = None
-
-    s3headers_public_default = None
-    s3headers_archive_default = None
+    _s3_client = None
+    _s3_bucketnames = None
+    _boto3_ExtraArgs_default_public = None
+    _boto3_ExtraArgs_default_archive = None
 
     filename_template = "%(guid)s-%(suffix)s.%(format)s"
     filename_template_archive = "%(guid)s.%(format)s"
 
-    @property
-    def s3_connection(self):
-        """property that memoizes the connection"""
-        if self._s3Connection is None:
-            if boto is None:
-                raise NO_BOTO
-            self._s3Connection = boto.connect_s3(
-                self._saverConfig.key_public, self._saverConfig.key_private
-            )
-        return self._s3Connection
+    def __init__(self, saverConfig=None, saverLogger=None, resizerConfig=None):
+        self._saverConfig = saverConfig
+        self._saverLogger = saverLogger
+        self._resizerConfig = resizerConfig
+        self._generate_defaults()
+
+    def _generate_defaults(self):
+        """
+        generate the default headers
+        """
+
+        # public and archive get different acls / content-types
+        self._boto3_ExtraArgs_default_public = {"ACL": "public-read"}
+        self._boto3_ExtraArgs_default_archive = {}
+
+        if self._saverConfig.boto3_ExtraArgs_default_public:
+            for (k, v) in self._saverConfig.boto3_ExtraArgs_default_public.items():
+                self._boto3_ExtraArgs_default_public[k] = v
+        if self._saverConfig.boto3_ExtraArgs_default_archive:
+            for (k, v) in self._saverConfig.boto3_ExtraArgs_default_archive.items():
+                self._boto3_ExtraArgs_default_archive[k] = v
 
     @property
-    def s3_buckets(self):
-        """property that memoizes the s3 buckets"""
-        if self._s3_buckets is None:
-            if boto is None:
+    def s3_client(self):
+        """property that memoizes the connection"""
+        if self._s3_client is None:
+            if boto3 is None:
+                raise NO_BOTO
+            self._s3_client = boto3.client(
+                "s3",
+                aws_access_key_id=self._saverConfig.key_public,
+                aws_secret_access_key=self._saverConfig.key_private,
+            )
+        return self._s3_client
+
+    @property
+    def s3_bucketnames(self):
+        """property that memoizes the calcuated s3 s3_bucketnames"""
+        if self._s3_bucketnames is None:
+            if boto3 is None:
                 raise NO_BOTO
 
             # memoize the buckets
 
             # create our bucket list
-            s3_buckets = {}
+            s3_bucketnames = {}
 
             # @public and @archive are special
-            bucket_public = boto.s3.bucket.Bucket(
-                connection=self.s3_connection, name=self._saverConfig.bucket_public_name
-            )
-            s3_buckets[self._saverConfig.bucket_public_name] = bucket_public
-            s3_buckets["@public"] = bucket_public
+            bucketname_public = self._saverConfig.bucket_public_name
+            bucketname_archive = self._saverConfig.bucket_archive_name
+
+            s3_bucketnames[bucketname_public] = bucketname_public
+            s3_bucketnames["@public"] = bucketname_public
             if self._saverConfig.bucket_archive_name:
-                bucket_archive = boto.s3.bucket.Bucket(
-                    connection=self.s3_connection,
-                    name=self._saverConfig.bucket_archive_name,
-                )
-                s3_buckets[self._saverConfig.bucket_archive_name] = bucket_archive
-                s3_buckets["@archive"] = bucket_archive
+                s3_bucketnames[bucketname_archive] = bucketname_archive
+                s3_bucketnames["@archive"] = bucketname_archive
 
             # look through our selected sizes
             if self._resizerConfig:
@@ -181,16 +254,14 @@ class _SaverCoreManager(object):
                         bucket_name = self._resizerConfig.resizesSchema[size][
                             "s3_bucket_public"
                         ]
-                        if bucket_name not in s3_buckets:
-                            s3_buckets[bucket_name] = boto.s3.bucket.Bucket(
-                                connection=self.s3_connection, name=bucket_name
-                            )
+                        if bucket_name not in s3_bucketnames:
+                            s3_bucketnames[bucket_name] = bucket_name
 
             # store the buckets
-            self._s3_buckets = s3_buckets
+            self._s3_bucketnames = s3_bucketnames
 
         # return the memoized buckets
-        return self._s3_buckets
+        return self._s3_bucketnames
 
     def files_delete(self, files_saved, dry_run=False):
         """workhorse for deletion
@@ -205,23 +276,29 @@ class _SaverCoreManager(object):
             should we just pretend to save?
         """
 
-        # setup the s3 connection
-        s3_buckets = self.s3_buckets
+        # preload the calculated s3 bucketnames
+        s3_bucketnames = self.s3_bucketnames
 
         # convert to a list, because we delete the items from the dict
         for size in list(files_saved.keys()):
 
             # grab the stash
-            (target_filename, bucket_name) = files_saved[size]
+            (target_filename, _bucket_name) = files_saved[size]
 
-            # active bucket
-            bucket = s3_buckets[bucket_name]
+            # get the calculated bucket_name
+            bucket_name = s3_bucketnames[_bucket_name]
 
             # delete it
-            log.debug("going to delete %s from %s" % (target_filename, bucket_name))
+            log.debug("going to delete `%s` from `%s`" % (target_filename, bucket_name))
 
             if not dry_run:
-                bucket.delete_key(target_filename)
+                _del_dicts = [
+                    {"Key": target_filename},
+                ]
+                response = self.s3_client.delete_objects(
+                    Bucket=bucket_name,
+                    Delete={"Objects": _del_dicts},
+                )
 
                 # external logging
                 if self._saverLogger:
@@ -244,30 +321,15 @@ class SaverManager(_SaverCoreManager):
     """
 
     def __init__(self, saverConfig=None, saverLogger=None, resizerConfig=None):
+        super(SaverManager, self).__init__(
+            saverConfig=saverConfig,
+            saverLogger=saverLogger,
+            resizerConfig=resizerConfig,
+        )
         if not resizerConfig:
             raise ValueError(
                 """`SaverManager` requires a `resizerConfig` which contains the resize recipes. these are needed for generating filenames."""
             )
-        self._saverConfig = saverConfig
-        self._saverLogger = saverLogger
-        self._resizerConfig = resizerConfig
-
-        # ##
-        # generate the default headers
-        # ##
-        # public and archive get different acls / content-types
-        self.s3headers_public_default = {"x-amz-acl": "public-read"}
-        if self._saverConfig.bucket_public_headers:
-            for k in self._saverConfig.bucket_public_headers:
-                self.s3headers_public_default[
-                    k
-                ] = self._saverConfig.bucket_public_headers[k]
-        self.s3headers_archive_default = {}
-        if self._saverConfig.bucket_archive_headers:
-            for k in self._saverConfig.bucket_archive_headers:
-                self.s3headers_archive_default[
-                    k
-                ] = self._saverConfig.bucket_archive_headers[k]
 
     def _validate__selected_resizes(self, resizerResultset, selected_resizes):
         """shared validation
@@ -292,18 +354,18 @@ class SaverManager(_SaverCoreManager):
 
             if k not in resizerResultset.resized:
                 raise errors.ImageError_ConfigError(
-                    "selected size is not resizerResultset.resized (%s)" % k
+                    "selected size is not resizerResultset.resized (`%s`)" % k
                 )
 
             if k not in self._resizerConfig.resizesSchema:
                 raise errors.ImageError_ConfigError(
-                    "selected size is not self._resizerConfig.resizesSchema (%s)" % k
+                    "selected size is not self._resizerConfig.resizesSchema (`%s`)" % k
                 )
 
             # exist early for invalid sizes
             if k[0] == "@":
                 raise errors.ImageError_ConfigError(
-                    "@ is a reserved initial character for image sizes (%s)" % k
+                    "@ is a reserved initial character for image sizes (`%s`)" % k
                 )
 
         return selected_resizes
@@ -364,7 +426,7 @@ class SaverManager(_SaverCoreManager):
                 guid, size, resizerResultset, self.filename_template, instructions
             )
 
-            # figure out the bucketname
+            # figure out the bucket_name
             bucket_name = self._saverConfig.bucket_public_name
             if "s3_bucket_public" in instructions:
                 bucket_name = instructions["s3_bucket_public"]
@@ -426,7 +488,7 @@ class SaverManager(_SaverCoreManager):
             default = `False`
             should we just pretend to upload
         """
-        if boto is None:
+        if boto3 is None:
             raise NO_BOTO
 
         if guid is None:
@@ -440,8 +502,8 @@ class SaverManager(_SaverCoreManager):
             resizerResultset, selected_resizes
         )
 
-        # setup the s3 connection
-        s3_buckets = self.s3_buckets
+        # preload the calculated s3 bucketnames
+        s3_bucketnames = self.s3_bucketnames
 
         # and then we have the bucketed filenames...
         target_filenames = self.generate_filenames(
@@ -458,38 +520,49 @@ class SaverManager(_SaverCoreManager):
             # and then we upload...
             for size in selected_resizes:
 
-                (target_filename, bucket_name) = target_filenames[size]
-                bucket = s3_buckets[bucket_name]
+                # grab the stash
+                (target_filename, _bucket_name) = target_filenames[size]
 
-                log.debug("Uploading %s to %s " % (target_filename, bucket))
+                # get the calculated bucket_name
+                bucket_name = s3_bucketnames[_bucket_name]
 
-                # generate the headers
-                _s3_headers = self.s3headers_public_default.copy()
-                _s3_headers["Content-Type"] = utils.PIL_type_to_content_type(
+                log.debug("Uploading `%s` to `%s` " % (target_filename, bucket_name))
+
+                # generate the ExtraArgs
+                _boto3_ExtraArgs = self._boto3_ExtraArgs_default_public.copy()
+                _boto3_ExtraArgs["ContentType"] = utils.PIL_type_to_content_type(
                     resizerResultset.resized[size].format
                 )
-                if "s3_headers" in self._resizerConfig.resizesSchema[size]:
-                    for k in self._resizerConfig.resizesSchema[size]["s3_headers"]:
-                        _s3_headers[k] = self._resizerConfig.resizesSchema[size][
-                            "s3_headers"
+                # overwrite with Resizer ExtraArgs
+                if "boto3_ExtraArgs" in self._resizerConfig.resizesSchema[size]:
+                    for k in self._resizerConfig.resizesSchema[size]["boto3_ExtraArgs"]:
+                        _boto3_ExtraArgs[k] = self._resizerConfig.resizesSchema[size][
+                            "boto3_ExtraArgs"
                         ][k]
 
                 if not dry_run:
+                    # the active file
+                    _wrapped = resizerResultset.resized[size]
+
+                    # cache this info, as uploading on boto3 can close the file?
+                    _buffer = NonCloseableBufferedReader(_wrapped.file)
+
                     # upload
-                    s3_key = boto.s3.key.Key(bucket)
-                    s3_key.key = target_filename
-                    s3_key.set_contents_from_string(
-                        resizerResultset.resized[size].file.getvalue(),
-                        headers=_s3_headers,
+                    response = self.s3_client.upload_fileobj(
+                        _buffer,
+                        bucket_name,
+                        target_filename,
+                        ExtraArgs=_boto3_ExtraArgs,
                     )
+                    _buffer.detach()
 
                     # log to external plugin too
                     if self._saverLogger:
                         self._saverLogger.log_save(
                             bucket_name=bucket_name,
                             key=target_filename,
-                            file_size=resizerResultset.resized[size].file_size,
-                            file_md5=resizerResultset.resized[size].file_md5,
+                            file_size=_wrapped.file_size,
+                            file_md5=_wrapped.file_md5,
                         )
 
                 # log for removal/tracking & return
@@ -498,33 +571,42 @@ class SaverManager(_SaverCoreManager):
             if "@archive" in target_filenames:
 
                 size = "@archive"
-                (target_filename, bucket_name) = target_filenames[size]
-                bucket = s3_buckets[bucket_name]
+                (target_filename, _bucket_name) = target_filenames[size]
+                # get the calculated bucket_name
+                bucket_name = s3_bucketnames[_bucket_name]
 
-                log.debug("Uploading %s to %s " % (target_filename, bucket_name))
+                log.debug("Uploading `%s` to `%s` " % (target_filename, bucket_name))
 
                 # calculate the headers ;
                 # no need to set acl, its going to be owner-only by default
-                _s3_headers = self.s3headers_archive_default.copy()
-                _s3_headers["Content-Type"] = utils.PIL_type_to_content_type(
+                _boto3_ExtraArgs = self._boto3_ExtraArgs_default_archive.copy()
+                _boto3_ExtraArgs["ContentType"] = utils.PIL_type_to_content_type(
                     resizerResultset.original.format
                 )
 
                 if not dry_run:
+                    # the active file
+                    _wrapped = resizerResultset.original
+
+                    # cache this info, as uploading on boto3 can close the file?
+                    _buffer = NonCloseableBufferedReader(_wrapped.file)
+
                     # upload
-                    s3_key_original = boto.s3.key.Key(bucket)
-                    s3_key_original.key = target_filename
-                    s3_key_original.set_contents_from_string(
-                        resizerResultset.original.file.getvalue(), headers=_s3_headers
+                    response = self.s3_client.upload_fileobj(
+                        _buffer,
+                        bucket_name,
+                        target_filename,
+                        ExtraArgs=_boto3_ExtraArgs,
                     )
+                    _buffer.detach()
 
                     # log to external plugin too
                     if self._saverLogger:
                         self._saverLogger.log_save(
                             bucket_name=bucket_name,
                             key=target_filename,
-                            file_size=resizerResultset.original.file_size,
-                            file_md5=resizerResultset.original.file_md5,
+                            file_size=_wrapped.file_size,
+                            file_md5=_wrapped.file_md5,
                         )
 
                 # log for removal/tracking & return
@@ -544,26 +626,11 @@ class SaverManager(_SaverCoreManager):
 
 class SaverSimpleAccess(_SaverCoreManager):
     def __init__(self, saverConfig=None, saverLogger=None, resizerConfig=None):
-        self._saverConfig = saverConfig
-        self._saverLogger = saverLogger
-        self._resizerConfig = resizerConfig
-
-        # ##
-        # ## generate the default headers
-        # ##
-        # public and archive get different acls / content-types
-        self.s3headers_public_default = {"x-amz-acl": "public-read"}
-        if self._saverConfig.bucket_public_headers:
-            for k in self._saverConfig.bucket_public_headers:
-                self.s3headers_public_default[
-                    k
-                ] = self._saverConfig.bucket_public_headers[k]
-        self.s3headers_archive_default = {}
-        if self._saverConfig.bucket_archive_headers:
-            for k in self._saverConfig.bucket_archive_headers:
-                self.s3headers_archive_default[
-                    k
-                ] = self._saverConfig.bucket_archive_headers[k]
+        super(SaverSimpleAccess, self).__init__(
+            saverConfig=saverConfig,
+            saverLogger=saverLogger,
+            resizerConfig=resizerConfig,
+        )
 
     def file_save(
         self, bucket_name, filename, wrappedFile, upload_type="public", dry_run=False
@@ -571,31 +638,39 @@ class SaverSimpleAccess(_SaverCoreManager):
         if upload_type not in ("public", "archive"):
             raise ValueError("upload_type must be `public` or `archive`")
 
-        if boto is None:
+        if boto3 is None:
             raise NO_BOTO
 
-        s3_buckets = self.s3_buckets
+        # preload the calculated s3 bucketnames
+        s3_bucketnames = self.s3_bucketnames
+
         files_saved = {}
         try:
 
-            bucket = s3_buckets[bucket_name]
+            # get the calculated bucket_name
+            bucket_name = s3_bucketnames[bucket_name]
 
-            log.debug("Uploading %s to %s " % (filename, bucket_name))
+            log.debug("Uploading `%s` to `%s` " % (filename, bucket_name))
 
             # calculate the headers ;
             # no need to set acl, its going to be owner-only by default
-            _s3_headers = self.s3headers_public_default.copy()
-            _s3_headers["Content-Type"] = utils.PIL_type_to_content_type(
+            _boto3_ExtraArgs = self._boto3_ExtraArgs_default_public.copy()
+            _boto3_ExtraArgs["ContentType"] = utils.PIL_type_to_content_type(
                 wrappedFile.format
             )
 
             if not dry_run:
+                # cache this info, as uploading on boto3 can close the file?
+                _buffer = NonCloseableBufferedReader(wrappedFile.file)
+
                 # upload
-                s3_key_original = boto.s3.key.Key(bucket)
-                s3_key_original.key = filename
-                s3_key_original.set_contents_from_string(
-                    wrappedFile.file.getvalue(), headers=_s3_headers
+                response = self.s3_client.upload_fileobj(
+                    _buffer,
+                    bucket_name,
+                    filename,
+                    ExtraArgs=_boto3_ExtraArgs,
                 )
+                _buffer.detach()
 
                 # log to external plugin too
                 if self._saverLogger:
@@ -619,5 +694,5 @@ class SaverSimpleAccess(_SaverCoreManager):
 
     def simple_saves_mapping(self, bucket_name, filename):
         files_saved = {}
-        files_saved["%s||%s" % (bucket_name, filename)] = (filename, bucket_name)
+        files_saved["`%s`||`%s`" % (bucket_name, filename)] = (filename, bucket_name)
         return files_saved

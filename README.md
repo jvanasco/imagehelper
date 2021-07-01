@@ -211,7 +211,6 @@ Here is an example photo_resize schema:
         'constraint-method': 'fit-within',
         's3_bucket_public': 'my-test',
         'filename_template': '%(guid)s-%(suffix)s.%(format)s',
-        's3_headers': { 'x-amz-acl': 'public-read' }
     },
 
 

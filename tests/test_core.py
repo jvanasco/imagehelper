@@ -11,6 +11,7 @@ import requests
 # local
 import imagehelper
 from imagehelper import _io
+from imagehelper import _compat
 
 # by default, do not test S3 connectivity, as that relies on secrets
 TEST_S3 = int(os.environ.get("TEST_S3", 0))
@@ -22,9 +23,19 @@ AWS_KEY_SECRET = os.environ.get("AWS_KEY_SECRET", "54321")
 AWS_BUCKET_PUBLIC = os.environ.get("AWS_BUCKET_PUBLIC", "bucket-public")
 AWS_BUCKET_ARCHIVE = os.environ.get("AWS_BUCKET_ARCHIVE", "bucket-archive")
 AWS_BUCKET_ALT = os.environ.get("AWS_BUCKET_ALT", "bucket-alt")
+# or export for your test
+"""
+export TEST_S3=1
+export AWS_KEY_PUBLIC=AWS_KEY_PUBLIC
+export AWS_KEY_SECRET=AWS_KEY_SECRET
+export AWS_BUCKET_PUBLIC=bucket-public
+export AWS_BUCKET_ARCHIVE=bucket-archive
+export AWS_BUCKET_ALT=bucket-alt
+"""
 
 
 LOCALFILE_DIRECTORY = "tests/localfile-output"
+
 
 # ------------------------------------------------------------------------------
 
@@ -38,7 +49,7 @@ resizesSchema = {
         "format": "JPEG",
         "constraint-method": "fit-within",
         "filename_template": "%(guid)s.%(format)s",
-        "s3_headers": {"x-amz-acl": "public-read"},
+        "boto3_ExtraArgs": {"ACL": "public-read"},
     },
     "t2": {
         "width": 120,
@@ -94,8 +105,8 @@ def newSaverConfig():
         key_private=AWS_KEY_SECRET,
         bucket_public_name=AWS_BUCKET_PUBLIC,
         bucket_archive_name=AWS_BUCKET_ARCHIVE,
-        bucket_public_headers={"x-amz-acl": "public-read"},
-        bucket_archive_headers={},
+        boto3_ExtraArgs_default_public={"ACL": "public-read"},
+        boto3_ExtraArgs_default_archive={},
         archive_original=True,
     )
 

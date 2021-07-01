@@ -306,8 +306,8 @@ class SaverManager(_SaverCoreManager):
                 if not dry_run:
                     # upload
                     try:
-                        # so in py2 we are cStringIO.StringO
-                        # but in py3 we are tempfile.SpooledTemporaryFile
+                        # in py2 we are io.StringO
+                        # in py3 we are tempfile.SpooledTemporaryFile
                         with open(target_file, _io.FileWriteArgs) as _fh:
                             _fh.write(resizerResultset.resized[size].file.getvalue())
 

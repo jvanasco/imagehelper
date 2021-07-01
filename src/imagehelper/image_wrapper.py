@@ -17,6 +17,7 @@ import envoy
 from . import errors
 from . import utils
 from . import _io
+from ._compat import PY2
 
 
 log = logging.getLogger(__name__)
@@ -28,16 +29,12 @@ USE_THUMBNAIL = False
 
 _valid_types = [
     cgi.FieldStorage,
-    _io.StringIO,
+    _io._FilelikePreference,
     tempfile.SpooledTemporaryFile,
 ]
 _valid_types.extend(list(_io._CoreFileTypes))
 
-_valid_types_nameless = [_io.StringIO, tempfile.SpooledTemporaryFile]
-if _io.cStringIO:
-    # this only happens in Python2
-    _valid_types.extend((_io.cStringIO.InputType, _io.cStringIO.OutputType))
-    _valid_types_nameless.extend((_io.cStringIO.InputType, _io.cStringIO.OutputType))
+_valid_types_nameless = [_io._FilelikePreference, tempfile.SpooledTemporaryFile]
 
 _valid_types = tuple(_valid_types)
 _valid_types_nameless = tuple(_valid_types_nameless)
@@ -250,11 +247,7 @@ class BasicImage(object):
             return
         log.debug("optimizing a file.  format is: %s" % self.format_standardized)
 
-        FilelikePreference = _io._FallbackFileType
-        if _io.cStringIO:
-            # only in Python2
-            if isinstance(self.file, _io.cStringIO.OutputType):
-                FilelikePreference = _io.cStringIO.StringIO
+        FilelikePreference = _io._FilelikePreference
 
         # we need to write the image onto the disk with an infile and outfile
         # this does suck.
@@ -466,9 +459,7 @@ class ImageWrapper(object):
                 cgi.FieldStorage
                 _io._CoreFileTypes = [file, io.IOBase, ]  # Python2 Only
                 _io._CoreFileTypes = [io.IOBase, ]  # Python3 Only
-                _io.StringIO.StringIO  # StringIO.StringIO Py3=io.StringIO
-                    _io.cStringIO.InputType  # Python2 Only
-                    _io.cStringIO.OutputType # Python2 Only
+                _io._FilelikePreference
                 tempfile.TemporaryFile, tempfile.SpooledTemporaryFile
 
         `imagefile_name`
@@ -476,8 +467,7 @@ class ImageWrapper(object):
 
         `FilelikePreference`
             preference class for filelike objects
-                _io.cStringIo  # Python2 Only
-                _io.StringIO  # Py2=StringIO.StringIO Py3=io.StringIO
+                _io._FilelikePreference
                 tempfile.SpooledTemporaryFile
         """
         if imagefile is None:
@@ -545,10 +535,7 @@ class ImageWrapper(object):
                 )
 
             if FilelikePreference is None:
-                if _io.cStringIO:
-                    FilelikePreference = _io.cStringIO.StringIO
-                else:
-                    FilelikePreference = _io._FallbackFileType
+                FilelikePreference = _io._FilelikePreference
 
             # create a new image
             # and stash our data!
@@ -599,7 +586,7 @@ class ImageWrapper(object):
 
         1. we operate on a copy of the pilObject via _io.cStringIo
             (which is already a copy of the original)
-        2. we save to another new _io.cStringIO 'file'
+        2. we save to another new _io 'file'
 
         valid `constraint-method` for `instructions_dict`
 
@@ -645,10 +632,7 @@ class ImageWrapper(object):
         """
 
         if FilelikePreference is None:
-            if _io.cStringIO:
-                FilelikePreference = _io.cStringIO.StringIO
-            else:
-                FilelikePreference = _io._FallbackFileType
+            FilelikePreference = _io._FilelikePreference
 
         # we analyze the pilObject, because `copy()` only works on the frame
         if utils.is_image_animated(self.pilObject):
