@@ -104,7 +104,7 @@ class SaverConfig(object):
         if ("bucket_public_headers" in kwargs) or ("bucket_archive_headers" in kwargs):
             raise ValueError(
                 """`bucket_public_headers` and `bucket_archive_headers` were """
-                """removed in v0.6.0. Please consider """
+                """removed in v0.6.0. Please update to use """
                 """`boto3_ExtraArgs_default_public` and """
                 """`boto3_ExtraArgs_default_archive`."""
             )

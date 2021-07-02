@@ -28,6 +28,8 @@
         + }
 
     The `boto3_ExtraArgs_*` configurations are passed directly to boto3 as `ExtraArgs`
+    
+    * imagehelper.saver.s3 now has `NonCloseableBufferedReader()` a helper class to get around a boto3 bug.  see source, tests and demo for more information.
 
     * Dealing with files/filelike objects was an "elegant hack" under Python2. With Python2+Python3 side-by-side support it became messy. Thanks to a workaround needed for a bug in the botocore/s3 transfer library, this was standardized to use `io.xxx` classes and is much cleaner.
 

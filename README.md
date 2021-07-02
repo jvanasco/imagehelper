@@ -6,10 +6,10 @@ This package was in the process of being largely rewritten... It really needs to
 
 ## Overview
 
-The `imagehelper` package offers a simple interface for image resizing, optimizing and uploading. Core image resizing operations are handled by the `Pillow` (PIL) package; S3 uploading is handled by `boto`, and there are hooks for optimizing the images with the commandline tools: `advpng`,  `gifsicle`, `jpegtran`, `jpegoptim`, `optipng` and `pngcrush.`
+The `imagehelper` package offers a simple interface for image resizing, optimizing and uploading. Core image resizing operations are handled by the `Pillow` (PIL) package; S3 uploading is handled by `boto3`, and there are hooks for optimizing the images with the commandline tools: `advpng`,  `gifsicle`, `jpegtran`, `jpegoptim`, `optipng` and `pngcrush.`
 
 This library does not actually resize the images, it is used to define "recipes" for resizing
-images with Pillow and uploading them to S3 with boto.
+images with Pillow and uploading them to S3 with boto3.
 
 ## About
 
@@ -21,7 +21,7 @@ images with Pillow and uploading them to S3 with boto.
 
 `imagehelper` requires `Pillow`. Earlier versions relied on `PIL` or supported both. This is an old package.
 
-This package will try to import `boto` for communicating with AmazonS3.  If you don't want to use S3, no worries - you can save to a local file.
+This package will try to import `boto3` for communicating with AmazonS3.  If you don't want to use S3, no worries - you can save to a local file.
 
 The package was originally aimed at thumbnails, but it works for all resizing needs that are aimed at downsampling images.
 
