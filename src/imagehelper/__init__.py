@@ -1,4 +1,4 @@
-__VERSION__ = "0.5.3"
+__VERSION__ = "0.6.0"
 
 from . import _io  # noqa
 from . import errors  # noqa
