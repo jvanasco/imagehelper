@@ -31,4 +31,7 @@ jobs:
     - name: Test with pytest
       run: |
         export TEST_S3=1
+        export AWS_BUCKET_PUBLIC=imagehelper
+        export AWS_BUCKET_ARCHIVE=imagehelper-archive
+        export AWS_BUCKET_ALT=imagehelper-alt
         tox -e py -- ${{ matrix.pytest-args }}

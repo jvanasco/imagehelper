@@ -4,11 +4,11 @@ Local Developer Testing
 The tests require the following environment variables to be set:
 
 	export TEST_S3=1
-	export AWS_KEY_PUBLIC=AWS_KEY_PUBLIC
-	export AWS_KEY_SECRET=AWS_KEY_SECRET
-	export AWS_BUCKET_PUBLIC=bucket-public
-	export AWS_BUCKET_ARCHIVE=bucket-archive
-	export AWS_BUCKET_ALT=bucket-alt
+	export AWS_BUCKET_PUBLIC=imagehelper
+	export AWS_BUCKET_ARCHIVE=imagehelper-archive
+	export AWS_BUCKET_ALT=imagehelper-alt
+	export AWS_KEY_PUBLIC={{AWS_KEY_PUBLIC}}
+	export AWS_KEY_SECRET={{AWS_KEY_SECRET}}
 
 
 Github Testing
@@ -17,14 +17,14 @@ Github Testing
 Support for github testing is handled via two methods.
 
 The following variables are configured as SECRETS, and required to be in the
-Github Environment:
+Github Environment through the project configuration:
 
-* AWS_BUCKET_ALT
-* AWS_BUCKET_PUBLIC
-* AWS_BUCKET_SECRET
 * AWS_KEY_PUBLIC
 * AWS_KEY_SECRET
 
 The following variables are defined in the /.github/workflows/python-project.yaml file
 
 	export TEST_S3=1
+	export AWS_BUCKET_PUBLIC=imagehelper
+	export AWS_BUCKET_ARCHIVE=imagehelper-archive
+	export AWS_BUCKET_ALT=imagehelper-alt
