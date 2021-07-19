@@ -544,7 +544,7 @@ class SaverManager(_SaverCoreManager):
                     # the active file
                     _wrapped = resizerResultset.resized[size]
 
-                    # cache this info, as uploading on boto3 can close the file?
+                    # dirty workaround. boto3 has a bug in which it closes files.
                     _buffer = NonCloseableBufferedReader(_wrapped.file)
 
                     # upload
@@ -588,7 +588,7 @@ class SaverManager(_SaverCoreManager):
                     # the active file
                     _wrapped = resizerResultset.original
 
-                    # cache this info, as uploading on boto3 can close the file?
+                    # dirty workaround. boto3 has a bug in which it closes files.
                     _buffer = NonCloseableBufferedReader(_wrapped.file)
 
                     # upload
@@ -660,7 +660,8 @@ class SaverSimpleAccess(_SaverCoreManager):
             )
 
             if not dry_run:
-                # cache this info, as uploading on boto3 can close the file?
+
+                # dirty workaround. boto3 has a bug in which it closes files.
                 _buffer = NonCloseableBufferedReader(wrappedFile.file)
 
                 # upload

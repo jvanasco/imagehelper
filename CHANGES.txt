@@ -2,7 +2,8 @@
 -----
     This release replaces boto with boto3. This library upgrade required renaming
     several public and private items. In order to simplify code and ease upgrading,
-    using the old names will cause Exceptions to be raised.
+    using the old names will cause Exceptions to be raised. Py2 support is
+    maintained for users with legacy projects.
 
     * switched to boto3
     * renames:

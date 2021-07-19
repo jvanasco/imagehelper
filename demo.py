@@ -1,8 +1,8 @@
 from __future__ import print_function
 
 # stdlib
-import pprint
 import os
+import pprint
 
 # local
 import imagehelper
