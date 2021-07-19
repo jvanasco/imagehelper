@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [2.7, 3.5, 3.6, 3.7, 3.8]
+        python-version: [2.7, 3.5, 3.6, 3.7, 3.8, 3.9]
 
     steps:
     - uses: actions/checkout@v2
@@ -30,4 +30,8 @@ jobs:
         pip list
     - name: Test with pytest
       run: |
+        export TEST_S3=1
+        export AWS_BUCKET_PUBLIC=imagehelper
+        export AWS_BUCKET_ARCHIVE=imagehelper-archive
+        export AWS_BUCKET_ALT=imagehelper-alt
         tox -e py -- ${{ matrix.pytest-args }}

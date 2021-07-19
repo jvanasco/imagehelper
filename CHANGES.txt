@@ -1,16 +1,52 @@
+0.6.0
+-----
+    This release replaces boto with boto3. This library upgrade required renaming
+    several public and private items. In order to simplify code and ease upgrading,
+    using the old names will cause Exceptions to be raised. Py2 support is
+    maintained for users with legacy projects.
+
+    * switched to boto3
+    * renames:
+     * `._s3Connection` -> `._s3_client`
+     * `.s3_connection` -> `.s3_client`
+     * `bucket_public_headers` -> `boto3_ExtraArgs_default_public`
+     * `bucket_archive_headers` -> `boto3_ExtraArgs_default_archive`
+
+    Please note the former "*_headers" configurations now use the boto3 arguments
+    for `ExtraArgs`.
+    For example:
+
+        - bucket_public_headers={
+        -   "x-amz-acl": "public-read"
+        -    "Cache-Control": "max-age=5184000",
+        - }
+
+    is now:
+
+        + boto3_ExtraArgs_default_public={
+        +    "ACL": "public-read",
+        +    "CacheControl": "max-age=5184000",
+        + }
+
+    The `boto3_ExtraArgs_*` configurations are passed directly to boto3 as `ExtraArgs`
+    
+    * imagehelper.saver.s3 now has `NonCloseableBufferedReader()` a helper class to get around a boto3 bug.  see source, tests and demo for more information.
+
+    * Dealing with files/filelike objects was an "elegant hack" under Python2. With Python2+Python3 side-by-side support it became messy. Thanks to a workaround needed for a bug in the botocore/s3 transfer library, this was standardized to use `io.xxx` classes and is much cleaner.
+
 0.5.3
-	2021.04.07
-	* improved imports
-	* Python2 now recognizes `io.IOBase`
+    2021.04.07
+    * improved imports
+    * Python2 now recognizes `io.IOBase`
 
 0.5.2
-	2021.03.25
-	* packaging layout
+    2021.03.25
+    * packaging layout
 
 0.5.1
-	2020.10.20
-	* upgraded black
-	* integrated with pre-commit
+    2020.10.20
+    * upgraded black
+    * integrated with pre-commit
 
 0.5.0
 -----
@@ -57,10 +93,10 @@ This was going to be 0.4.5, but a new kwarg was added to the localfile logger wh
 ------------------
 * adding support for image animation detection; TODO - resize animated images
 * image optimization:
-	* cleaned up code
-	* documented functionality
-	* brought in line with current ImageOptim settings
-	* added package-wide overrides
+    * cleaned up code
+    * documented functionality
+    * brought in line with current ImageOptim settings
+    * added package-wide overrides
 
 0.3.0rc4
 ------------------
@@ -250,12 +286,12 @@ notable changes :
 1. photo_sizes now reserve an initial @ character for internal usage
 2. archived fullsize images are now tracked as:
 
-	dict[bucket_name]['@archive'][filename]
+    dict[bucket_name]['@archive'][filename]
 
 before there was a dual-use dict, that was just hard to manage
 
-	dict[public_bucket_name][size][filename]
-	dict[archive_bucket_name][filename]
+    dict[public_bucket_name][size][filename]
+    dict[archive_bucket_name][filename]
 
 this created issues where you couldn't save the archived image to the same s3 bucket.  now you can.
 

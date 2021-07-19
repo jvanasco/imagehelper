@@ -1,8 +1,8 @@
 from __future__ import print_function
 
 # stdlib
-import pprint
 import os
+import pprint
 
 # local
 import imagehelper
@@ -23,8 +23,8 @@ saverConfig = imagehelper.saver.s3.SaverConfig(
     key_private=AWS_KEY_SECRET,
     bucket_public_name=AWS_BUCKET_PUBLIC,
     bucket_archive_name=AWS_BUCKET_ARCHIVE,
-    bucket_public_headers={"x-amz-acl": "public-read"},
-    bucket_archive_headers={},
+    boto3_ExtraArgs_default_public={"ACL": "public-read"},
+    boto3_ExtraArgs_default_archive={},
     archive_original=True,
 )
 
@@ -39,7 +39,7 @@ resizesSchema = {
         "constraint-method": "fit-within",
         "s3_bucket_public": AWS_BUCKET_ALT,
         "filename_template": "%(guid)s.%(format)s",
-        "s3_headers": {"x-amz-acl": "public-read"},
+        "boto3_ExtraArgs": {"ACL": "public-read"},
     },
     "t2": {
         "width": 120,

@@ -141,10 +141,7 @@ def file_b64(fileobj):
 
 def b64_decode_to_file(coded_string):
     decoded_data = base64.b64decode(coded_string)
-    if _io.cStringIO:
-        fileobj = _io.cStringIO.StringIO()
-    else:
-        fileobj = _io.StringIO()
+    fileobj = _io._FilelikePreference()
     fileobj.write(decoded_data)
     fileobj.seek(0)
     return fileobj

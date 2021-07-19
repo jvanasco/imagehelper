@@ -12,7 +12,7 @@ with open(os.path.join(HERE, "src", "imagehelper", "__init__.py")) as v_file:
     )
 
 description = "Simple utilites for image resizing and uploading and stuff like that."
-long_description = """The `imagehelper` package offers a simple interface for image resizing, optimizing and uploading. Core image resizing operations are handled by the `Pillow` (PIL) package; S3 uploading is handled by `boto`, and there are hooks for optimizing the images with the commandline tools: `advpng`,  `gifsicle`, `jpegtran`, `jpegoptim`, `optipng` and `pngcrush.`"""
+long_description = """The `imagehelper` package offers a simple interface for image resizing, optimizing and uploading. Core image resizing operations are handled by the `Pillow` (PIL) package; S3 uploading is handled by `boto3`, and there are hooks for optimizing the images with the commandline tools: `advpng`,  `gifsicle`, `jpegtran`, `jpegoptim`, `optipng` and `pngcrush.`"""
 with open(os.path.join(HERE, "README.md")) as fp:
     long_description = fp.read()
 
@@ -22,10 +22,12 @@ requires = [
     "Pillow",
 ]
 tests_require = [
-    "boto",
-    "certifi",
+    "boto3",
+    # "botocore",  # part of boto3; listed to upgrade better
+    # "certifi",
     "pytest",
     "requests",
+    # "urllib3",  # used by botocore; listed to upgrade better
 ]
 testing_extras = tests_require + []
 
