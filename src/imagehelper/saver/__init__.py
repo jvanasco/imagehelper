@@ -1,2 +1,2 @@
-from . import s3
 from . import localfile
+from . import s3

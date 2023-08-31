@@ -1,31 +1,52 @@
-from __future__ import division
-
-import logging
-
 # stdlib
 import cgi
+import io
+import logging
 import tempfile
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Tuple
 
-# PyPi
+# pypi
 try:
     from PIL import Image
 except ImportError:
     raise ImportError("Image library (Pillow) is required")
 import envoy
+from typing_extensions import NotRequired
+from typing_extensions import TypedDict
 
 # local
+from . import _io
 from . import errors
 from . import utils
-from . import _io
-from ._compat import PY2
-
-
-log = logging.getLogger(__name__)
 
 # ==============================================================================
 
+log = logging.getLogger(__name__)
 
-USE_THUMBNAIL = False
+
+try:
+    # PIL.__version__>=9.0.0
+    ANTIALIAS = Image.Resampling.LANCZOS
+except AttributeError:
+    # PIL.__version__<9.0.0
+    # py3.6
+    ANTIALIAS = Image.ANTIALIAS  # type: ignore [attr-defined]
+
+
+# import PIL
+# _pil_version = PIL.__version__.split(".")
+# if int(_pil_version[0]) < 9:
+#     # this should only be py36
+#     ANTIALIAS = Image.ANTIALIAS
+# else:
+#     ANTIALIAS = Image.Resampling.LANCZOS
+
+
+USE_THUMBNAIL: bool = False
 
 _valid_types = [
     cgi.FieldStorage,
@@ -33,19 +54,41 @@ _valid_types = [
     tempfile.SpooledTemporaryFile,
 ]
 _valid_types.extend(list(_io._CoreFileTypes))
-
 _valid_types_nameless = [_io._FilelikePreference, tempfile.SpooledTemporaryFile]
 
-_valid_types = tuple(_valid_types)
-_valid_types_nameless = tuple(_valid_types_nameless)
+VALID_TYPES = tuple(_valid_types)
+VALID_TYPES_NAMELESS = tuple(_valid_types_nameless)
 
 
-# ==============================================================================
+ResizerInstructions = TypedDict(
+    "ResizerInstructions",
+    {
+        # required
+        "width": int,
+        "height": int,
+        "constraint-method": str,
+        "save_quality": int,
+        "filename_template": str,
+        "suffix": str,
+        "format": str,
+        # optional below
+        "allow_animated": NotRequired[bool],
+        # optional - Pillow
+        # https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html#jpeg-saving
+        # https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html#png-saving
+        "save_optimize": NotRequired[Any],
+        "save_progressive": NotRequired[Any],
+        "save_transparency": NotRequired[Any],
+        "save_bits": NotRequired[Any],
+        "save_dictionary": NotRequired[Any],
+    },
+)
 
+# ------------------------------------------------------------------------------
 
 # these are set to True by imagehelper/__init__.py on import
-_OPTIMIZE_SUPPORT_DETECTED = None
-OPTIMIZE_SUPPORT = {
+_OPTIMIZE_SUPPORT_DETECTED: Optional[bool] = None
+OPTIMIZE_SUPPORT: Dict = {
     "advpng": {
         "available": None,
         "use": True,
@@ -89,7 +132,9 @@ OPTIMIZE_SUPPORT = {
 }
 
 
-def autodetect_support(test_libraries=None):
+def autodetect_support(
+    test_libraries: Optional[List[str]] = None,
+) -> None:
     """
     ``test_libraries`` should be a list of keys in the OPTIMIZE_SUPPORT list
     if not supplied, all will be tested
@@ -151,33 +196,40 @@ class BasicImage(object):
     """
 
     # `file` a file-like object; ie, StringIO
-    file = None
+    # file: io.IOBase
+    file: io.BytesIO
 
     # `format`
-    format = None
+    format: Optional[str] = None
 
     # `name`
-    name = None
+    name: Optional[str] = None
 
     # `mode` file attribute
     mode = None
 
     # `width` file attribute
-    width = None
+    width: Optional[int] = None
 
     # `height` file attribute
-    height = None
+    height: Optional[int] = None
+
+    # `None` by default; `True` if `optimize` successful; `False` if it failed
+    is_optimized: Optional[bool] = None
+
+    # `None` by default. If `optimize` is run, it becomes a list of external tool + status
+    optimizations: Optional[List] = None
 
     def __init__(
         self,
-        fileObject,
-        name=None,
-        format=None,
+        fileObject: io.BytesIO,
+        name: Optional[str] = None,
+        format: Optional[str] = None,
         mode=None,
-        width=None,
-        height=None,
-        is_image_animated=None,
-        animated_image_totalframes=None,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        is_image_animated: Optional[bool] = None,
+        animated_image_totalframes: Optional[int] = None,
     ):
         """
         :arg fileObject: the resized file
@@ -200,40 +252,38 @@ class BasicImage(object):
         self.is_image_animated = is_image_animated
         self.animated_image_totalframes = animated_image_totalframes
 
-    # `None` by default; `True` if `optimize` successful; `False` if it failed
-    is_optimized = None
-
-    # `None` by default. If `optimize` is run, it becomes a list of external tool + status
-    optimizations = None
-
     @property
-    def file_size(self):
+    def file_size(self) -> int:
         """property; calculate the file's size in bytes"""
         return utils.file_size(self.file)
 
     @property
-    def file_md5(self):
+    def file_md5(self) -> str:
         """property; calculate the file's md5"""
         return utils.file_md5(self.file)
 
     @property
-    def file_b64(self):
+    def file_b64(self) -> bytes:
         """property; base64 encode the file"""
         return utils.file_b64(self.file)
 
     @property
-    def format_standardized(self):
+    def format_standardized(self) -> Optional[str]:
         """proxied format; standardized version"""
+        if self.format is None:
+            return None
         return utils.PIL_type_to_standardized(self.format)
 
     @property
-    def file_extension(self):
+    def file_extension(self) -> Optional[str]:
         """proxied format; PIL version"""
+        if self.format is None:
+            return None
         return utils.PIL_type_to_extension(self.format)
 
     def optimize(
         self,
-    ):
+    ) -> None:
         """this does some heavy lifting
 
         unix/mac only feature; sorry.
@@ -277,7 +327,6 @@ class BasicImage(object):
         _optimized = False
         optimizations = []
         if self.format_standardized == "jpg":
-
             if (
                 OPTIMIZE_SUPPORT["jpegtran"]["available"]
                 and OPTIMIZE_SUPPORT["jpegtran"]["use"]
@@ -312,7 +361,6 @@ class BasicImage(object):
                     optimizations.append(("jpegoptim", False))
 
         elif self.format_standardized == "gif":
-
             if (
                 OPTIMIZE_SUPPORT["gifsicle"]["available"]
                 and OPTIMIZE_SUPPORT["gifsicle"]["use"]
@@ -330,7 +378,6 @@ class BasicImage(object):
                     optimizations.append(("gifsicle", False))
 
         elif self.format_standardized == "png":
-
             if (
                 OPTIMIZE_SUPPORT["pngcrush"]["available"]
                 and OPTIMIZE_SUPPORT["pngcrush"]["use"]
@@ -423,23 +470,40 @@ class ResizedImage(BasicImage):
 class FakedOriginal(BasicImage):
     """sometimes we need to fake an original file"""
 
-    format = None
+    format: str
     mode = None
-    width = None
-    height = None
-    file_size = None
-    file_md5 = None
+    width: int
+    height: int
+    file_size: int
+    file_md5: str
 
-    def __init__(self, original_filename):
+    def __init__(self, original_filename: str):
         file_ext = original_filename.split(".")[-1].lower()
         self.format = utils.standardized_to_PIL_type(file_ext)
+
+
+class FakedResize(BasicImage):
+    file: None = None  # type: ignore [assignment]
+    format: str
+    width: int
+    height: int
+
+    def __init__(
+        self,
+        format: str,
+        width: int,
+        height: int,
+    ):
+        self.format = format
+        self.width = width
+        self.height = height
 
 
 class ImageWrapper(object):
     """Our base class for image operations"""
 
-    basicImage = None
-    pilObject = None
+    basicImage: BasicImage
+    pilObject: Image.Image
 
     def get_original(self):
         return self.basicImage
@@ -448,7 +512,12 @@ class ImageWrapper(object):
         if self.pilObject is not None:
             self.pilObject.close()
 
-    def __init__(self, imagefile=None, imagefile_name=None, FilelikePreference=None):
+    def __init__(
+        self,
+        imagefile: io.IOBase,
+        imagefile_name: Optional[str] = None,
+        FilelikePreference: Optional[_io.TYPES_FilelikeSupported] = None,
+    ):
         """
         registers and validates the image file
         note that we do copy the image file
@@ -457,8 +526,7 @@ class ImageWrapper(object):
 
         `imagefile`
                 cgi.FieldStorage
-                _io._CoreFileTypes = [file, io.IOBase, ]  # Python2 Only
-                _io._CoreFileTypes = [io.IOBase, ]  # Python3 Only
+                _io._CoreFileTypes = [io.IOBase, ]
                 _io._FilelikePreference
                 tempfile.TemporaryFile, tempfile.SpooledTemporaryFile
 
@@ -473,7 +541,7 @@ class ImageWrapper(object):
         if imagefile is None:
             raise errors.ImageError_MissingFile(utils.ImageErrorCodes.MISSING_FILE)
 
-        if not isinstance(imagefile, _valid_types):
+        if not isinstance(imagefile, VALID_TYPES):
             raise errors.ImageError_Parsing(
                 utils.ImageErrorCodes.UNSUPPORTED_IMAGE_CLASS
             )
@@ -500,7 +568,7 @@ class ImageWrapper(object):
                 # but someone else might care
                 imagefile.file.seek(0)
 
-            elif isinstance(imagefile, _valid_types_nameless):
+            elif isinstance(imagefile, VALID_TYPES_NAMELESS):
                 imagefile.seek(0)
                 file_data = imagefile.read()
                 file_name = imagefile_name or ""
@@ -579,7 +647,11 @@ class ImageWrapper(object):
             log.debug("encountered unknown exception: `%s`", exc)
             raise
 
-    def resize(self, instructions_dict, FilelikePreference=None):
+    def resize(
+        self,
+        instructions_dict: ResizerInstructions,
+        FilelikePreference: Optional[_io.TYPES_FilelikeSupported] = None,
+    ) -> ResizedImage:
         """this does the heavy lifting
 
         be warned - this uses a bit of memory!
@@ -630,6 +702,9 @@ class ImageWrapper(object):
 
             `FilelikePreference` - default preference for file-like objects
         """
+        # mypy typing
+        if self.pilObject is None:
+            raise ValueError("mising `self.pilObject`")
 
         if FilelikePreference is None:
             FilelikePreference = _io._FilelikePreference
@@ -654,7 +729,6 @@ class ImageWrapper(object):
             constraint_method = instructions_dict["constraint-method"]
 
         if constraint_method != "passthrough:no-resize":
-
             # t_ = target
             # i_ = image / real
 
@@ -663,12 +737,15 @@ class ImageWrapper(object):
             t_w = instructions_dict["width"]
             t_h = instructions_dict["height"]
 
-            crop = ()
+            crop: Optional[Tuple[int, int, int, int]] = None
+            # type hints for below switch
+            proportion: float
+            proportion_w: float
+            proportion_h: float
 
             # notice that we only scale DOWN (ie: check that t_x < i_x
 
             if constraint_method in ("fit-within", "fit-within:crop-to"):
-
                 # figure out the proportions
                 proportion_w = 1
                 proportion_h = 1
@@ -703,7 +780,6 @@ class ImageWrapper(object):
                     t_h = int(i_h * proportion_h)
 
                     if (crop_w != t_w) or (crop_h != t_h):
-
                         # support_hack_against_artifacting handles an issue where .thumbnail makes stuff look like shit
                         # except we're not using .thumbnail anymore; we're using resize directly
                         support_hack_against_artifacting = USE_THUMBNAIL
@@ -783,11 +859,11 @@ class ImageWrapper(object):
             if (i_w != t_w) or (i_h != t_h):
                 if USE_THUMBNAIL:
                     # the thumbnail is faster, but has been looking uglier in recent versions
-                    resized_image.thumbnail([t_w, t_h], Image.ANTIALIAS)
+                    resized_image.thumbnail((t_w, t_h), ANTIALIAS)
                 else:
-                    resized_image = resized_image.resize((t_w, t_h), Image.ANTIALIAS)
+                    resized_image = resized_image.resize((t_w, t_h), ANTIALIAS)
 
-            if len(crop):
+            if crop:
                 resized_image = resized_image.crop(crop)
                 resized_image.load()
 
@@ -796,20 +872,20 @@ class ImageWrapper(object):
             format = instructions_dict["format"]
 
         # returns uppercase
-        format = utils.derive_output_format(format, self.get_original().format)
+        format = utils.derive_format(format, self.get_original().format)
 
-        def _get_pil_options(_format):
-            pil_options = {}
+        def _get_pil_options(_format: str) -> Dict:
+            pil_options: Dict = {}
             if format in ("JPEG", "PDF"):
                 for i in ("quality", "optimize", "progressive"):
                     k = "save_%s" % i
                     if k in instructions_dict:
-                        pil_options[i] = instructions_dict[k]
+                        pil_options[i] = instructions_dict[k]  # type: ignore[literal-required]
             elif format == "PNG":
                 for i in ("optimize", "transparency", "bits", "dictionary"):
                     k = "save_%s" % i
                     if k in instructions_dict:
-                        pil_options[i] = instructions_dict[k]
+                        pil_options[i] = instructions_dict[k]  # type: ignore[literal-required]
             return pil_options
 
         # inner function will generate keys for us

@@ -1,3 +1,11 @@
+0.7.0
+-----
+mypy support
+drop py2.7 for mypy
+renamed some s3 functions for parity with superclass:
+    imagehelper.saver.s3.SaverManagerFactory.saver_manager -> SaverManagerFactory.manager
+    imagehelper.saver.s3.SaverManagerFactory.saver_simple_access -> SaverManagerFactory.simple_access
+
 0.6.0
 -----
     This release replaces boto with boto3. This library upgrade required renaming

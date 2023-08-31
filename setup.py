@@ -18,8 +18,8 @@ with open(os.path.join(HERE, "README.md")) as fp:
 
 requires = [
     "envoy",
-    "six",
     "Pillow",
+    "typing_extensions",
 ]
 tests_require = [
     "boto3",
@@ -42,8 +42,13 @@ setup(
     long_description_content_type="text/markdown",
     classifiers=[
         "License :: OSI Approved :: BSD License",
-        "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Intended Audience :: Developers",
         "Topic :: Multimedia :: Graphics :: Graphics Conversion",
         "Topic :: Software Development :: Libraries :: Python Modules",
@@ -54,6 +59,7 @@ setup(
         where="src",
     ),
     package_dir={"": "src"},
+    package_data={"imagehelper": ["py.typed"]},
     include_package_data=True,
     zip_safe=False,
     install_requires=requires,

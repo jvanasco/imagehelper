@@ -1,14 +1,27 @@
-import logging
-
-log = logging.getLogger(__name__)
-
 # stdlib
+import io
+import logging
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Union
+
+# local
 from . import errors
 from . import image_wrapper
 from . import utils
 
 
 # ==============================================================================
+
+log = logging.getLogger(__name__)
+
+TYPE_ResizesSchema = Dict[str, image_wrapper.ResizerInstructions]
+TYPE_selected_resizes = Union[List[str], Tuple[str]]
+TYPE_resizes = Dict[str, image_wrapper.BasicImage]
+
+# ------------------------------------------------------------------------------
 
 
 class ResizerConfig(object):
@@ -70,26 +83,27 @@ class ResizerConfig(object):
 
     """
 
-    resizesSchema = None
-    selected_resizes = None
-    optimize_original = None
-    original_allow_animated = None
-    optimize_resized = None
+    resizesSchema: TYPE_ResizesSchema
+    selected_resizes: TYPE_selected_resizes
+    optimize_original: Optional[bool] = None
+    optimize_resized: bool = False
+    # original_allow_animated = None
 
     def __init__(
         self,
-        resizesSchema=None,
-        selected_resizes=None,
-        is_subclass=False,
-        optimize_original=None,
-        optimize_resized=None,
-        original_allow_animated=None,
+        resizesSchema: Optional[TYPE_ResizesSchema] = None,
+        selected_resizes: Optional[TYPE_selected_resizes] = None,
+        is_subclass: bool = False,
+        optimize_original: Optional[bool] = None,
+        optimize_resized: bool = False,
+        # original_allow_animated=None,
     ):
         if not is_subclass:
-            self.resizesSchema = resizesSchema
+            if resizesSchema:
+                self.resizesSchema = resizesSchema
             self.optimize_original = optimize_original
             self.optimize_resized = optimize_resized
-            self.original_allow_animated = original_allow_animated
+            # self.original_allow_animated = original_allow_animated
 
             # we want a unique list
             if selected_resizes is None:
@@ -97,9 +111,8 @@ class ResizerConfig(object):
                     selected_resizes = list(resizesSchema.keys())
             else:
                 selected_resizes = selected_resizes[:]
-            self.selected_resizes = (
-                list(set(selected_resizes)) if selected_resizes else None
-            )
+            if selected_resizes:
+                self.selected_resizes = list(set(selected_resizes))
 
 
 class ResizerFactory(object):
@@ -111,9 +124,9 @@ class ResizerFactory(object):
     simply hold configuration information, so they're threadsafe.
     """
 
-    resizerConfig = None
+    resizerConfig: ResizerConfig
 
-    def __init__(self, resizerConfig=None):
+    def __init__(self, resizerConfig: ResizerConfig):
         """
         args
             `resizerConfig`
@@ -121,7 +134,11 @@ class ResizerFactory(object):
         """
         self.resizerConfig = resizerConfig
 
-    def resizer(self, imagefile=None, file_b64=None):
+    def resizer(
+        self,
+        imagefile: Optional[io.IOBase] = None,
+        file_b64: Optional[bytes] = None,
+    ) -> "Resizer":
         """Returns a resizer object; optionally with an imagefile.
         This does not resize.
 
@@ -151,8 +168,8 @@ class ResizerResultset(object):
     .resizes  - dict.  keys = 'sizes', values = image_wrapper.BasicImage
     """
 
-    resized = None
-    original = None
+    resized: TYPE_resizes
+    original: image_wrapper.BasicImage
 
     def __init__(self, resized, original=None):
         self.resized = resized
@@ -163,18 +180,25 @@ class Resizer(object):
     """Resizer is our workhorse.
     It stores the image file, the metadata, and the various resizes."""
 
-    _resizerConfig = None
-    _resizerResultset = None
-    _image = None
+    _resizerConfig: Optional[ResizerConfig] = None
+    _resizerResultset: Optional[ResizerResultset] = None
+    _wrappedImage: Optional[image_wrapper.ImageWrapper]
 
-    def __init__(self, resizerConfig=None):
+    def __init__(
+        self,
+        resizerConfig: Optional[ResizerConfig] = None,
+    ):
         self._resizerConfig = resizerConfig
         self._resizerResultset = None
         self._wrappedImage = None
 
     def register_image_file(
-        self, imagefile=None, imageWrapper=None, file_b64=None, optimize_original=None
-    ):
+        self,
+        imagefile=None,
+        imageWrapper: Optional[image_wrapper.ImageWrapper] = None,
+        file_b64: Optional[bytes] = None,
+        optimize_original: Optional[bool] = None,
+    ) -> None:
         """
         registers a file to be resized
 
@@ -232,22 +256,23 @@ class Resizer(object):
             # call a standardized interface
             self.optimize_original()
 
-    def optimize_original(self):
+    def optimize_original(self) -> None:
         """standardized inferface for optimizing"""
         log.debug("Resizer.optimize_original")
+        assert self._wrappedImage
         self._wrappedImage.basicImage.optimize()
 
     def resize(
         self,
         imagefile=None,
-        imageWrapper=None,
-        file_b64=None,
-        resizesSchema=None,
-        selected_resizes=None,
-        optimize_original=None,
-        optimize_resized=None,
-        original_allow_animated=None,
-    ):
+        imageWrapper: Optional[image_wrapper.ImageWrapper] = None,
+        file_b64: Optional[bytes] = None,
+        resizesSchema: Optional[TYPE_ResizesSchema] = None,
+        selected_resizes: Optional[TYPE_selected_resizes] = None,
+        optimize_original: Optional[bool] = None,
+        optimize_resized: Optional[bool] = None,
+        # original_allow_animated=None,
+    ) -> ResizerResultset:
         """
         Returns a dict of resized images
         calls self.register_image_file() if needed
@@ -271,6 +296,7 @@ class Resizer(object):
                 resizesSchema = self._resizerConfig.resizesSchema
             else:
                 raise ValueError("no resizesSchema and no self._resizerConfig")
+        assert resizesSchema
 
         if optimize_original is None:
             if self._resizerConfig:
@@ -289,6 +315,7 @@ class Resizer(object):
                 selected_resizes = self._resizerConfig.selected_resizes
             else:
                 raise ValueError("no selected_resizes and no self._resizerConfig")
+        assert selected_resizes
 
         if not len(resizesSchema.keys()):
             raise errors.ImageError_ConfigError("We have no resizesSchema...  error")
@@ -336,16 +363,21 @@ class Resizer(object):
 
         return resizerResultset
 
-    def fake_resize(self, original_filename, selected_resizes=None):
-
+    def fake_resize(
+        self,
+        original_filename: str,
+        selected_resizes: Optional[TYPE_selected_resizes] = None,
+    ) -> ResizerResultset:
         if not self._resizerConfig:
             raise ValueError(
-                "fake_resultset requires an instance configured with resizerConfig"
+                "fake_resize requires an instance configured with resizerConfig"
             )
         resizesSchema = self._resizerConfig.resizesSchema
+        assert resizesSchema
 
         if selected_resizes is None:
             selected_resizes = self._resizerConfig.selected_resizes
+            assert selected_resizes
 
         if not len(resizesSchema.keys()):
             raise errors.ImageError_ConfigError("We have no resizesSchema...  error")
@@ -362,8 +394,12 @@ class Resizer(object):
                     "@ is a reserved initial character for image sizes"
                 )
             _format = resizesSchema[size]["format"]
-            _format = utils.derive_output_format(_format, _original_format)
-            resized[size] = _format
+            _format = utils.derive_format(_format, _original_format)
+            resized[size] = image_wrapper.FakedResize(
+                format=_format,
+                width=resizesSchema[size]["width"],
+                height=resizesSchema[size]["height"],
+            )
 
         resizerResultset = ResizerResultset(
             resized=resized,

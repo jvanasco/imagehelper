@@ -1,11 +1,18 @@
-from .. import utils
-from .._compat import string_types
+# stlib
+from typing import Optional
 
+# local
+from .. import utils
+from ..image_wrapper import ResizerInstructions
+from ..resizer import ResizerResultset
 
 # ==============================================================================
 
 
-def check_archive_original(resizerResultset, archive_original=None):
+def check_archive_original(
+    resizerResultset: ResizerResultset,
+    archive_original: Optional[bool] = None,
+) -> bool:
     """do we want to archive the original?
 
     `resizerResultset`
@@ -33,7 +40,8 @@ def check_archive_original(resizerResultset, archive_original=None):
             return True
         return False
 
-    elif archive_original is True:
+    # elif archive_original is True:
+    else:
         if not resizerResultset.original:
             raise ValueError(
                 """Missing resizerResultset.original for
@@ -42,7 +50,11 @@ def check_archive_original(resizerResultset, archive_original=None):
         return True
 
 
-def derive_format(size, resizerResultset, instructions):
+def derive_resized_format(
+    size: str,
+    resizerResultset: ResizerResultset,
+    instructions: ResizerInstructions,
+) -> str:
     """derives the format for a size. this function is needed because
     introspection is necessary when the format will be inherited from the
     original file
@@ -52,20 +64,27 @@ def derive_format(size, resizerResultset, instructions):
         `resizerResultset` -
         `instructions` - schema dictionary
 
+    ONLY USED BY `size_to_filename`
+
+    SEE ALSO: imagehelper.utils.derive_format
+
     """
-    _format = instructions["format"]
-    if _format.lower() in ("auto", "original"):
-        # if we used a FakeResultSet to generate the filenames, then the resized will be a string of the suffix
-        if not isinstance(resizerResultset.resized[size], string_types):
-            _format = resizerResultset.resized[size].format
-        else:
-            _format = resizerResultset.resized[size]
-    return _format
+    intended_format: str = instructions["format"]
+    if intended_format.upper() in ("AUTO", "ORIGINAL"):
+        assert resizerResultset.original.format
+        intended_format = utils.derive_format(
+            intended_format, resizerResultset.original.format
+        )
+    return intended_format
 
 
 def size_to_filename(
-    guid, size, resizerResultset, filename_template_default, instructions
-):
+    guid: str,
+    size: str,
+    resizerResultset: ResizerResultset,
+    filename_template_default: str,
+    instructions: ResizerInstructions,
+) -> str:
     """generates the target_filename for a size.
 
     args:
@@ -86,7 +105,7 @@ def size_to_filename(
     # use a helper to get the format
     # if we used a FakeResultSet to generate the size_to_filename...
     # ... then the resized will be a string of the suffix
-    _format = derive_format(size, resizerResultset, instructions)
+    _format = derive_resized_format(size, resizerResultset, instructions)
 
     # generate the filename
     target_filename = filename_template % {

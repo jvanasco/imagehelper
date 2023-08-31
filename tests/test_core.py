@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 # stdlib
 import unittest
 import pdb  # noqa
@@ -11,7 +9,6 @@ import requests
 # local
 import imagehelper
 from imagehelper import _io
-from imagehelper import _compat
 
 # by default, do not test S3 connectivity, as that relies on secrets
 TEST_S3 = int(os.environ.get("TEST_S3", 0))
@@ -74,8 +71,29 @@ resizesSchema = {
         "format": "PNG",
         "constraint-method": "fit-within:crop-to",
     },
+    "t5": {
+        "width": 120,
+        "height": 120,
+        "save_optimize": True,
+        "filename_template": "%(guid)s---%(suffix)s.%(format)s",
+        "suffix": "t4",
+        "format": "auto",
+        "constraint-method": "fit-within:crop-to",
+    },
 }
-selected_resizes = ["thumb1", "t2", "thumb3", "t4"]
+selected_resizes = ["thumb1", "t2", "thumb3", "t4", "t5"]
+
+# the original is a `gif`
+# so we wnat to ensure we safe to a "PNG"
+FAKED_resizes = {
+    "@archive": ("123456789.gif", "archive"),
+    "t2": ("123456789-t2.pdf", "public"),
+    "t4": ("123456789---t4.png", "public"),
+    "t5": ("123456789---t4.png", "public"),
+    "thumb1": ("123456789.jpg", "public"),
+    "thumb3": ("123456789-thumb3.gif", "public"),
+}
+
 
 _img = None
 
@@ -118,8 +136,8 @@ def newSaverConfig_Localfile():
     save the files into a folder with the same names as our AWS buckets
     """
     saverConfig = imagehelper.saver.localfile.SaverConfig(
-        subdir_public_name=AWS_BUCKET_PUBLIC,
-        subdir_archive_name=AWS_BUCKET_ARCHIVE,
+        # subdir_public_name = "directory-public",
+        # subdir_archive_name = "directory-archive",
         archive_original=True,
         filedir=LOCALFILE_DIRECTORY,
     )
@@ -169,10 +187,33 @@ class _ImagehelperTestingMixin(object):
         for _size in resizedImages.resized.keys():
             self.assertNotEqual(resizedImages.resized[_size].file_size, 0)
 
+    def _check_fakeResizedImages(self, resizedImages):
+        # ensure we got the faked version
+        self.assertIsInstance(
+            resizedImages.original, imagehelper.image_wrapper.FakedOriginal
+        )
+
+        # ensure we got the faked version
+        for _size in resizedImages.resized.keys():
+            self.assertIsInstance(
+                resizedImages.resized[_size], imagehelper.image_wrapper.FakedResize
+            )
+
+    def _build_faked(self):
+        # new resizer config
+        resizerConfig = newResizerConfig()
+
+        # build a new resizer
+        resizer = imagehelper.resizer.Resizer(resizerConfig=resizerConfig)
+
+        # resize the image
+        resizedImages = resizer.fake_resize(original_filename="300x200.gif")
+
+        return resizerConfig, resizer, resizedImages
+
 
 class TestResize(unittest.TestCase, _ImagehelperTestingMixin):
     def test_direct_resize(self):
-
         # new resizer config
         resizerConfig = newResizerConfig()
 
@@ -193,16 +234,21 @@ class TestResize(unittest.TestCase, _ImagehelperTestingMixin):
 
         # build a new resizer
         resizer = imagehelper.resizer.Resizer(resizerConfig=resizerConfig)
+
         # resize the image
         resizedImages = resizer.resize(imagefile=get_imagefile())
 
         # audit the payload
         self._check_resizedImages(resizedImages)
 
+    def test_fake_resize(self):
+        resizerConfig, resizer, resizedImages = self._build_faked()
+        # audit the payload
+        self._check_fakeResizedImages(resizedImages)
+
 
 class TestS3(unittest.TestCase, _ImagehelperTestingMixin):
     def test_s3_factory(self):
-
         # generate the configs
         resizerConfig = newResizerConfig()
         saverConfig = newSaverConfig()
@@ -216,7 +262,7 @@ class TestS3(unittest.TestCase, _ImagehelperTestingMixin):
         )
 
         # grab a manager
-        saverManager = saverManagerFactory.saver_manager()
+        saverManager = saverManagerFactory.manager()
 
         # make sure we generated a manager
         assert isinstance(saverManager, imagehelper.saver.s3.SaverManager)
@@ -347,6 +393,7 @@ class TestLocalfile(unittest.TestCase, _ImagehelperTestingMixin):
 
         # new s3 config
         saverConfig = newSaverConfig_Localfile()
+
         # new s3 logger
         saverLogger = imagehelper.saver.localfile.SaverLogger()
 
@@ -360,6 +407,38 @@ class TestLocalfile(unittest.TestCase, _ImagehelperTestingMixin):
         guid = "123"
         uploaded = saver.files_save(resizedImages, guid)
         deleted = saver.files_delete(uploaded)
+
+    maxDiff = None
+
+    def test_localfile__saver_manager__faked(self):
+        resizerConfig, resizer, resizedImages = self._build_faked()
+        # audit the payload
+        self._check_fakeResizedImages(resizedImages)
+
+        # new s3 config
+        saverConfig = newSaverConfig_Localfile()
+
+        # new s3 logger
+        saverLogger = imagehelper.saver.localfile.SaverLogger()
+
+        # upload the resized items
+        saver = imagehelper.saver.localfile.SaverManager(
+            saverConfig=saverConfig,
+            resizerConfig=resizerConfig,
+            saverLogger=saverLogger,
+        )
+
+        guid = "123456789"
+
+        # generate_filenames
+        fnames = saver.generate_filenames(
+            resizedImages,
+            guid,
+            selected_resizes=selected_resizes,
+            archive_original=True,
+        )
+
+        self.assertEqual(fnames, FAKED_resizes)
 
     def test_localfile__saver_simple_access(self):
         """

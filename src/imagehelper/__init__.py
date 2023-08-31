@@ -1,8 +1,8 @@
-__VERSION__ = "0.6.0"
+__VERSION__ = "0.7.0"
 
-from . import _io  # noqa
-from . import errors  # noqa
-from . import image_wrapper  # noqa
-from . import resizer  # noqa
-from . import saver  # noqa
-from . import utils  # noqa
+from . import _io
+from . import errors
+from . import image_wrapper
+from . import resizer
+from . import saver
+from . import utils
