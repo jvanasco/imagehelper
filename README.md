@@ -117,7 +117,7 @@ And easily upload them:
         s3Factory = imagehelper.saver.s3.s3ManagerFactory(saverConfig=saverConfig, resizerConfig=rConfig, saverLogger=saverLogger)
 
         resizer = rFactory.resizer()
-        s3Manager = s3Factory.saver_manager()
+        s3Manager = s3Factory.manager()
 
     else:
         resizer = imagehelper.resizer.Resizer(resizerConfig=resizerConfig)

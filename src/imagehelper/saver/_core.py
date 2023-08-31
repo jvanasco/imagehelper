@@ -2,29 +2,53 @@
 abstracted classes, more like interfaces
 """
 
+from typing import Optional
+
+# ==============================================================================
+
+from ..image_wrapper import BasicImage
+from ..resizer import ResizerConfig
+from ..resizer import ResizerResultset
+from ..resizer import TYPE_selected_resizes
+from ..utils import TYPE_files_mapping
+
+# ------------------------------------------------------------------------------
+
 
 class SaverConfig(object):
-    pass
+    archive_original: Optional[bool] = None
 
 
 class SaverLogger(object):
-    def log_save(self, **kwargs):
+    def log_save(self, **kwargs) -> None:
         pass
 
-    def log_delete(self, **kwargs):
+    def log_delete(self, **kwargs) -> None:
         pass
 
 
 class SaverManagerFactory(object):
-    def manager(self):
+    _resizerConfig: ResizerConfig
+    _saverConfig: SaverConfig
+    _saverLogger: SaverLogger
+
+    def manager(self) -> "SaverManager":  # type: ignore[empty-body]
         pass
 
-    def simple_access(self):
+    def simple_access(self) -> "SaverSimpleAccess":  # type: ignore[empty-body]
         pass
 
 
 class _SaverCoreManager(object):
-    def files_delete(self, files_saved, dry_run=False):
+    _resizerConfig: ResizerConfig
+    _saverConfig: SaverConfig
+    _saverLogger: SaverLogger
+
+    def files_delete(  # type: ignore[empty-body]
+        self,
+        files_saved: TYPE_files_mapping,
+        dry_run: bool = False,
+    ) -> TYPE_files_mapping:
         """
         workhorse for deletion
 
@@ -37,31 +61,44 @@ class _SaverCoreManager(object):
 
 
 class SaverManager(_SaverCoreManager):
-    def generate_filenames(
-        self, resizerResultset, guid, selected_resizes=None, archive_original=None
-    ):
+    def generate_filenames(  # type: ignore[empty-body]
+        self,
+        resizerResultset: ResizerResultset,
+        guid: str,
+        selected_resizes: Optional[TYPE_selected_resizes] = None,
+        archive_original: Optional[bool] = None,
+    ) -> TYPE_files_mapping:
         pass
 
-    def files_save(
+    def files_save(  # type: ignore[empty-body]
         self,
-        resizerResultset,
-        guid,
-        selected_resizes=None,
-        archive_original=None,
-        dry_run=False,
-    ):
+        resizerResultset: ResizerResultset,
+        guid: str,
+        selected_resizes: Optional[TYPE_selected_resizes] = None,
+        archive_original: Optional[bool] = None,
+        dry_run: Optional[bool] = False,
+    ) -> TYPE_files_mapping:
         pass
 
     # _SaverCoreManager.files_delete
 
 
 class SaverSimpleAccess(_SaverCoreManager):
-    def file_save(
-        self, bucket_name, filename, wrappedFile, upload_type="public", dry_run=False
-    ):
+    def file_save(  # type: ignore[empty-body]
+        self,
+        bucket_name: str,
+        filename: str,
+        wrappedFile: BasicImage,
+        upload_type: str = "public",
+        dry_run: bool = False,
+    ) -> TYPE_files_mapping:
         pass
 
-    def simple_saves_mapping(self, bucket_name, filename):
+    def simple_saves_mapping(  # type: ignore[empty-body]
+        self,
+        bucket_name: str,
+        filename: str,
+    ) -> TYPE_files_mapping:
         pass
 
     # _SaverCoreManager.files_delete

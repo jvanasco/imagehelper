@@ -1,20 +1,24 @@
-import logging
-
-log = logging.getLogger(__name__)
-
 # stdlib
 import base64
 import hashlib
+import logging
 import os
+from typing import Dict
+from typing import Tuple
 
-# PyPi
+# pypi
 from PIL import ImageSequence
 
 # local
 from . import _io
 
-
 # ==============================================================================
+
+log = logging.getLogger(__name__)
+
+# ------------------------------------------------------------------------------
+
+TYPE_files_mapping = Dict[str, Tuple[str, str]]
 
 
 class ImageErrorCodes(object):
@@ -29,7 +33,7 @@ class ImageErrorCodes(object):
     MISSING_FILENAME_METHOD = 7
 
 
-_PIL_type_to_content_type = {
+_PIL_type_to_content_type: Dict[str, str] = {
     "gif": "image/gif",
     "jpg": "image/jpeg",
     "jpeg": "image/jpeg",
@@ -37,7 +41,7 @@ _PIL_type_to_content_type = {
     "png": "image/png",
 }
 
-_PIL_type_to_standardized = {
+_PIL_type_to_standardized: Dict[str, str] = {
     "gif": "gif",
     "jpg": "jpg",
     "jpeg": "jpg",
@@ -45,7 +49,7 @@ _PIL_type_to_standardized = {
     "png": "png",
 }
 
-_standardized_to_PIL_type = {
+_standardized_to_PIL_type: Dict[str, str] = {
     "gif": "GIF",
     "jpg": "JPEG",
     "jpeg": "JPEG",
@@ -57,7 +61,7 @@ _standardized_to_PIL_type = {
 # ==============================================================================
 
 
-def is_image_animated(im):
+def is_image_animated(im) -> bool:
     im.seek(0)
     try:
         im.seek(1)
@@ -66,7 +70,7 @@ def is_image_animated(im):
         return False
 
 
-def animated_image_totalframes(im):
+def animated_image_totalframes(im) -> int:
     im.seek(0)
     _frame = 0
     for frame in ImageSequence.Iterator(im):
@@ -74,47 +78,53 @@ def animated_image_totalframes(im):
     return _frame
 
 
-def derive_output_format(format, original_format):
-    """returns uppercase"""
-    format = format.upper()
-    if format in ("AUTO", "ORIGINAL"):
+def derive_format(intended_format: str, original_format: str) -> str:
+    """
+    1. returns uppercase
+    2. for the special cases of "AUTO" and "ORIGINAL"
+       this will parse the original format and possibly change it
+
+    SEE ALSO: imagehelper.saver.utils.derive_resized_format
+    """
+    intended_format = intended_format.upper()
+    if intended_format in ("AUTO", "ORIGINAL"):
         _og_format = original_format.upper()
         if _og_format in ("PNG", "GIF"):
-            format = "PNG"
+            intended_format = "PNG"
         else:
-            format = "JPEG"
-    return format
+            intended_format = "JPEG"
+    return intended_format
 
 
-def PIL_type_to_content_type(ctype):
+def PIL_type_to_content_type(ctype: str) -> str:
     ctype = ctype.lower()
     if ctype in _PIL_type_to_content_type:
         return _PIL_type_to_content_type[ctype]
     raise ValueError("invalid ctype")
 
 
-def PIL_type_to_standardized(ctype):
+def PIL_type_to_standardized(ctype: str) -> str:
     ctype = ctype.lower()
     if ctype in _PIL_type_to_standardized:
         return _PIL_type_to_standardized[ctype]
     raise ValueError("invalid ctype - `%s`" % ctype)
 
 
-def PIL_type_to_extension(ctype):
+def PIL_type_to_extension(ctype: str) -> str:
     ctype = ctype.lower()
     if ctype in _PIL_type_to_standardized:
         return _PIL_type_to_standardized[ctype]
     raise ValueError("invalid ctype")
 
 
-def standardized_to_PIL_type(ctype):
+def standardized_to_PIL_type(ctype: str) -> str:
     ctype = ctype.lower()
     if ctype in _standardized_to_PIL_type:
         return _standardized_to_PIL_type[ctype]
     raise ValueError("invalid ctype")
 
 
-def file_size(fileobj):
+def file_size(fileobj) -> int:
     """what's the size of the object?"""
     fileobj.seek(0, os.SEEK_END)
     sized = fileobj.tell()
@@ -122,7 +132,7 @@ def file_size(fileobj):
     return sized
 
 
-def file_md5(fileobj):
+def file_md5(fileobj) -> str:
     fileobj.seek(0)
     md5 = hashlib.md5()
     block_size = md5.block_size * 128
@@ -132,9 +142,9 @@ def file_md5(fileobj):
     return md5.hexdigest()
 
 
-def file_b64(fileobj):
+def file_b64(fileobj) -> bytes:
     fileobj.seek(0)
-    as_b64 = base64.encodestring(fileobj.read())
+    as_b64 = base64.encodebytes(fileobj.read())
     fileobj.seek(0)
     return as_b64
 
