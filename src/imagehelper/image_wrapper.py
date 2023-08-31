@@ -12,6 +12,7 @@ from typing_extensions import TypedDict
 
 # pypi
 try:
+    from PIL import __version__ as pil_version
     from PIL import Image
 except ImportError:
     raise ImportError("Image library (Pillow) is required")
@@ -26,6 +27,14 @@ from . import utils
 # ==============================================================================
 
 log = logging.getLogger(__name__)
+
+_pil_version = _pil_version.split(".")
+if int(_pil_version[0]) < 9:
+    # this should only be py36
+    ANTIALIAS = Image.ANTIALIAS
+else:
+    ANTIALIAS = Image.Resampling.LANCZOS
+
 
 USE_THUMBNAIL: bool = False
 
@@ -840,11 +849,9 @@ class ImageWrapper(object):
             if (i_w != t_w) or (i_h != t_h):
                 if USE_THUMBNAIL:
                     # the thumbnail is faster, but has been looking uglier in recent versions
-                    resized_image.thumbnail((t_w, t_h), Image.Resampling.LANCZOS)
+                    resized_image.thumbnail((t_w, t_h), ANTIALIAS)
                 else:
-                    resized_image = resized_image.resize(
-                        (t_w, t_h), Image.Resampling.LANCZOS
-                    )
+                    resized_image = resized_image.resize((t_w, t_h), ANTIALIAS)
 
             if crop:
                 resized_image = resized_image.crop(crop)
