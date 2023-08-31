@@ -8,7 +8,6 @@ from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Tuple
-from typing_extensions import TypedDict
 
 # pypi
 try:
@@ -17,6 +16,7 @@ except ImportError:
     raise ImportError("Image library (Pillow) is required")
 import envoy
 from typing_extensions import NotRequired
+from typing_extensions import TypedDict
 
 # local
 from . import _io
@@ -34,7 +34,7 @@ try:
 except AttributeError:
     # PIL.__version__<9.0.0
     # py3.6
-    ANTIALIAS = Image.ANTIALIAS
+    ANTIALIAS = Image.ANTIALIAS  # type: ignore [attr-defined]
 
 
 # import PIL
