@@ -12,7 +12,6 @@ from typing_extensions import TypedDict
 
 # pypi
 try:
-    from PIL import __version__ as pil_version
     from PIL import Image
 except ImportError:
     raise ImportError("Image library (Pillow) is required")
@@ -28,12 +27,23 @@ from . import utils
 
 log = logging.getLogger(__name__)
 
-_pil_version = pil_version.split(".")
-if int(_pil_version[0]) < 9:
-    # this should only be py36
-    ANTIALIAS = Image.ANTIALIAS
-else:
+
+try:
+    # PIL.__version__>=9.0.0
     ANTIALIAS = Image.Resampling.LANCZOS
+except AttributeError:
+    # PIL.__version__<9.0.0
+    # py3.6
+    ANTIALIAS = Image.ANTIALIAS
+
+
+# import PIL
+# _pil_version = PIL.__version__.split(".")
+# if int(_pil_version[0]) < 9:
+#     # this should only be py36
+#     ANTIALIAS = Image.ANTIALIAS
+# else:
+#     ANTIALIAS = Image.Resampling.LANCZOS
 
 
 USE_THUMBNAIL: bool = False
