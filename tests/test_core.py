@@ -86,12 +86,12 @@ selected_resizes = ["thumb1", "t2", "thumb3", "t4", "t5"]
 # the original is a `gif`
 # so we wnat to ensure we safe to a "PNG"
 FAKED_resizes = {
-    "@archive": ("123456789.gif", "imagehelper-archive"),
-    "t2": ("123456789-t2.pdf", "imagehelper"),
-    "t4": ("123456789---t4.png", "imagehelper"),
-    "t5": ("123456789---t4.png", "imagehelper"),
-    "thumb1": ("123456789.jpg", "imagehelper"),
-    "thumb3": ("123456789-thumb3.gif", "imagehelper"),
+    "@archive": ("123456789.gif", "archive"),
+    "t2": ("123456789-t2.pdf", "public"),
+    "t4": ("123456789---t4.png", "public"),
+    "t5": ("123456789---t4.png", "public"),
+    "thumb1": ("123456789.jpg", "public"),
+    "thumb3": ("123456789-thumb3.gif", "public"),
 }
 
 
@@ -136,8 +136,8 @@ def newSaverConfig_Localfile():
     save the files into a folder with the same names as our AWS buckets
     """
     saverConfig = imagehelper.saver.localfile.SaverConfig(
-        subdir_public_name=AWS_BUCKET_PUBLIC,
-        subdir_archive_name=AWS_BUCKET_ARCHIVE,
+        # subdir_public_name = "directory-public",
+        # subdir_archive_name = "directory-archive",
         archive_original=True,
         filedir=LOCALFILE_DIRECTORY,
     )
@@ -407,6 +407,8 @@ class TestLocalfile(unittest.TestCase, _ImagehelperTestingMixin):
         guid = "123"
         uploaded = saver.files_save(resizedImages, guid)
         deleted = saver.files_delete(uploaded)
+
+    maxDiff = None
 
     def test_localfile__saver_manager__faked(self):
         resizerConfig, resizer, resizedImages = self._build_faked()
