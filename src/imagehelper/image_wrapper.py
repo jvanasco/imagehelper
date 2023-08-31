@@ -28,7 +28,7 @@ from . import utils
 
 log = logging.getLogger(__name__)
 
-_pil_version = _pil_version.split(".")
+_pil_version = pil_version.split(".")
 if int(_pil_version[0]) < 9:
     # this should only be py36
     ANTIALIAS = Image.ANTIALIAS
