@@ -8,7 +8,7 @@ from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Tuple
-from typing import TypedDict
+from typing_extensions import TypedDict
 
 # pypi
 try:
