@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 from setuptools import find_packages
 from setuptools import setup
 
@@ -21,6 +22,9 @@ requires = [
     "Pillow",
     "typing_extensions",
 ]
+if sys.version_info >= (3, 13):
+    requires.append("legacy-cgi")
+
 tests_require = [
     "boto3",
     # "botocore",  # part of boto3; listed to upgrade better
