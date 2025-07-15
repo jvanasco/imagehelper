@@ -15,18 +15,19 @@ if TYPE_CHECKING:
 
 # ==============================================================================
 
+
 # !!!: `constraint-method="passthrough:no-resize"` has no width/height
 ResizerInstructions = TypedDict(
     "ResizerInstructions",
     {
         # required
-        "width": int,
-        "height": int,
+        "width": Union[int, None],
+        "height": Union[int, None],
         "constraint-method": str,
-        "save_quality": int,
         "format": str,
         # optional as in we have defaults
         "filename_template": NotRequired[str],
+        "save_quality": NotRequired[int],
         "suffix": NotRequired[str],
         # optional below
         "allow_animated": NotRequired[bool],
@@ -38,6 +39,8 @@ ResizerInstructions = TypedDict(
         "save_transparency": NotRequired[Any],
         "save_bits": NotRequired[Any],
         "save_dictionary": NotRequired[Any],
+        # optional extensions
+        "boto3_ExtraArgs": NotRequired[Any],
     },
 )
 
