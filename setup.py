@@ -25,7 +25,8 @@ tests_require = [
     "boto3",
     # "botocore",  # part of boto3; listed to upgrade better
     # "certifi",
-    "mypy-boto3-s3" "pytest",
+    "mypy-boto3-s3",
+    "pytest",
     "requests",
     "types-Pillow",
     "types-requests",
