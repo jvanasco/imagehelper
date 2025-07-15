@@ -1,6 +1,7 @@
 """
 abstracted classes, more like interfaces
 """
+
 import logging
 from typing import Optional
 

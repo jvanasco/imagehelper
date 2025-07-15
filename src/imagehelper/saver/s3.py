@@ -3,18 +3,13 @@ from __future__ import annotations
 # stdlb
 from io import BufferedReader
 import logging
+from types import ModuleType
 from typing import Dict
 from typing import Optional
-from types import ModuleType
+from typing import Sequence
+from typing import TYPE_CHECKING
 
 # from io import RawIOBase
-
-# pypi
-boto3: Optional[ModuleType]
-try:
-    import boto3
-except ImportError:
-    boto3 = None
 
 # local
 from . import _core
@@ -28,6 +23,18 @@ from ..image_wrapper import ResizerInstructions
 from ..resizer import ResizerConfig
 from ..resizer import ResizerResultset
 from ..resizer import TYPE_selected_resizes
+
+if TYPE_CHECKING:
+    from mypy_boto3_s3 import S3Client
+    from mypy_boto3_s3.type_defs import ObjectIdentifierTypeDef
+
+# conditional import
+boto3: Optional[ModuleType]
+try:
+    import boto3
+except ImportError:
+    boto3 = None
+
 
 # ==============================================================================
 
@@ -67,7 +74,6 @@ This is a temporary workaround
 
 
 class NonCloseableBufferedReader(BufferedReader):
-
     """
     # PY3 Typing;
 
@@ -224,7 +230,7 @@ class _SaverCoreManager(_core._SaverCoreManager):
     _saverConfig: SaverConfig
     _saverLogger: SaverLogger
 
-    _s3_client: Optional[boto3.client] = None
+    _s3_client: Optional["S3Client"] = None
     _s3_bucketnames: Optional[Dict] = None
     _boto3_ExtraArgs_default_public: Dict[str, str]  # __init__ -> _generate_defaults
     _boto3_ExtraArgs_default_archive: Dict[str, str]  # __init__ -> _generate_defaults
@@ -261,7 +267,7 @@ class _SaverCoreManager(_core._SaverCoreManager):
                 self._boto3_ExtraArgs_default_archive[k] = v
 
     @property
-    def s3_client(self) -> boto3.client:
+    def s3_client(self) -> "S3Client":
         """property that memoizes the connection"""
         assert self._saverConfig
 
@@ -354,7 +360,7 @@ class _SaverCoreManager(_core._SaverCoreManager):
             log.debug("going to delete `%s` from `%s`" % (target_filename, bucket_name))
 
             if not dry_run:
-                _del_dicts = [
+                _del_dicts: Sequence[ObjectIdentifierTypeDef] = [
                     {"Key": target_filename},
                 ]
                 response = self.s3_client.delete_objects(  # noqa: F841
@@ -630,7 +636,7 @@ class SaverManager(_SaverCoreManager, _core.SaverManager):
                     _buffer = NonCloseableBufferedReader(_wrapped.file)
 
                     # upload
-                    response = self.s3_client.upload_fileobj(
+                    self.s3_client.upload_fileobj(
                         _buffer,
                         bucket_name,
                         target_filename,
@@ -674,7 +680,7 @@ class SaverManager(_SaverCoreManager, _core.SaverManager):
                     _buffer = NonCloseableBufferedReader(_wrapped.file)
 
                     # upload
-                    response = self.s3_client.upload_fileobj(  # noqa: F841
+                    self.s3_client.upload_fileobj(
                         _buffer,
                         bucket_name,
                         target_filename,
@@ -756,7 +762,7 @@ class SaverSimpleAccess(_SaverCoreManager, _core.SaverSimpleAccess):
                 _buffer = NonCloseableBufferedReader(wrappedFile.file)
 
                 # upload
-                response = self.s3_client.upload_fileobj(  # noqa: F841
+                self.s3_client.upload_fileobj(
                     _buffer,
                     bucket_name,
                     filename,

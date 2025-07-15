@@ -4,6 +4,7 @@ consolidated way to figure out what files/filetypes are possible
 this library once tried to support StringIO.StringIO; bugs with the botocore
 and s3transfer library require a workaround that necessitates io
 """
+
 # stdlib
 import cgi
 import io

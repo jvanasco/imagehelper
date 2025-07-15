@@ -1,6 +1,13 @@
-0.7.1
+0.8.0 (unreleased)
+-----
+drop py3.6 due to gihub/ubuntu
+typing
+
+
+0.7.1 (unreleased)
 -----
 changed default saver factories to use `logging.debug`; previously they were null
+
 
 0.7.0
 -----

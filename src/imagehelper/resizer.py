@@ -8,8 +8,8 @@ from . import errors
 from . import image_wrapper
 from . import utils
 from ._types import ResizesSchema as TYPE_ResizesSchema
-from ._types import TYPE_selected_resizes
 from ._types import TYPE_resizes
+from ._types import TYPE_selected_resizes
 
 # ==============================================================================
 
