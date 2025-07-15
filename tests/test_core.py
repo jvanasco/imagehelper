@@ -813,3 +813,60 @@ class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin):
         # assert the resize matches
         assert expected_resized_wh[0] == actual_resized_wh[0]
         assert expected_resized_wh[1] == actual_resized_wh[1]
+
+
+class TestResizingMethods(unittest.TestCase):
+    resizesSchema = {
+        "fit-within": {
+            "constraint-method": "fit-within",
+        },
+        "fit-within:crop-to": {
+            "constraint-method": "fit-within:crop-to",
+        },
+        "fit-within:ensure-width": {
+            "constraint-method": "fit-within:ensure-width",
+        },
+        "fit-within:ensure-height": {
+            "constraint-method": "fit-within:ensure-height",
+        },
+        "smallest:ensure-minimum": {
+            "constraint-method": "smallest:ensure-minimum",
+        },
+        "exact:no-resize": {
+            "constraint-method": "exact:no-resize",
+        },
+        "exact:proportion": {
+            "constraint-method": "exact:proportion",
+        },
+        "passthrough:no-resize": {
+            "constraint-method": "passthrough:no-resize",
+        },
+    }
+
+    def test_quick_parity_check(self):
+        """
+        quick check to ensure coverage.
+        1_
+        """
+        c_a = len(self.resizesSchema.keys())
+        c_b = len(imagehelper.image_wrapper.VALID_CONSTRAINTS)
+        self.assertEqual(c_a, c_b)
+        self.assertEqual(c_a, 8)
+
+        for _constraint in self.resizesSchema.keys():
+            self.assertIn(_constraint, imagehelper.image_wrapper.VALID_CONSTRAINTS)
+
+        for _constraint in imagehelper.image_wrapper.VALID_CONSTRAINTS:
+            self.assertIn(_constraint, self.resizesSchema)
+
+
+VALID_CONSTRAINTS = (
+    "fit-within",
+    "fit-within:crop-to",
+    "fit-within:ensure-width",
+    "fit-within:ensure-height",
+    "smallest:ensure-minimum",
+    "exact:no-resize",
+    "exact:proportion",
+    "passthrough:no-resize",
+)

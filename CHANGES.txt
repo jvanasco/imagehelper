@@ -1,3 +1,7 @@
+0.7.1
+-----
+changed default saver factories to use `logging.debug`; previously they were null
+
 0.7.0
 -----
 mypy support
@@ -5,6 +9,7 @@ drop py2.7 for mypy
 renamed some s3 functions for parity with superclass:
     imagehelper.saver.s3.SaverManagerFactory.saver_manager -> SaverManagerFactory.manager
     imagehelper.saver.s3.SaverManagerFactory.saver_simple_access -> SaverManagerFactory.simple_access
+Factories now require all arguments
 
 0.6.0
 -----

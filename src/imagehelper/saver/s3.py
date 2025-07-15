@@ -1,12 +1,16 @@
+from __future__ import annotations
+
 # stdlb
 from io import BufferedReader
 import logging
 from typing import Dict
 from typing import Optional
+from types import ModuleType
 
 # from io import RawIOBase
 
 # pypi
+boto3: Optional[ModuleType]
 try:
     import boto3
 except ImportError:
@@ -18,12 +22,12 @@ from .utils import check_archive_original
 from .utils import size_to_filename
 from .. import errors
 from .. import utils
+from .._types import TYPE_files_mapping
 from ..image_wrapper import BasicImage
 from ..image_wrapper import ResizerInstructions
 from ..resizer import ResizerConfig
 from ..resizer import ResizerResultset
 from ..resizer import TYPE_selected_resizes
-from ..utils import TYPE_files_mapping
 
 # ==============================================================================
 
@@ -154,7 +158,13 @@ class SaverLogger(_core.SaverLogger):
         `file_md5`
             hexdigest
         """
-        pass
+        log.debug(
+            "<S3.save> bucket_name: `%s`, key: `%s`, file_size: `%s`, file_md5: `%s`",
+            bucket_name,
+            key,
+            file_size,
+            file_md5,
+        )
 
     def log_delete(  # type: ignore[override]
         self,
@@ -168,7 +178,7 @@ class SaverLogger(_core.SaverLogger):
         `key`
             key in bucket
         """
-        pass
+        log.debug("<S3.delete> bucket_name: `%s`, key: `%s`", bucket_name, key)
 
 
 class SaverManagerFactory(_core.SaverManagerFactory):

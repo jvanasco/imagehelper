@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 # stdlib
 import os
 import pprint
@@ -7,12 +5,17 @@ import pprint
 # local
 import imagehelper
 from imagehelper import _io
+from imagehelper.resizer import TYPE_ResizesSchema
 
 # ------------------------------------------------------------------------------
 
 # retrieve credentials/configs from the environment
 AWS_KEY_PUBLIC = os.environ.get("AWS_KEY_PUBLIC")
+assert AWS_KEY_PUBLIC is not None
+
 AWS_KEY_SECRET = os.environ.get("AWS_KEY_SECRET")
+assert AWS_KEY_SECRET is not None
+
 AWS_BUCKET_PUBLIC = os.environ.get("AWS_BUCKET_PUBLIC")
 AWS_BUCKET_ARCHIVE = os.environ.get("AWS_BUCKET_ARCHIVE")
 AWS_BUCKET_ALT = os.environ.get("AWS_BUCKET_ALT")
@@ -29,7 +32,7 @@ saverConfig = imagehelper.saver.s3.SaverConfig(
 )
 
 # define a schema for resizing
-resizesSchema = {
+resizesSchema: TYPE_ResizesSchema = {
     "thumb1": {
         "width": 120,
         "height": 120,
@@ -70,7 +73,7 @@ resizesSchema = {
 selected_resizes = ["thumb1", "t2", "thumb3", "t4"]
 
 # specify an alternate schema for resizing
-resizesSchema_alt = {
+resizesSchema_alt: TYPE_ResizesSchema = {
     "og:image": {
         "width": 3200,
         "height": 3200,
@@ -157,7 +160,7 @@ def demo_direct():
     try:
         # resize the image
         # this should fail, because we don't want to risk changing the image before registering
-        results = resizer.resize(imagefile=get_imagefile())
+        results = resizer.resize(imagefile=get_imagefile())  # noqa: F841
     except imagehelper.errors.ImageError_DuplicateAction:
         # expected!
         pass
@@ -306,6 +309,8 @@ def demo_serialze():
     resizer = resizerFactory.resizer(imagefile=get_imagefile())
 
     file_md5 = resizer.get_original().file_md5
+    assert file_md5 is not None
+
     file_b64 = resizer.get_original().file_b64
 
     resizer = resizerFactory.resizer(file_b64=file_b64)

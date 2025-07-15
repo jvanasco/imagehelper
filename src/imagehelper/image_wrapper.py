@@ -3,7 +3,6 @@ import cgi
 import io
 import logging
 import tempfile
-from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -15,13 +14,12 @@ try:
 except ImportError:
     raise ImportError("Image library (Pillow) is required")
 import envoy
-from typing_extensions import NotRequired
-from typing_extensions import TypedDict
 
 # local
 from . import _io
 from . import errors
 from . import utils
+from ._types import ResizerInstructions
 
 # ==============================================================================
 
@@ -60,29 +58,17 @@ VALID_TYPES = tuple(_valid_types)
 VALID_TYPES_NAMELESS = tuple(_valid_types_nameless)
 
 
-ResizerInstructions = TypedDict(
-    "ResizerInstructions",
-    {
-        # required
-        "width": int,
-        "height": int,
-        "constraint-method": str,
-        "save_quality": int,
-        "filename_template": str,
-        "suffix": str,
-        "format": str,
-        # optional below
-        "allow_animated": NotRequired[bool],
-        # optional - Pillow
-        # https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html#jpeg-saving
-        # https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html#png-saving
-        "save_optimize": NotRequired[Any],
-        "save_progressive": NotRequired[Any],
-        "save_transparency": NotRequired[Any],
-        "save_bits": NotRequired[Any],
-        "save_dictionary": NotRequired[Any],
-    },
+VALID_CONSTRAINTS = (
+    "fit-within",
+    "fit-within:crop-to",
+    "fit-within:ensure-width",
+    "fit-within:ensure-height",
+    "smallest:ensure-minimum",
+    "exact:no-resize",
+    "exact:proportion",
+    "passthrough:no-resize",
 )
+
 
 # ------------------------------------------------------------------------------
 
@@ -727,6 +713,9 @@ class ImageWrapper(object):
         constraint_method = "fit-within"
         if "constraint-method" in instructions_dict:
             constraint_method = instructions_dict["constraint-method"]
+
+        if constraint_method not in VALID_CONSTRAINTS:
+            raise ValueError("Invalid constraint_method: `%s`" % constraint_method)
 
         if constraint_method != "passthrough:no-resize":
             # t_ = target

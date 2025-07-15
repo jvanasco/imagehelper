@@ -11,3 +11,11 @@ TODO
 * resize animated images
 * gifsicle - check output of interlace and non-interlace options
 * More TESTS!
+
+-
+
+Protect input with max filesize: None or int
+Protect input with max dimensions: None or Tuple(int, int)
+
+Ensure tests for all valid constraints:
+

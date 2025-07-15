@@ -27,6 +27,8 @@ tests_require = [
     # "certifi",
     "pytest",
     "requests",
+    "types-Pillow",
+    "types-requests",
     # "urllib3",  # used by botocore; listed to upgrade better
 ]
 testing_extras = tests_require + []
