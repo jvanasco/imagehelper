@@ -2,17 +2,20 @@
 abstracted classes, more like interfaces
 """
 
+import logging
 from typing import Optional
 
 # ==============================================================================
 
+from .._types import TYPE_files_mapping
 from ..image_wrapper import BasicImage
 from ..resizer import ResizerConfig
 from ..resizer import ResizerResultset
 from ..resizer import TYPE_selected_resizes
-from ..utils import TYPE_files_mapping
 
 # ------------------------------------------------------------------------------
+
+log = logging.getLogger(__name__)
 
 
 class SaverConfig(object):
@@ -21,10 +24,10 @@ class SaverConfig(object):
 
 class SaverLogger(object):
     def log_save(self, **kwargs) -> None:
-        pass
+        log.debug("<_core.save> %s", kwargs)
 
     def log_delete(self, **kwargs) -> None:
-        pass
+        log.debug("<_core.delete> %s", kwargs)
 
 
 class SaverManagerFactory(object):

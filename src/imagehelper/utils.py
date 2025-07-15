@@ -4,7 +4,6 @@ import hashlib
 import logging
 import os
 from typing import Dict
-from typing import Tuple
 
 # pypi
 from PIL import ImageSequence
@@ -17,8 +16,6 @@ from . import _io
 log = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------------------
-
-TYPE_files_mapping = Dict[str, Tuple[str, str]]
 
 
 class ImageErrorCodes(object):

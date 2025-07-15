@@ -1,25 +1,20 @@
 # stdlib
 import io
 import logging
-from typing import Dict
-from typing import List
 from typing import Optional
-from typing import Tuple
-from typing import Union
 
 # local
 from . import errors
 from . import image_wrapper
 from . import utils
-
+from ._types import ResizesSchema as TYPE_ResizesSchema
+from ._types import TYPE_resizes
+from ._types import TYPE_selected_resizes
 
 # ==============================================================================
 
 log = logging.getLogger(__name__)
 
-TYPE_ResizesSchema = Dict[str, image_wrapper.ResizerInstructions]
-TYPE_selected_resizes = Union[List[str], Tuple[str]]
-TYPE_resizes = Dict[str, image_wrapper.BasicImage]
 
 # ------------------------------------------------------------------------------
 
@@ -411,4 +406,6 @@ class Resizer(object):
 
     def get_original(self):
         """get the original image, which may have data for us"""
+        if self._wrappedImage is None:
+            raise ValueError("No `_wrappedImage` configured")
         return self._wrappedImage.get_original()

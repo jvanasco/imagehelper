@@ -11,12 +11,12 @@ from .utils import size_to_filename
 from .. import _io
 from .. import errors
 from .. import utils
+from .._types import TYPE_files_mapping
 from ..image_wrapper import BasicImage
 from ..image_wrapper import ResizerInstructions
 from ..resizer import ResizerConfig
 from ..resizer import ResizerResultset
 from ..resizer import TYPE_selected_resizes
-from ..utils import TYPE_files_mapping
 
 
 # ==============================================================================
@@ -85,7 +85,14 @@ class SaverLogger(_core.SaverLogger):
             file_md5 : md5 value of the file (hex)
             filepath : full filepath for the save. this may be relative but must include the directory above `subdir`
         """
-        pass
+        log.debug(
+            "<localfile.save> subdir_name: `%s`, filename: `%s`, file_size: `%s`, file_md5: `%s`, filepath: `%s`",
+            subdir_name,
+            filename,
+            file_size,
+            file_md5,
+            filepath,
+        )
 
     def log_delete(  # type: ignore[override]
         self,
@@ -99,7 +106,12 @@ class SaverLogger(_core.SaverLogger):
             filename : name of the file
             filepath : full filepath for the save. this may be relative but must include the directory above `subdir`
         """
-        pass
+        log.debug(
+            "<localfile.delete> subdir_name: `%s`, filename: `%s`, filepath: `%s`",
+            subdir_name,
+            filename,
+            filepath,
+        )
 
 
 class SaverManagerFactory(_core.SaverManagerFactory):
