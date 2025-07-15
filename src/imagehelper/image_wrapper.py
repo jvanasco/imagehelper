@@ -7,6 +7,7 @@ from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Tuple
+from typing import Union
 
 # pypi
 try:
@@ -471,14 +472,14 @@ class FakedOriginal(BasicImage):
 class FakedResize(BasicImage):
     file: None = None  # type: ignore [assignment]
     format: str
-    width: int
-    height: int
+    width: Union[int, None]
+    height: Union[int, None]
 
     def __init__(
         self,
         format: str,
-        width: int,
-        height: int,
+        width: Union[int, None],
+        height: Union[int, None],
     ):
         self.format = format
         self.width = width
@@ -685,6 +686,8 @@ class ImageWrapper(object):
 
             'passthrough:no-resize'
                 don't scale!
+                for typing support,
+                set width and height to `None`
 
             `FilelikePreference` - default preference for file-like objects
         """
@@ -725,6 +728,9 @@ class ImageWrapper(object):
 
             t_w = instructions_dict["width"]
             t_h = instructions_dict["height"]
+
+            if (t_w is None) or (t_h is None):
+                raise ValueError("`None` is only valid for `passthrough:no-resize`")
 
             crop: Optional[Tuple[int, int, int, int]] = None
             # type hints for below switch

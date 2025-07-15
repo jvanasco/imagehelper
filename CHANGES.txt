@@ -3,6 +3,7 @@
 drop py3.6 due to gihub/ubuntu
 typing
 use legacy-cgi on py>=3.13
+typing: for no-resize (passthrough), set height/width to None
 
 
 0.7.1 (unreleased)

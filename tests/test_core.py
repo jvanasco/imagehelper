@@ -1,7 +1,8 @@
 # stdlib
-import unittest
-import pdb  # noqa
 import os
+import pdb  # noqa
+from typing import Callable
+import unittest
 
 # pypi
 import requests
@@ -9,6 +10,7 @@ import requests
 # local
 import imagehelper
 from imagehelper import _io
+from imagehelper._types import ResizesSchema
 
 # by default, do not test S3 connectivity, as that relies on secrets
 TEST_S3 = int(os.environ.get("TEST_S3", 0))
@@ -36,8 +38,7 @@ LOCALFILE_DIRECTORY = "tests/localfile-output"
 
 # ------------------------------------------------------------------------------
 
-
-resizesSchema = {
+resizesSchema: ResizesSchema = {
     "thumb1": {
         "width": 120,
         "height": 120,
@@ -179,6 +180,10 @@ class CustomSaverLogger(imagehelper.saver.s3.SaverLogger):
 
 
 class _ImagehelperTestingMixin(object):
+
+    assertNotEqual: Callable
+    assertIsInstance: Callable
+
     def _check_resizedImages(self, resizedImages):
         # ensure the original has a file size
         self.assertNotEqual(resizedImages.original.file_size, 0)
@@ -226,7 +231,7 @@ class TestResize(unittest.TestCase, _ImagehelperTestingMixin):
         try:
             # resize the image
             # this should fail, because we don't want to risk changing the image before registering
-            results = resizer.resize(imagefile=get_imagefile())
+            resizer.resize(imagefile=get_imagefile())
             raise ValueError("this should have failed")
         except imagehelper.errors.ImageError_DuplicateAction:
             # expected!
@@ -308,6 +313,7 @@ class TestS3(unittest.TestCase, _ImagehelperTestingMixin):
         guid = "123"
         uploaded = uploader.files_save(resizedImages, guid)
         deleted = uploader.files_delete(uploaded)
+        assert isinstance(deleted, dict)
 
     @unittest.skipUnless(TEST_S3, "S3 Testing Disabled")
     def test_s3__saver_simple_access(self):
@@ -407,6 +413,7 @@ class TestLocalfile(unittest.TestCase, _ImagehelperTestingMixin):
         guid = "123"
         uploaded = saver.files_save(resizedImages, guid)
         deleted = saver.files_delete(uploaded)
+        assert isinstance(deleted, dict)
 
     maxDiff = None
 
@@ -486,6 +493,7 @@ class TestLocalfile(unittest.TestCase, _ImagehelperTestingMixin):
 
         # but still rely on the parent class' call `files_delete` (fileS)
         deleted = saver.files_delete(uploaded)
+        assert isinstance(deleted, dict)
 
         # test the directory is now not-there, because it was cleaned up
         _subdirs = os.listdir(LOCALFILE_DIRECTORY)
@@ -495,7 +503,7 @@ class TestLocalfile(unittest.TestCase, _ImagehelperTestingMixin):
 class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin):
     def test_fit_within(self):
         method = "fit-within"
-        schema = {
+        schema: ResizesSchema = {
             "test": {
                 "width": 120,
                 "height": 120,
@@ -541,7 +549,7 @@ class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin):
 
     def test_fit_within_crop_to(self):
         method = "fit-within:crop-to"
-        schema = {
+        schema: ResizesSchema = {
             "test": {
                 "width": 120,
                 "height": 120,
@@ -587,7 +595,7 @@ class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin):
 
     def test_fit_within_ensure_width(self):
         method = "fit-within:ensure-width"
-        schema = {
+        schema: ResizesSchema = {
             "test": {
                 "width": 120,
                 "height": 120,
@@ -633,7 +641,7 @@ class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin):
 
     def test_fit_within_ensure_height(self):
         method = "fit-within:ensure-height"
-        schema = {
+        schema: ResizesSchema = {
             "test": {
                 "width": 120,
                 "height": 120,
@@ -678,7 +686,7 @@ class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin):
 
     def test_fit_within_smallest_ensure_minimum(self):
         method = "smallest:ensure-minimum"
-        schema = {
+        schema: ResizesSchema = {
             "test": {
                 "width": 120,
                 "height": 120,
@@ -724,7 +732,7 @@ class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin):
 
     def test_fit_within_exact_no_resize(self):
         method = "exact:no-resize"
-        schema = {
+        schema: ResizesSchema = {
             "test": {
                 "width": 1200,
                 "height": 1600,
@@ -770,7 +778,7 @@ class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin):
 
     def test_fit_within_exact_proportion(self):
         method = "exact:proportion"
-        schema = {
+        schema: ResizesSchema = {
             "test": {
                 "width": 240,
                 "height": 320,
@@ -815,7 +823,7 @@ class TestResizingMethods(unittest.TestCase, _ImagehelperTestingMixin):
         assert expected_resized_wh[1] == actual_resized_wh[1]
 
 
-class TestResizingMethods(unittest.TestCase):
+class TestResizingMethods_2(unittest.TestCase):
     resizesSchema = {
         "fit-within": {
             "constraint-method": "fit-within",
