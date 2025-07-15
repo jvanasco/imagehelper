@@ -96,19 +96,13 @@ def size_to_filename(
 
     # calc vars for filename templating
     filename_template = filename_template_default
-    suffix = size
     if "filename_template" in instructions:
         filename_template = instructions["filename_template"]
-    else:
-        # TODO:
-        raise ValueError("Calculate the filename_template")
-        "%(guid)s-%(suffix)s.%(format)s"
 
+    suffix = size
     if "suffix" in instructions:
+        # overwrite the "size" id with "suffix"
         suffix = instructions["suffix"]
-    else:
-        # TODO:
-        raise ValueError("Calculate the suffix from the format")
 
     # use a helper to get the format
     # if we used a FakeResultSet to generate the size_to_filename...
