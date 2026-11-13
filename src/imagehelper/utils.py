@@ -1,12 +1,21 @@
+from __future__ import annotations
+
 # stdlib
 import base64
 import hashlib
+from io import BytesIO
 import logging
 import os
 from typing import Dict
+from typing import Protocol
+from typing import TYPE_CHECKING
 
 # pypi
+from PIL import Image
 from PIL import ImageSequence
+
+if TYPE_CHECKING:
+    from typing_extensions import Buffer
 
 # local
 from . import _io
@@ -58,7 +67,21 @@ _standardized_to_PIL_type: Dict[str, str] = {
 # ==============================================================================
 
 
-def is_image_animated(im) -> bool:
+class _Seekable(Protocol):
+    """A stream whose position can be queried and moved."""
+
+    def seek(self, offset: int, whence: int = 0, /) -> int: ...
+    def tell(self) -> int: ...
+
+
+class _BinaryStream(_Seekable, Protocol):
+    """A seekable stream that reads bytes."""
+
+    def read(self, size: int = -1, /) -> bytes: ...
+
+
+def is_image_animated(im: Image.Image) -> bool:
+    """Check for a second frame and leave the image on it if present."""
     im.seek(0)
     try:
         im.seek(1)
@@ -67,7 +90,8 @@ def is_image_animated(im) -> bool:
         return False
 
 
-def animated_image_totalframes(im) -> int:
+def animated_image_totalframes(im: Image.Image) -> int:
+    """Count frames from the start, leaving the image on the last frame."""
     im.seek(0)
     _frame = 0
     for frame in ImageSequence.Iterator(im):
@@ -76,12 +100,9 @@ def animated_image_totalframes(im) -> int:
 
 
 def derive_format(intended_format: str, original_format: str) -> str:
-    """
-    1. returns uppercase
-    2. for the special cases of "AUTO" and "ORIGINAL"
-       this will parse the original format and possibly change it
+    """Return the requested format in uppercase.
 
-    SEE ALSO: imagehelper.saver.utils.derive_resized_format
+    AUTO and ORIGINAL select PNG for PNG or GIF input and JPEG otherwise.
     """
     intended_format = intended_format.upper()
     if intended_format in ("AUTO", "ORIGINAL"):
@@ -94,6 +115,7 @@ def derive_format(intended_format: str, original_format: str) -> str:
 
 
 def PIL_type_to_content_type(ctype: str) -> str:
+    """Return the MIME type for a Pillow format or raise ValueError."""
     ctype = ctype.lower()
     if ctype in _PIL_type_to_content_type:
         return _PIL_type_to_content_type[ctype]
@@ -101,6 +123,7 @@ def PIL_type_to_content_type(ctype: str) -> str:
 
 
 def PIL_type_to_standardized(ctype: str) -> str:
+    """Return the normalized lowercase format name or raise ValueError."""
     ctype = ctype.lower()
     if ctype in _PIL_type_to_standardized:
         return _PIL_type_to_standardized[ctype]
@@ -108,6 +131,7 @@ def PIL_type_to_standardized(ctype: str) -> str:
 
 
 def PIL_type_to_extension(ctype: str) -> str:
+    """Return the lowercase file extension without a dot or raise ValueError."""
     ctype = ctype.lower()
     if ctype in _PIL_type_to_standardized:
         return _PIL_type_to_standardized[ctype]
@@ -115,21 +139,23 @@ def PIL_type_to_extension(ctype: str) -> str:
 
 
 def standardized_to_PIL_type(ctype: str) -> str:
+    """Return the Pillow format for a normalized name or raise ValueError."""
     ctype = ctype.lower()
     if ctype in _standardized_to_PIL_type:
         return _standardized_to_PIL_type[ctype]
     raise ValueError("invalid ctype")
 
 
-def file_size(fileobj) -> int:
-    """what's the size of the object?"""
+def file_size(fileobj: _Seekable) -> int:
+    """Return the stream's size and leave its position at the start."""
     fileobj.seek(0, os.SEEK_END)
     sized = fileobj.tell()
     fileobj.seek(0)
     return sized
 
 
-def file_md5(fileobj) -> str:
+def file_md5(fileobj: _BinaryStream) -> str:
+    """Hash the entire stream and rewind it before returning the MD5 hex digest."""
     fileobj.seek(0)
     md5 = hashlib.md5()
     block_size = md5.block_size * 128
@@ -139,14 +165,16 @@ def file_md5(fileobj) -> str:
     return md5.hexdigest()
 
 
-def file_b64(fileobj) -> bytes:
+def file_b64(fileobj: _BinaryStream) -> bytes:
+    """Encode the entire stream as Base64 with line breaks, then rewind it."""
     fileobj.seek(0)
     as_b64 = base64.encodebytes(fileobj.read())
     fileobj.seek(0)
     return as_b64
 
 
-def b64_decode_to_file(coded_string):
+def b64_decode_to_file(coded_string: str | Buffer) -> BytesIO:
+    """Decode Base64 into a rewound stream, propagating decoding errors."""
     decoded_data = base64.b64decode(coded_string)
     fileobj = _io._FilelikePreference()
     fileobj.write(decoded_data)
