@@ -1,10 +1,6 @@
 TODO
 ====
 
-* resize animated images
-  * this should require a special call or marker on the API; i.e. caller MUST know and acknowledge it's animated and not static
-
-
 To Be Decided ...
 =================
 

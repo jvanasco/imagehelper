@@ -2,6 +2,7 @@
 ------------------
 Improve optimizer discovery and fallback, add GIF interlace control, and add real-tool tests and benchmarks.
 Add configurable input byte and dimension limits and regression tests for binary local saving and passthrough resizing.
+Require explicit upload and recipe opt-ins for animated GIF resizing, with frame and pixel limits.
 
 0.9.0 (unreleased)
 ------------------

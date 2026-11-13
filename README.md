@@ -152,6 +152,41 @@ to `None`. Byte limits apply to the decoded bytes for Base64 inputs. Either
 dimension can trigger rejection before Pillow loads the pixels. Exceeding a
 limit raises `ImageError_Parsing`.
 
+## Resize animated GIFs
+
+Animated uploads are rejected by default. To accept and resize animated GIFs,
+set the upload policy and its limits on `ResizerConfig`, then opt in on each
+recipe that produces an animated GIF. Set these values in application code.
+
+```python
+from imagehelper.resizer import ResizerConfig
+
+config = ResizerConfig(
+    allow_animated_gif=True,
+    max_animation_frames=60,
+    max_animation_pixels=12_000_000,
+    max_filesize=2_000_000,
+    max_dimensions=(800, 800),
+    resizesSchema={
+        "preview": {
+            "width": 240,
+            "height": 240,
+            "constraint-method": "fit-within",
+            "format": "GIF",
+            "allow_animated": True,
+        },
+    },
+)
+```
+
+The pixel budget covers the input canvas for every frame plus the resized
+canvases for every selected output. Direct `ImageWrapper` callers can set the
+same upload policy and limits. Static GIFs use the existing static resize path.
+
+The encoder resizes composited frames, preserves playback timing and looping,
+and quantizes each frame to a GIF palette with one-bit transparency. Pillow may
+merge identical consecutive frames and combine their delays.
+
 ## Resizing Options
 
 * `fit-within`

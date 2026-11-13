@@ -39,6 +39,8 @@ class ImageErrorCodes(object):
     MISSING_FILENAME_METHOD = 7
     FILESIZE_LIMIT_EXCEEDED = 8
     DIMENSIONS_LIMIT_EXCEEDED = 9
+    ANIMATION_NOT_ALLOWED = 10
+    ANIMATION_LIMIT_EXCEEDED = 11
 
 
 _PIL_type_to_content_type: Dict[str, str] = {

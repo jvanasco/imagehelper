@@ -399,6 +399,37 @@ def _check_input_dimensions(
         raise errors.ImageError_Parsing(utils.ImageErrorCodes.DIMENSIONS_LIMIT_EXCEEDED)
 
 
+def _validate_animation_policy(
+    allowed: bool, max_frames: Optional[int], max_pixels: Optional[int]
+) -> None:
+    """Require positive resource limits whenever animated GIFs are enabled."""
+    if allowed and (
+        max_frames is None or max_frames < 2 or max_pixels is None or max_pixels < 1
+    ):
+        raise ValueError(
+            "Animated GIFs require max_animation_frames >= 2 "
+            "and a positive max_animation_pixels"
+        )
+
+
+def _check_animation_input(
+    fmt: Optional[str],
+    allowed: bool,
+    frames: int,
+    pixels: int,
+    max_frames: Optional[int],
+    max_pixels: Optional[int],
+) -> None:
+    """Reject disallowed animations and input exceeding either resource limit."""
+    if fmt != "GIF" or not allowed:
+        raise errors.ImageError_Parsing(utils.ImageErrorCodes.ANIMATION_NOT_ALLOWED)
+    if (
+        max_frames is None or max_pixels is None
+        or frames > max_frames or pixels > max_pixels
+    ):
+        raise errors.ImageError_Parsing(utils.ImageErrorCodes.ANIMATION_LIMIT_EXCEEDED)
+
+
 class ImageWrapper(object):
     """Our base class for image operations"""
 
@@ -422,6 +453,9 @@ class ImageWrapper(object):
         *,
         max_filesize: Optional[int] = None,
         max_dimensions: Optional[tuple[int, int]] = None,
+        allow_animated_gif: bool = False,
+        max_animation_frames: Optional[int] = None,
+        max_animation_pixels: Optional[int] = None,
     ) -> None:
         """Copy and validate a binary image stream or CGI file upload.
 
@@ -430,6 +464,10 @@ class ImageWrapper(object):
         if a limit is exceeded or the input cannot be loaded as an image.
         """
         _validate_input_limits(max_filesize, max_dimensions)
+        _validate_animation_policy(
+            allow_animated_gif, max_animation_frames, max_animation_pixels
+        )
+        self._max_animation_pixels = max_animation_pixels
         if imagefile is None:
             raise errors.ImageError_MissingFile(utils.ImageErrorCodes.MISSING_FILE)
 
@@ -493,6 +531,23 @@ class ImageWrapper(object):
 
             image = Image.open(image_data)
             _check_input_dimensions(image.size, max_dimensions)
+            frame_count = 1
+            canvas_size = image.size
+            canvas_pixels = image.width * image.height
+            while True:
+                try:
+                    image.seek(frame_count)
+                except EOFError:
+                    break
+                frame_count += 1
+                if image.size != canvas_size:
+                    raise errors.ImageError_Parsing(utils.ImageErrorCodes.INVALID_FILETYPE)
+                _check_animation_input(
+                    image.format, allow_animated_gif, frame_count,
+                    canvas_pixels * frame_count,
+                    max_animation_frames, max_animation_pixels,
+                )
+            image.seek(0)
             image.load()
             if image.format is None:
                 raise errors.ImageError_Parsing(utils.ImageErrorCodes.INVALID_REBUILD)
@@ -503,8 +558,8 @@ class ImageWrapper(object):
                 mode=image.mode,
                 width=image.width,
                 height=image.height,
-                is_image_animated=utils.is_image_animated(image),
-                animated_image_totalframes=utils.animated_image_totalframes(image),
+                is_image_animated=frame_count > 1,
+                animated_image_totalframes=frame_count,
             )
             self.pilObject = image
             loaded = True
@@ -521,10 +576,218 @@ class ImageWrapper(object):
                     if image_data is not None and not image_data.closed:
                         image_data.close()
 
+    def _resize_geometry(
+        self, instructions_dict: ResizerInstructions
+    ) -> tuple[tuple[int, int], Optional[Tuple[int, int, int, int]]]:
+        """Resolve the existing resize and crop geometry once per recipe."""
+        i_w, i_h = self.pilObject.size
+        crop: Optional[Tuple[int, int, int, int]] = None
+        constraint_method = "fit-within"
+        if "constraint-method" in instructions_dict:
+            constraint_method = instructions_dict["constraint-method"]
+
+        if constraint_method not in VALID_CONSTRAINTS:
+            raise ValueError("Invalid constraint_method: `%s`" % constraint_method)
+
+        if constraint_method == "passthrough:no-resize":
+            return (i_w, i_h), None
+
+        # t_ = target
+        # i_ = image / real
+
+        t_w = instructions_dict["width"]
+        t_h = instructions_dict["height"]
+
+        if (t_w is None) or (t_h is None):
+            raise ValueError("`None` is only valid for `passthrough:no-resize`")
+
+        # type hints for below switch
+        proportion: float
+        proportion_w: float
+        proportion_h: float
+
+        # notice that we only scale DOWN (ie: check that t_x < i_x
+
+        if constraint_method in ("fit-within", "fit-within:crop-to"):
+            # figure out the proportions
+            proportion_w = 1
+            proportion_h = 1
+            if t_w < i_w:
+                proportion_w = t_w / i_w
+            if t_h < i_h:
+                proportion_h = t_h / i_h
+
+            if constraint_method == "fit-within":
+                # peg to the SMALLEST proportion so the entire image fits
+                if proportion_w < proportion_h:
+                    proportion_h = proportion_w
+                elif proportion_h < proportion_w:
+                    proportion_w = proportion_h
+                # figure out the resizes!
+                t_w = int(i_w * proportion_w)
+                t_h = int(i_h * proportion_h)
+
+            elif constraint_method == "fit-within:crop-to":
+                # peg so the smallest dimension fills the canvas, then crop the rest.
+                if proportion_w > proportion_h:
+                    proportion_h = proportion_w
+                elif proportion_h > proportion_w:
+                    proportion_w = proportion_h
+
+                # note what we want to crop to
+                crop_w = t_w
+                crop_h = t_h
+
+                # figure out the resizes!
+                t_w = int(i_w * proportion_w)
+                t_h = int(i_h * proportion_h)
+
+                if (crop_w != t_w) or (crop_h != t_h):
+                    # support_hack_against_artifacting handles an issue where .thumbnail makes stuff look like shit
+                    # except we're not using .thumbnail anymore; we're using resize directly
+                    support_hack_against_artifacting = USE_THUMBNAIL
+                    if support_hack_against_artifacting:
+                        if t_w < i_w:
+                            t_w += 1
+                        if t_h < i_h:
+                            t_h += 1
+
+                    (x0, y0, x1, y1) = (0, 0, t_w, t_h)
+
+                    if t_w > crop_w:
+                        x0 = int((t_w / 2) - (crop_w / 2))
+                        x1 = x0 + crop_w
+
+                    if t_h > crop_h:
+                        y0 = int((t_h / 2) - (crop_h / 2))
+                        y1 = y0 + crop_h
+
+                    crop = (x0, y0, x1, y1)
+
+        elif constraint_method == "fit-within:ensure-width":
+            proportion = 1
+            if t_w < i_w:
+                proportion = t_w / i_w
+            t_h = int(i_h * proportion)
+
+        elif constraint_method == "fit-within:ensure-height":
+            proportion = 1
+            if t_h < i_h:
+                proportion = t_h / i_h
+            t_w = int(i_w * proportion)
+
+        elif constraint_method == "smallest:ensure-minimum":
+            # useful for things like og:image where you want at least a 200px image
+
+            # figure out the proportions
+            proportion_w = t_w / i_w
+            proportion_h = t_h / i_h
+
+            # we don't want to scale up...
+            if proportion_h > 1 or proportion_w > 1:
+                proportion_h = 1
+                proportion_w = 1
+
+            # use_scale = "h"
+            scale_factor = proportion_h
+            if proportion_w > proportion_h:
+                # use_scale = "w"
+                scale_factor = proportion_w
+
+            t_h = int(i_h * scale_factor)
+            t_w = int(i_w * scale_factor)
+
+        elif constraint_method == "exact:proportion":
+            proportion_w = 1
+            proportion_h = 1
+            if t_w < i_w:
+                proportion_w = t_w / i_w
+            if t_h < i_h:
+                proportion_h = t_h / i_h
+            if proportion_w != proportion_h:
+                raise errors.ImageError_ResizeError(
+                    "item can not be scaled to exact size"
+                )
+
+        elif constraint_method == "exact:no-resize":
+            if (t_w != i_w) or (t_h != i_h):
+                raise errors.ImageError_ResizeError("item is not exact size")
+
+        else:
+            raise errors.ImageError_ResizeError(
+                'Invalid constraint-method for size recipe: "%s"'
+                % constraint_method
+            )
+
+        return (t_w, t_h), crop
+
+    @staticmethod
+    def _transform_frame(
+        frame: Image.Image, size: tuple[int, int],
+        crop: Optional[Tuple[int, int, int, int]],
+    ) -> Image.Image:
+        """Apply the resolved geometry to a single frame."""
+        if frame.size != size:
+            if USE_THUMBNAIL:
+                frame.thumbnail(size, ANTIALIAS)
+            else:
+                frame = frame.resize(size, ANTIALIAS)
+        if crop is not None:
+            frame = frame.crop(crop)
+            frame.load()
+        return frame
+
+    def _resize_gif(
+        self,
+        size: tuple[int, int],
+        crop: Optional[Tuple[int, int, int, int]],
+        frame_count: int,
+        stream_factory: _io.TYPES_FilelikeSupported,
+    ) -> ResizedImage:
+        """Encode composited frames with independent transparent canvases."""
+        image = self.pilObject
+        frames: list[Image.Image] = []
+        durations: list[int] = []
+        loop = image.info.get("loop")
+        output = stream_factory()
+        try:
+            for index in range(frame_count):
+                image.seek(index)
+                frame = self._transform_frame(image.convert("RGBA"), size, crop)
+                # GIF has one-bit transparency. Make the threshold explicit.
+                transparent = frame.getchannel("A").point(
+                    lambda alpha: 255 if alpha < 128 else 0
+                )
+                indexed = frame.convert("RGB").quantize(colors=255)
+                indexed.paste(255, mask=transparent)
+                indexed.info["transparency"] = 255
+                frames.append(indexed)
+                durations.append(image.info.get("duration", 0))
+            options = {} if loop is None else {"loop": loop}
+            frames[0].save(
+                output, "GIF", save_all=True, append_images=frames[1:],
+                duration=durations, disposal=2, optimize=False, background=255, **options,
+            )
+            output.seek(0)
+            # Pillow can merge adjacent frames with identical resized pixels.
+            with Image.open(output) as encoded:
+                encoded_count = getattr(encoded, "n_frames", 1)
+            return ResizedImage(
+                output, format="GIF", width=frames[0].width, height=frames[0].height,
+                is_image_animated=encoded_count > 1, animated_image_totalframes=encoded_count,
+            )
+        except BaseException:
+            output.close()
+            raise
+        finally:
+            image.seek(0)
+
     def resize(
         self,
         instructions_dict: ResizerInstructions,
         FilelikePreference: Optional[_io.TYPES_FilelikeSupported] = None,
+        *,
+        _animation_budget: Optional[list[int]] = None,
     ) -> ResizedImage:
         """this does the heavy lifting
 
@@ -585,169 +848,8 @@ class ImageWrapper(object):
         if FilelikePreference is None:
             FilelikePreference = _io._FilelikePreference
 
-        # we analyze the pilObject, because `copy()` only works on the frame
-        if utils.is_image_animated(self.pilObject):
-            allow_animated = False
-            if "allow_animated" in instructions_dict:
-                allow_animated = instructions_dict["allow_animated"]
-            if not allow_animated:
-                raise errors.ImageError_InstructionsError(
-                    "Image is Animated but instructions do not allow it!"
-                )
-
-        resized_image = self.pilObject.copy()
-
-        if resized_image.palette:
-            resized_image = resized_image.convert()
-
-        constraint_method = "fit-within"
-        if "constraint-method" in instructions_dict:
-            constraint_method = instructions_dict["constraint-method"]
-
-        if constraint_method not in VALID_CONSTRAINTS:
-            raise ValueError("Invalid constraint_method: `%s`" % constraint_method)
-
-        if constraint_method != "passthrough:no-resize":
-            # t_ = target
-            # i_ = image / real
-
-            (i_w, i_h) = self.pilObject.size
-
-            t_w = instructions_dict["width"]
-            t_h = instructions_dict["height"]
-
-            if (t_w is None) or (t_h is None):
-                raise ValueError("`None` is only valid for `passthrough:no-resize`")
-
-            crop: Optional[Tuple[int, int, int, int]] = None
-            # type hints for below switch
-            proportion: float
-            proportion_w: float
-            proportion_h: float
-
-            # notice that we only scale DOWN (ie: check that t_x < i_x
-
-            if constraint_method in ("fit-within", "fit-within:crop-to"):
-                # figure out the proportions
-                proportion_w = 1
-                proportion_h = 1
-                if t_w < i_w:
-                    proportion_w = t_w / i_w
-                if t_h < i_h:
-                    proportion_h = t_h / i_h
-
-                if constraint_method == "fit-within":
-                    # peg to the SMALLEST proportion so the entire image fits
-                    if proportion_w < proportion_h:
-                        proportion_h = proportion_w
-                    elif proportion_h < proportion_w:
-                        proportion_w = proportion_h
-                    # figure out the resizes!
-                    t_w = int(i_w * proportion_w)
-                    t_h = int(i_h * proportion_h)
-
-                elif constraint_method == "fit-within:crop-to":
-                    # peg so the smallest dimension fills the canvas, then crop the rest.
-                    if proportion_w > proportion_h:
-                        proportion_h = proportion_w
-                    elif proportion_h > proportion_w:
-                        proportion_w = proportion_h
-
-                    # note what we want to crop to
-                    crop_w = t_w
-                    crop_h = t_h
-
-                    # figure out the resizes!
-                    t_w = int(i_w * proportion_w)
-                    t_h = int(i_h * proportion_h)
-
-                    if (crop_w != t_w) or (crop_h != t_h):
-                        # support_hack_against_artifacting handles an issue where .thumbnail makes stuff look like shit
-                        # except we're not using .thumbnail anymore; we're using resize directly
-                        support_hack_against_artifacting = USE_THUMBNAIL
-                        if support_hack_against_artifacting:
-                            if t_w < i_w:
-                                t_w += 1
-                            if t_h < i_h:
-                                t_h += 1
-
-                        (x0, y0, x1, y1) = (0, 0, t_w, t_h)
-
-                        if t_w > crop_w:
-                            x0 = int((t_w / 2) - (crop_w / 2))
-                            x1 = x0 + crop_w
-
-                        if t_h > crop_h:
-                            y0 = int((t_h / 2) - (crop_h / 2))
-                            y1 = y0 + crop_h
-
-                        crop = (x0, y0, x1, y1)
-
-            elif constraint_method == "fit-within:ensure-width":
-                proportion = 1
-                if t_w < i_w:
-                    proportion = t_w / i_w
-                t_h = int(i_h * proportion)
-
-            elif constraint_method == "fit-within:ensure-height":
-                proportion = 1
-                if t_h < i_h:
-                    proportion = t_h / i_h
-                t_w = int(i_w * proportion)
-
-            elif constraint_method == "smallest:ensure-minimum":
-                # useful for things like og:image where you want at least a 200px image
-
-                # figure out the proportions
-                proportion_w = t_w / i_w
-                proportion_h = t_h / i_h
-
-                # we don't want to scale up...
-                if proportion_h > 1 or proportion_w > 1:
-                    proportion_h = 1
-                    proportion_w = 1
-
-                # use_scale = "h"
-                scale_factor = proportion_h
-                if proportion_w > proportion_h:
-                    # use_scale = "w"
-                    scale_factor = proportion_w
-
-                t_h = int(i_h * scale_factor)
-                t_w = int(i_w * scale_factor)
-
-            elif constraint_method == "exact:proportion":
-                proportion_w = 1
-                proportion_h = 1
-                if t_w < i_w:
-                    proportion_w = t_w / i_w
-                if t_h < i_h:
-                    proportion_h = t_h / i_h
-                if proportion_w != proportion_h:
-                    raise errors.ImageError_ResizeError(
-                        "item can not be scaled to exact size"
-                    )
-
-            elif constraint_method == "exact:no-resize":
-                if (t_w != i_w) or (t_h != i_h):
-                    raise errors.ImageError_ResizeError("item is not exact size")
-
-            else:
-                raise errors.ImageError_ResizeError(
-                    'Invalid constraint-method for size recipe: "%s"'
-                    % constraint_method
-                )
-
-            if (i_w != t_w) or (i_h != t_h):
-                if USE_THUMBNAIL:
-                    # the thumbnail is faster, but has been looking uglier in recent versions
-                    resized_image.thumbnail((t_w, t_h), ANTIALIAS)
-                else:
-                    resized_image = resized_image.resize((t_w, t_h), ANTIALIAS)
-
-            if crop:
-                resized_image = resized_image.crop(crop)
-                resized_image.load()
+        self.pilObject.seek(0)
+        size, crop = self._resize_geometry(instructions_dict)
 
         format = "JPEG"
         if "format" in instructions_dict:
@@ -757,6 +859,36 @@ class ImageWrapper(object):
         original_format = self.get_original().format
         assert original_format is not None
         format = utils.derive_format(format, original_format)
+
+        if self.basicImage.is_image_animated:
+            if instructions_dict.get("allow_animated") is not True or format != "GIF":
+                raise errors.ImageError_InstructionsError(
+                    "Animated GIF output requires allow_animated=True and format='GIF'"
+                )
+            frame_count = self.basicImage.animated_image_totalframes
+            assert frame_count is not None
+            input_pixels = self.pilObject.width * self.pilObject.height * frame_count
+            budget = (
+                self._max_animation_pixels
+                if _animation_budget is None
+                else _animation_budget[0]
+            )
+            # Charge the largest intermediate or output canvas before allocating frames.
+            output_pixels = size[0] * size[1]
+            if crop is not None:
+                output_pixels = max(output_pixels, (crop[2] - crop[0]) * (crop[3] - crop[1]))
+            cost = output_pixels * frame_count
+            if budget is None or input_pixels + cost > budget:
+                raise errors.ImageError_ResizeError("Animated GIF pixel budget exceeded")
+            result = self._resize_gif(size, crop, frame_count, FilelikePreference)
+            if _animation_budget is not None:
+                _animation_budget[0] -= cost
+            return result
+
+        resized_image = self.pilObject.copy()
+        if resized_image.palette:
+            resized_image = resized_image.convert()
+        resized_image = self._transform_frame(resized_image, size, crop)
 
         def _get_pil_options(_format: str) -> Dict:
             pil_options: Dict = {}
