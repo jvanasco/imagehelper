@@ -1,17 +1,9 @@
 TODO
 ====
-
 * list minimum `requests` required, otherwise there is an issue on urllib3 versions
 * ensure tests cover: localfile, FileReadArgs, FileWriteArgs
-
--
-
-* the optimization should allow for configuration and not follow the global method
-* The resize functions (constraint methods) should be moved to an extensible and customizable system.
-* resize animated images
-* gifsicle - check output of interlace and non-interlace options
 * More TESTS!
-
+* gifsicle - check output of interlace and non-interlace options
 * overview and install for helper apps
   * macos
       * via homebrew: `brew install advancecomp gifsicle jpeg jpegoptim optipng pngcrush`
@@ -19,11 +11,18 @@ TODO
   * ubuntu
       * `sudo apt update && sudo apt install -y advancecomp gifsicle libjpeg-turbo-progs jpegoptim optipng pngcrush`
 
-
--
-
+Possibly Done
+=============
 Protect input with max filesize: None or int
 Protect input with max dimensions: None or Tuple(int, int)
+Ensure tests for all valid constraints
 
-Ensure tests for all valid constraints:
+
+To Be Decided ...
+=================
+
+* the optimization should allow for configuration and not follow the global method
+* The resize functions (constraint methods) should be moved to an extensible and customizable system.
+* resize animated images
+  * this should require a special call or marker on the API; i.e. caller MUST know and acknowledge it's animated and not static
 

@@ -69,3 +69,25 @@ def test_s3_upload_and_delete(monkeypatch: pytest.MonkeyPatch) -> None:
     client.delete_objects.assert_called_once_with(
         Bucket=bucket, Delete={"Objects": [{"Key": filename}]}
     )
+
+
+def test_failed_s3_upload_leaves_source_open(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the caller's image stream usable after a failed transfer."""
+    client = Mock(spec=["upload_fileobj"])
+    client.upload_fileobj.side_effect = OSError("upload failed")
+    sdk = Mock(spec=["client"])
+    sdk.client.return_value = client
+    monkeypatch.setattr(s3, "boto3", sdk)
+    saver_logger = CustomSaverLogger()
+    uploader = s3.SaverSimpleAccess(
+        saverConfig=newSaverConfig(),
+        saverLogger=saver_logger,
+        resizerConfig=newResizerConfig(),
+    )
+
+    with BytesIO(b"image payload") as original:
+        image = BasicImage(original, format="JPEG")
+        with pytest.raises(OSError, match="upload failed"):
+            uploader.file_save("@public", "image.jpg", image)
+        assert original.read() == b"image payload"
+        assert saver_logger._saves == []

@@ -492,38 +492,25 @@ class ImageWrapper(object):
     basicImage: BasicImage
     pilObject: Image.Image
 
-    def get_original(self):
+    def get_original(self) -> BasicImage:
+        """Return the original image and its copied file data."""
         return self.basicImage
 
-    def __del__(self):
-        if self.pilObject is not None:
-            self.pilObject.close()
+    def __del__(self) -> None:
+        image = getattr(self, "pilObject", None)
+        if image is not None:
+            image.close()
 
     def __init__(
         self,
-        imagefile: io.IOBase,
+        imagefile: _io.TYPES_imagefile_a,
         imagefile_name: Optional[str] = None,
         FilelikePreference: Optional[_io.TYPES_FilelikeSupported] = None,
-    ):
-        """
-        registers and validates the image file
-        note that we do copy the image file
+    ) -> None:
+        """Copy and validate a binary image stream or CGI file upload.
 
-        args:
-
-        `imagefile`
-                cgi.FieldStorage
-                _io._CoreFileTypes = [io.IOBase, ]
-                _io._FilelikePreference
-                tempfile.TemporaryFile, tempfile.SpooledTemporaryFile
-
-        `imagefile_name`
-            only used for informational purposes
-
-        `FilelikePreference`
-            preference class for filelike objects
-                _io._FilelikePreference
-                tempfile.SpooledTemporaryFile
+        Rewind the input after reading and use the explicit name when provided.
+        Raise ImageError_Parsing if the input cannot be loaded as an image.
         """
         if imagefile is None:
             raise errors.ImageError_MissingFile(utils.ImageErrorCodes.MISSING_FILE)
@@ -533,106 +520,73 @@ class ImageWrapper(object):
                 utils.ImageErrorCodes.UNSUPPORTED_IMAGE_CLASS
             )
 
+        image_data: Optional[io.BytesIO] = None
+        image: Optional[Image.Image] = None
+        loaded = False
         try:
-            # try to cache this all
-            file_data = None
-            file_name = None
             if isinstance(imagefile, cgi.FieldStorage):
                 if not hasattr(imagefile, "filename"):
                     raise errors.ImageError_Parsing(
                         utils.ImageErrorCodes.MISSING_FILENAME_METHOD
                     )
-                imagefile.file.seek(0)
-                file_data = imagefile.file.read()
-
-                file_name = ""
-                if hasattr(imagefile.file, "name"):
-                    file_name = imagefile.file.name
-                elif hasattr(imagefile, "filename"):
-                    file_name = imagefile.filename
-
-                # be kind, rewind; the input obj we no longer care about
-                # but someone else might care
-                imagefile.file.seek(0)
-
-            elif isinstance(imagefile, VALID_TYPES_NAMELESS):
-                imagefile.seek(0)
-                file_data = imagefile.read()
-                file_name = imagefile_name or ""
-
-                # be kind, rewind; the input obj we no longer care about
-                # but someone else might care
-                imagefile.seek(0)
-
-            elif isinstance(imagefile, _io._CoreFileTypes):
-                # catch this last
-                imagefile.seek(0)
-                file_data = imagefile.read()
-                # default
-                file_name = imagefile_name
-                if hasattr(imagefile, "name"):  # Py3 object may not have this
-                    file_name = imagefile.name
-                if file_name == "<fdopen>":
-                    file_name = imagefile_name or ""
-
-                # be kind, rewind; the input obj we no longer care about
-                # but someone else might care
-                imagefile.seek(0)
-
+                source = imagefile.file
+                if source is None:
+                    raise errors.ImageError_MissingFile(
+                        utils.ImageErrorCodes.MISSING_FILE
+                    )
+                file_name = getattr(source, "name", imagefile.filename)
             else:
-                # just be safe with an extra else
-                log.debug(
-                    "isinstance(imagefile) is not expected. type() is `%s`",
-                    type(imagefile),
-                )
-                raise errors.ImageError_Parsing(
-                    utils.ImageErrorCodes.UNSUPPORTED_IMAGE_CLASS
-                )
+                source = imagefile
+                if isinstance(source, VALID_TYPES_NAMELESS):
+                    file_name = imagefile_name or ""
+                else:
+                    file_name = getattr(source, "name", imagefile_name)
+                    if file_name == "<fdopen>":
+                        file_name = imagefile_name or ""
+
+            source.seek(0)
+            try:
+                file_data = source.read()
+            finally:
+                source.seek(0)
+            if not isinstance(file_data, bytes):
+                raise errors.ImageError_Parsing(utils.ImageErrorCodes.INVALID_FILETYPE)
 
             if FilelikePreference is None:
                 FilelikePreference = _io._FilelikePreference
+            stream_factory = FilelikePreference
+            image_data = stream_factory()
+            image_data.write(file_data)
+            image_data.seek(0)
 
-            # create a new image
-            # and stash our data!
-            fh_imageData = FilelikePreference()
-            fh_imageData.write(file_data)
-            fh_imageData.seek(0)
-            fh_name = imagefile_name or file_name
-
-            # make the new wrapped obj and then...
-            # safety first! just ensure this loads.
-            pilObject = Image.open(fh_imageData)
-            pilObject.load()
-            if not pilObject:
+            image = Image.open(image_data)
+            image.load()
+            if image.format is None:
                 raise errors.ImageError_Parsing(utils.ImageErrorCodes.INVALID_REBUILD)
-            self.pilObject = pilObject
-
-            # finally, stash our data
-            wrappedImage = BasicImage(
-                fh_imageData,
-                name=fh_name,
-                format=self.pilObject.format,
-                mode=self.pilObject.mode,
-                width=self.pilObject.size[0],
-                height=self.pilObject.size[1],
-                is_image_animated=utils.is_image_animated(self.pilObject),
-                animated_image_totalframes=utils.animated_image_totalframes(
-                    self.pilObject
-                ),
+            self.basicImage = BasicImage(
+                image_data,
+                name=imagefile_name or file_name,
+                format=image.format,
+                mode=image.mode,
+                width=image.width,
+                height=image.height,
+                is_image_animated=utils.is_image_animated(image),
+                animated_image_totalframes=utils.animated_image_totalframes(image),
             )
-            self.basicImage = wrappedImage
-
-        except IOError as exc:
-            log.debug("encountered an IOError. Exception is: `%s`", exc)
-            raise errors.ImageError_Parsing(utils.ImageErrorCodes.INVALID_FILETYPE)
-
-        except errors.ImageError as exc:
-            log.debug("encountered ImageError exception: `%s`", exc)
-            raise
-
-        except Exception as exc:
-            log.debug("encountered unknown exception: `%s`", exc)
-            raise
+            self.pilObject = image
+            loaded = True
+        except (OSError, Image.DecompressionBombError) as exc:
+            raise errors.ImageError_Parsing(
+                utils.ImageErrorCodes.INVALID_FILETYPE
+            ) from exc
+        finally:
+            if not loaded:
+                try:
+                    if image is not None:
+                        image.close()
+                finally:
+                    if image_data is not None and not image_data.closed:
+                        image_data.close()
 
     def resize(
         self,
@@ -867,7 +821,9 @@ class ImageWrapper(object):
             format = instructions_dict["format"]
 
         # returns uppercase
-        format = utils.derive_format(format, self.get_original().format)
+        original_format = self.get_original().format
+        assert original_format is not None
+        format = utils.derive_format(format, original_format)
 
         def _get_pil_options(_format: str) -> Dict:
             pil_options: Dict = {}

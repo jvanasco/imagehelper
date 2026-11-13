@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-# stdlb
+# stdlib
+from importlib import import_module
 from io import BufferedReader
 import logging
 from types import ModuleType
+from typing import Any
+from typing import BinaryIO
 from typing import Dict
 from typing import Optional
+from typing import Protocol
 from typing import Sequence
-from typing import TYPE_CHECKING
 
-# from io import RawIOBase
+from typing_extensions import NotRequired
 
 # local
 from . import _core
@@ -24,14 +27,27 @@ from ..resizer import ResizerConfig
 from ..resizer import ResizerResultset
 from ..resizer import TYPE_selected_resizes
 
-if TYPE_CHECKING:
-    from mypy_boto3_s3 import S3Client
-    from mypy_boto3_s3.type_defs import ObjectIdentifierTypeDef
 
-# conditional import
-boto3: Optional[ModuleType]
+class S3Client(Protocol):
+    """S3 operations used by the saver."""
+
+    def upload_fileobj(
+        self,
+        stream: BinaryIO,
+        bucket: str,
+        key: str,
+        /,
+        *,
+        ExtraArgs: dict[str, Any],
+    ) -> None: ...
+
+    def delete_objects(
+        self, *, Bucket: str, Delete: dict[str, Sequence[dict[str, str]]]
+    ) -> object: ...
+
+
 try:
-    import boto3
+    boto3: Optional[ModuleType] = import_module("boto3")
 except ImportError:
     boto3 = None
 
@@ -50,8 +66,9 @@ NO_BOTO = NoBoto("`boto3` was not available for import")
 
 
 class ResizerInstructions_S3(ResizerInstructions):
-    s3_bucket_public: str
-    boto3_ExtraArgs: Dict[str, str]
+    """Resize instructions with an optional override for the public bucket."""
+
+    s3_bucket_public: NotRequired[str]
 
 
 TYPE_ResizesSchema_S3 = Dict[str, ResizerInstructions_S3]
@@ -64,35 +81,11 @@ class ResizerConfig_S3(ResizerConfig):
 # ------------------------------------------------------------------------------
 
 
-# note: dirty workaround for boto3
-"""
-boto3 has an absurd flaw in which fileobjects are closed when uploaded
-(see https://github.com/boto/s3transfer/issues/80)
-
-This is a temporary workaround
-"""
-
-
 class NonCloseableBufferedReader(BufferedReader):
-    """
-    # PY3 Typing;
-
-    from typing import Any
-    from typing import IO
-    from typing import cast
-
-    def __init__(self, raw: IO[bytes], *args: Any, **kwargs: Any):
-       super().__init__(cast(RawIOBase, raw), *args, **kwargs)
+    """Keep the wrapped stream open when boto3 closes its upload reader."""
 
     def close(self) -> None:
-       self.flush()
-
-    """
-
-    def __init__(self, raw, *args, **kwargs):
-        super().__init__(raw, *args, **kwargs)
-
-    def close(self):
+        """Flush the reader while preserving the underlying stream."""
         self.flush()
 
 
@@ -108,8 +101,8 @@ class SaverConfig(_core.SaverConfig):
     key_private: str
     bucket_public_name: Optional[str] = None
     bucket_archive_name: Optional[str] = None
-    boto3_ExtraArgs_default_public: Dict
-    boto3_ExtraArgs_default_archive: Dict
+    boto3_ExtraArgs_default_public: dict[str, Any]
+    boto3_ExtraArgs_default_archive: dict[str, Any]
 
     def __init__(
         self,
@@ -117,8 +110,8 @@ class SaverConfig(_core.SaverConfig):
         key_private: str = "",
         bucket_public_name: Optional[str] = None,
         bucket_archive_name: Optional[str] = None,
-        boto3_ExtraArgs_default_public: Optional[Dict] = None,
-        boto3_ExtraArgs_default_archive: Optional[Dict] = None,
+        boto3_ExtraArgs_default_public: Optional[dict[str, Any]] = None,
+        boto3_ExtraArgs_default_archive: Optional[dict[str, Any]] = None,
         archive_original: Optional[bool] = None,
         **kwargs,
     ):
@@ -231,9 +224,9 @@ class _SaverCoreManager(_core._SaverCoreManager):
     _saverLogger: SaverLogger
 
     _s3_client: Optional["S3Client"] = None
-    _s3_bucketnames: Optional[Dict] = None
-    _boto3_ExtraArgs_default_public: Dict[str, str]  # __init__ -> _generate_defaults
-    _boto3_ExtraArgs_default_archive: Dict[str, str]  # __init__ -> _generate_defaults
+    _s3_bucketnames: Optional[dict[str, Any]] = None
+    _boto3_ExtraArgs_default_public: dict[str, Any]
+    _boto3_ExtraArgs_default_archive: dict[str, Any]
 
     filename_template: str = "%(guid)s-%(suffix)s.%(format)s"
     filename_template_archive: str = "%(guid)s.%(format)s"
@@ -268,7 +261,7 @@ class _SaverCoreManager(_core._SaverCoreManager):
 
     @property
     def s3_client(self) -> "S3Client":
-        """property that memoizes the connection"""
+        """Create the S3 client on first access and reuse it on later calls."""
         assert self._saverConfig
 
         if self._s3_client is None:
@@ -281,9 +274,31 @@ class _SaverCoreManager(_core._SaverCoreManager):
             )
         return self._s3_client
 
+    def _upload(
+        self,
+        image: BasicImage,
+        bucket_name: str,
+        key: str,
+        extra_args: dict[str, Any],
+    ) -> None:
+        """Upload the image while retaining ownership of its stream."""
+        reader = NonCloseableBufferedReader(image.file)
+        try:
+            self.s3_client.upload_fileobj(reader, bucket_name, key, ExtraArgs=extra_args)
+        finally:
+            reader.detach()
+
+        if self._saverLogger:
+            self._saverLogger.log_save(
+                bucket_name=bucket_name,
+                key=key,
+                file_size=image.file_size,
+                file_md5=image.file_md5,
+            )
+
     @property
     def s3_bucketnames(self) -> Dict:
-        """property that memoizes the calcuated s3 s3_bucketnames"""
+        """Return cached bucket names and aliases for the configured resizes."""
         assert self._saverConfig
 
         if self._s3_bucketnames is None:
@@ -360,7 +375,7 @@ class _SaverCoreManager(_core._SaverCoreManager):
             log.debug("going to delete `%s` from `%s`" % (target_filename, bucket_name))
 
             if not dry_run:
-                _del_dicts: Sequence[ObjectIdentifierTypeDef] = [
+                _del_dicts: Sequence[dict[str, str]] = [
                     {"Key": target_filename},
                 ]
                 response = self.s3_client.delete_objects(  # noqa: F841
@@ -632,26 +647,9 @@ class SaverManager(_SaverCoreManager, _core.SaverManager):
                     # the active file
                     _wrapped = resizerResultset.resized[size]
 
-                    # dirty workaround. boto3 has a bug in which it closes files.
-                    _buffer = NonCloseableBufferedReader(_wrapped.file)
-
-                    # upload
-                    self.s3_client.upload_fileobj(
-                        _buffer,
-                        bucket_name,
-                        target_filename,
-                        ExtraArgs=_boto3_ExtraArgs,
+                    self._upload(
+                        _wrapped, bucket_name, target_filename, _boto3_ExtraArgs
                     )
-                    _buffer.detach()
-
-                    # log to external plugin too
-                    if self._saverLogger:
-                        self._saverLogger.log_save(
-                            bucket_name=bucket_name,
-                            key=target_filename,
-                            file_size=_wrapped.file_size,
-                            file_md5=_wrapped.file_md5,
-                        )
 
                 # log for removal/tracking & return
                 files_saved[size] = (target_filename, bucket_name)
@@ -676,26 +674,9 @@ class SaverManager(_SaverCoreManager, _core.SaverManager):
                     # the active file
                     _wrapped = resizerResultset.original
 
-                    # dirty workaround. boto3 has a bug in which it closes files.
-                    _buffer = NonCloseableBufferedReader(_wrapped.file)
-
-                    # upload
-                    self.s3_client.upload_fileobj(
-                        _buffer,
-                        bucket_name,
-                        target_filename,
-                        ExtraArgs=_boto3_ExtraArgs,
+                    self._upload(
+                        _wrapped, bucket_name, target_filename, _boto3_ExtraArgs
                     )
-                    _buffer.detach()
-
-                    # log to external plugin too
-                    if self._saverLogger:
-                        self._saverLogger.log_save(
-                            bucket_name=bucket_name,
-                            key=target_filename,
-                            file_size=_wrapped.file_size,
-                            file_md5=_wrapped.file_md5,
-                        )
 
                 # log for removal/tracking & return
                 files_saved[size] = (target_filename, bucket_name)
@@ -733,6 +714,7 @@ class SaverSimpleAccess(_SaverCoreManager, _core.SaverSimpleAccess):
         upload_type: str = "public",
         dry_run: bool = False,
     ) -> TYPE_files_mapping:
+        """Upload one image and return its mapping for later deletion."""
         if upload_type not in ("public", "archive"):
             raise ValueError("upload_type must be `public` or `archive`")
 
@@ -758,26 +740,7 @@ class SaverSimpleAccess(_SaverCoreManager, _core.SaverSimpleAccess):
             )
 
             if not dry_run:
-                # dirty workaround. boto3 has a bug in which it closes files.
-                _buffer = NonCloseableBufferedReader(wrappedFile.file)
-
-                # upload
-                self.s3_client.upload_fileobj(
-                    _buffer,
-                    bucket_name,
-                    filename,
-                    ExtraArgs=_boto3_ExtraArgs,
-                )
-                _buffer.detach()
-
-                # log to external plugin too
-                if self._saverLogger:
-                    self._saverLogger.log_save(
-                        bucket_name=bucket_name,
-                        key=filename,
-                        file_size=wrappedFile.file_size,
-                        file_md5=wrappedFile.file_md5,
-                    )
+                self._upload(wrappedFile, bucket_name, filename, _boto3_ExtraArgs)
 
             # log for removal/tracking & return
             files_saved = self.simple_saves_mapping(bucket_name, filename)
