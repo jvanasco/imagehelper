@@ -82,6 +82,8 @@ class ResizerConfig(object):
     selected_resizes: TYPE_selected_resizes
     optimize_original: Optional[bool] = None
     optimize_resized: bool = False
+    max_filesize: Optional[int] = None
+    max_dimensions: Optional[tuple[int, int]] = None
     # original_allow_animated = None
 
     def __init__(
@@ -91,8 +93,16 @@ class ResizerConfig(object):
         is_subclass: bool = False,
         optimize_original: Optional[bool] = None,
         optimize_resized: bool = False,
-        # original_allow_animated=None,
-    ):
+        *,
+        max_filesize: Optional[int] = None,
+        max_dimensions: Optional[tuple[int, int]] = None,
+    ) -> None:
+        """Configure resize recipes and optional inclusive input limits."""
+        image_wrapper._validate_input_limits(max_filesize, max_dimensions)
+        if not is_subclass or max_filesize is not None:
+            self.max_filesize = max_filesize
+        if not is_subclass or max_dimensions is not None:
+            self.max_dimensions = max_dimensions
         if not is_subclass:
             if resizesSchema:
                 self.resizesSchema = resizesSchema
@@ -228,17 +238,33 @@ class Resizer(object):
                 "Submit only imagefile /or/ imageWrapper /or/ file_b64"
             )
 
-        if file_b64 is not None:
-            imagefile = utils.b64_decode_to_file(file_b64)
+        config = self._resizerConfig
+        max_filesize = config.max_filesize if config is not None else None
+        max_dimensions = config.max_dimensions if config is not None else None
 
-        if imagefile is not None:
-            self._wrappedImage = image_wrapper.ImageWrapper(imagefile=imagefile)
+        if file_b64 is not None:
+            with utils.b64_decode_to_file(file_b64) as decoded:
+                self._wrappedImage = image_wrapper.ImageWrapper(
+                    decoded, max_filesize=max_filesize, max_dimensions=max_dimensions
+                )
+        elif imagefile is not None:
+            self._wrappedImage = image_wrapper.ImageWrapper(
+                imagefile, max_filesize=max_filesize, max_dimensions=max_dimensions
+            )
 
         elif imageWrapper is not None:
             if not isinstance(imageWrapper, image_wrapper.ImageWrapper):
                 raise errors.ImageError_ConfigError(
                     "imageWrapper must be of type `imaage_wrapper.ImageWrapper`"
                 )
+            original = imageWrapper.get_original()
+            if max_filesize is not None and original.file_size > max_filesize:
+                raise errors.ImageError_Parsing(
+                    utils.ImageErrorCodes.FILESIZE_LIMIT_EXCEEDED
+                )
+            image_wrapper._check_input_dimensions(
+                imageWrapper.pilObject.size, max_dimensions
+            )
             self._wrappedImage = imageWrapper
 
         if optimize_original is None:

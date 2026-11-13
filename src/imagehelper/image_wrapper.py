@@ -379,6 +379,26 @@ class FakedResize(BasicImage):
         self.height = height
 
 
+def _validate_input_limits(
+    max_filesize: Optional[int], max_dimensions: Optional[tuple[int, int]]
+) -> None:
+    """Reject negative byte limits and nonpositive dimension limits."""
+    if max_filesize is not None and max_filesize < 0:
+        raise ValueError("max_filesize must be nonnegative")
+    if max_dimensions is not None and min(max_dimensions) <= 0:
+        raise ValueError("max_dimensions must contain positive width and height")
+
+
+def _check_input_dimensions(
+    size: tuple[int, int], max_dimensions: Optional[tuple[int, int]]
+) -> None:
+    """Reject images whose width or height exceeds its configured maximum."""
+    if max_dimensions is not None and (
+        size[0] > max_dimensions[0] or size[1] > max_dimensions[1]
+    ):
+        raise errors.ImageError_Parsing(utils.ImageErrorCodes.DIMENSIONS_LIMIT_EXCEEDED)
+
+
 class ImageWrapper(object):
     """Our base class for image operations"""
 
@@ -399,12 +419,17 @@ class ImageWrapper(object):
         imagefile: _io.TYPES_imagefile_a,
         imagefile_name: Optional[str] = None,
         FilelikePreference: Optional[_io.TYPES_FilelikeSupported] = None,
+        *,
+        max_filesize: Optional[int] = None,
+        max_dimensions: Optional[tuple[int, int]] = None,
     ) -> None:
         """Copy and validate a binary image stream or CGI file upload.
 
         Rewind the input after reading and use the explicit name when provided.
-        Raise ImageError_Parsing if the input cannot be loaded as an image.
+        Byte and (width, height) limits are inclusive. Raise ImageError_Parsing
+        if a limit is exceeded or the input cannot be loaded as an image.
         """
+        _validate_input_limits(max_filesize, max_dimensions)
         if imagefile is None:
             raise errors.ImageError_MissingFile(utils.ImageErrorCodes.MISSING_FILE)
 
@@ -439,7 +464,21 @@ class ImageWrapper(object):
 
             source.seek(0)
             try:
-                file_data = source.read()
+                if max_filesize is None:
+                    file_data = source.read()
+                else:
+                    # Check the encoded size before allocating a copy.
+                    source.seek(0, io.SEEK_END)
+                    if source.tell() > max_filesize:
+                        raise errors.ImageError_Parsing(
+                            utils.ImageErrorCodes.FILESIZE_LIMIT_EXCEEDED
+                        )
+                    source.seek(0)
+                    file_data = source.read(max_filesize + 1)
+                    if len(file_data) > max_filesize:
+                        raise errors.ImageError_Parsing(
+                            utils.ImageErrorCodes.FILESIZE_LIMIT_EXCEEDED
+                        )
             finally:
                 source.seek(0)
             if not isinstance(file_data, bytes):
@@ -453,6 +492,7 @@ class ImageWrapper(object):
             image_data.seek(0)
 
             image = Image.open(image_data)
+            _check_input_dimensions(image.size, max_dimensions)
             image.load()
             if image.format is None:
                 raise errors.ImageError_Parsing(utils.ImageErrorCodes.INVALID_REBUILD)

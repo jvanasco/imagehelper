@@ -144,6 +144,14 @@ And easily upload them:
 Behind the scenes, imagehelper does all the math and uploading.
 
 
+## Limit input size
+
+Pass `max_filesize` in bytes and `max_dimensions` as `(width, height)` to
+`ResizerConfig` or directly to `ImageWrapper`. Limits are inclusive and default
+to `None`. Byte limits apply to the decoded bytes for Base64 inputs. Either
+dimension can trigger rejection before Pillow loads the pixels. Exceeding a
+limit raises `ImageError_Parsing`.
+
 ## Resizing Options
 
 * `fit-within`
