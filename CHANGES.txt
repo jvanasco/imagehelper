@@ -1,3 +1,7 @@
+1.0.0 (unreleased)
+------------------
+Improve optimizer discovery and fallback, add GIF interlace control, and add real-tool tests and benchmarks.
+
 0.9.0 (unreleased)
 ------------------
 Require Python 3.10 or later and test Python 3.10 through 3.15.

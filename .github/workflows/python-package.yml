@@ -48,3 +48,21 @@ jobs:
       - run: python -m pip install build twine
       - run: python -m build
       - run: python -m twine check --strict dist/*
+
+  optimizers:
+    runs-on: ubuntu-22.04
+    env:
+      IMAGEHELPER_REQUIRE_OPTIMIZERS: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Install image optimizers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y advancecomp gifsicle libjpeg-turbo-progs jpegoptim optipng pngcrush
+      - name: Test installed optimizers
+        run: |
+          python -m pip install '.[testing]'
+          python -m pytest -q tests/test_optimizers.py

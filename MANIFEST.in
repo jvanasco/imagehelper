@@ -7,6 +7,7 @@ include setup.cfg pyproject.toml
 include CHANGES.txt
 include LICENSE.txt
 include README.md
+include docs/optimizers.md
 include TODO.txt
 include demo.py
 
