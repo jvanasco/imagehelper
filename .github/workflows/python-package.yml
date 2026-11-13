@@ -1,46 +1,50 @@
-# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
-# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
-
 name: Python package
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
-  run-core-tests:
-    name: core-tests-${{ matrix.python-version }}-${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+  tests:
+    runs-on: ubuntu-22.04
     strategy:
+      fail-fast: false
       matrix:
-        os:
-          - "ubuntu-22.04"
-        python-version: 
-          - "3.7"
-          - "3.8"
-          - "3.9"
-          - "3.10"
-          - "3.11"
-          - "3.12"
-          - "3.13"
-
+        include:
+          - {python: "3.10", tox: py310}
+          - {python: "3.11", tox: py311}
+          - {python: "3.12", tox: py312}
+          - {python: "3.13", tox: py313}
+          - {python: "3.14", tox: py314}
+          - {python: "3.15", tox: py315}
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install --upgrade tox setuptools flake8 pytest mypy
-        pip freeze
-    - name: Test with pytest
-      run: |
-        export TEST_S3=1
-        export AWS_BUCKET_PUBLIC=imagehelper
-        export AWS_BUCKET_ARCHIVE=imagehelper-archive
-        export AWS_BUCKET_ALT=imagehelper-alt
-        tox -e py -- ${{ matrix.pytest-args }}
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install tox
+        run: python -m pip install 'tox>=4'
+      - name: Test installed wheel
+        run: python -m tox -e ${{ matrix.tox }}
+      - name: Upload HTML coverage
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-${{ matrix.tox }}
+          path: .tox/${{ matrix.tox }}/htmlcov
+          include-hidden-files: true
+
+  distributions:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - run: python -m pip install build twine
+      - run: python -m build
+      - run: python -m twine check --strict dist/*

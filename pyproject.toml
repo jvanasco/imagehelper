@@ -1,3 +1,21 @@
-[tool.black]
-target-version = ['py37']
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
 
+[tool.black]
+target-version = ["py310"]
+
+[tool.coverage.run]
+branch = true
+source = ["imagehelper"]
+
+[tool.mypy]
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "envoy.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "cgi"
+ignore_missing_imports = true
