@@ -1,3 +1,9 @@
+1.0.0
+-----
+Require Python 3.10 or later and test Python 3.10 through 3.15.
+Build with the setuptools backend and test installed wheels with branch coverage.
+
+
 0.8.0 (unreleased)
 -----
 drop py3.6 due to gihub/ubuntu

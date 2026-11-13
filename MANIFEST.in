@@ -1,14 +1,13 @@
 graft src
 graft tests
 prune tests/test-output
+prune tests/localfile-output
 
 include setup.cfg pyproject.toml
-include tox.ini
 include CHANGES.txt
 include LICENSE.txt
 include README.md
 include TODO.txt
-include aws.cfg.template
 include demo.py
 
 recursive-exclude * __pycache__ *.py[cod] .DS_Store *.cfg
