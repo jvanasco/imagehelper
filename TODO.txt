@@ -12,6 +12,14 @@ TODO
 * gifsicle - check output of interlace and non-interlace options
 * More TESTS!
 
+* overview and install for helper apps
+  * macos
+      * via homebrew: `brew install advancecomp gifsicle jpeg jpegoptim optipng pngcrush`
+      * via macports: `sudo port install advancecomp gifsicle jpeg jpegoptim optipng pngcrush`
+  * ubuntu
+      * `sudo apt update && sudo apt install -y advancecomp gifsicle libjpeg-turbo-progs jpegoptim optipng pngcrush`
+
+
 -
 
 Protect input with max filesize: None or int
