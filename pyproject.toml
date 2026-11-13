@@ -15,3 +15,7 @@ check_untyped_defs = true
 [[tool.mypy.overrides]]
 module = "envoy.*"
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "cgi"
+ignore_missing_imports = true

@@ -1,5 +1,5 @@
-1.0.0
------
+0.9.0 (unreleased)
+------------------
 Require Python 3.10 or later and test Python 3.10 through 3.15.
 Build with the setuptools backend and test installed wheels with branch coverage.
 Add offline regression tests for S3 transfers and file helpers.

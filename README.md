@@ -23,12 +23,16 @@ project since at least 2012.
 `imagehelper` also supports uploading the resized images - and an archival
 version - onto Amazon's S3 service.
 
-`imagehelper` requires `Pillow`. Earlier versions relied on `PIL` or supported
-both. This really is an old package!
+ImageHelper requires Python 3.10 or later and installs Pillow automatically.
 
-This package will try to import `boto3` for communicating with AmazonS3.
-If you don't want to use S3, no worries - that is only optional and you can save
-to a local file.
+    python -m pip install imagehelper
+
+Install `boto3` separately to use Amazon S3. Local file saving works without it.
+
+    python -m pip install boto3
+
+Invalid image data, text streams, and images that exceed Pillow's
+decompression-bomb error limit raise `ImageError_Parsing`.
 
 The package was originally aimed at thumbnails, but it works for all resizing
 needs that are aimed at downsampling images.
@@ -55,10 +59,6 @@ file to see how flexible this can be.
 
 This package has been used in production for over a decade.
 
-It supports Python2.7 and Python3. A lot of things could be done better and
-should be done better, but this works and is relatively fast.
-
-
 ## Why ?
 
 Imagine that you have a site that allows for user generated uploads, or you
@@ -82,7 +82,7 @@ You can create a schema of image sizes...
             'save_quality': 50,
             'suffix': 'og',
             'format':'JPEG',
-            'constraint-method': 'ensure-minimum',
+            'constraint-method': 'smallest:ensure-minimum',
             'filename_template': '%(guid)s-og.%(format)s',
         },
     }
@@ -111,17 +111,26 @@ And easily upload them:
     # they're very useful for cutting down code
     # build one, then stash in your app
 
+    saverLogger = imagehelper.saver.s3.SaverLogger()
     USE_FACTORY = True
     if USE_FACTORY:
         rFactory = imagehelper.resizer.ResizerFactory(resizerConfig=resizerConfig)
-        s3Factory = imagehelper.saver.s3.s3ManagerFactory(saverConfig=saverConfig, resizerConfig=rConfig, saverLogger=saverLogger)
+        s3Factory = imagehelper.saver.s3.SaverManagerFactory(
+            saverConfig=saverConfig,
+            resizerConfig=resizerConfig,
+            saverLogger=saverLogger,
+        )
 
         resizer = rFactory.resizer()
         s3Manager = s3Factory.manager()
 
     else:
         resizer = imagehelper.resizer.Resizer(resizerConfig=resizerConfig)
-        s3Manager = imagehelper.saver.s3.s3Manager(saverConfig=saverConfig, resizerConfig=resizerConfig, saverLogger=saverLogger)
+        s3Manager = imagehelper.saver.s3.SaverManager(
+            saverConfig=saverConfig,
+            resizerConfig=resizerConfig,
+            saverLogger=saverLogger,
+        )
 
     # resize !
     resizedImages = resizer.resize(imagefile=get_imagefile())
@@ -266,14 +275,14 @@ string templates may be used to affect how this is saved. read the source for mo
 
 ## Transactional Support
 
-If you upload something via `imagehelper.saver.s3.S3Uploader().s3_upload()`, the
+If you upload something via `SaverManager.files_save()`, the
 task is considered to be "all or nothing".
 
 The actual uploading occurs within a try/except block, and a failure will "rollback"
 and delete everything that has been successfully uploaded.
 
-If you want to integrate with something like the Zope `transaction` package, `imagehelper.saver.s3.S3Uploader().files_delete()` is a public function that
-expects as input the output of the `s3_upload` function -- a `dict` of `tuples`
+If you want to integrate with something like the Zope `transaction` package, `SaverManager.files_delete()` is a public function that
+expects as input the output of the `files_save` method -- a `dict` of `tuples`
 where the `keys` are resize names (from the schema) and the `values` are the
 `(filename, bucket)`.
 
@@ -311,22 +320,18 @@ the archive filename and a guid, you can easily generate what they would be base
 off a resizerConfig/schema and the archived filename.
 
     ## fake the sizes that would be generated off a resize
-    resizer = imagehelper.resizer.Resizer(
-        resizerConfig=resizerConfig,
-        optimize_original=True,
-        optimize_resized=True,
-    )
-    fakedResizedImages = resizer.fake_resultset(
+    resizer = imagehelper.resizer.Resizer(resizerConfig=resizerConfig)
+    fakedResizedImages = resizer.fake_resize(
         original_filename=archive_filename
     )
 
     ## generate the filenames
     deleter = imagehelper.saver.s3.SaverManager(
-        saverConfig=saverConfig, resizerConfig=resizerConfig
+        saverConfig=saverConfig, resizerConfig=resizerConfig, saverLogger=saverLogger
     )
-    targetFilenames = build.generate_filenames(fakedResizedImages, guid)
+    targetFilenames = deleter.generate_filenames(fakedResizedImages, guid)
 
-The `original_filename` is needed in `fake_resultset`, because a resultset tracks
+The `original_filename` is needed in `fake_resize`, because a resultset tracks
 the original file and it's type. As of the `0.1.0` branch, only the extension
 of the filename is utilized.
 
