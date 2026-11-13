@@ -93,3 +93,17 @@ def test_passthrough_keeps_original_dimensions(png_bytes: bytes) -> None:
     with Image.open(resized.file) as output:
         assert output.size == (13, 7)
         assert output.getpixel((0, 0)) == (255, 0, 0)
+
+
+def test_base64_limit_checks_before_decode(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reject excess encoded input before allocating a decoded buffer."""
+    from imagehelper import utils
+
+    def unexpected_decode(encoded: bytes) -> BytesIO:
+        pytest.fail("Oversized Base64 should not be decoded")
+
+    monkeypatch.setattr(utils, "b64_decode_to_file", unexpected_decode)
+    resizer = Resizer(ResizerConfig(max_filesize=3))
+    with pytest.raises(errors.ImageError_Parsing) as exc:
+        resizer.register_image_file(file_b64=b"YWJj\nZA==")
+    assert exc.value.args == (ImageErrorCodes.FILESIZE_LIMIT_EXCEEDED,)

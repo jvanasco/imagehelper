@@ -237,18 +237,9 @@ class Resizer(object):
                 "We already have registered a file."
             )
 
-        if (imagefile is None) and (imageWrapper is None) and (file_b64 is None):
+        if sum(value is not None for value in (imagefile, imageWrapper, file_b64)) != 1:
             raise errors.ImageError_ConfigError(
-                "Must submit either imagefile /or/ imageWrapper /or/ file_b64"
-            )
-
-        if (
-            (imagefile is not None)
-            and (imageWrapper is not None)
-            and (file_b64 is not None)
-        ):
-            raise errors.ImageError_ConfigError(
-                "Submit only imagefile /or/ imageWrapper /or/ file_b64"
+                "Submit exactly one of imagefile, imageWrapper, or file_b64"
             )
 
         config = self._resizerConfig
@@ -260,6 +251,18 @@ class Resizer(object):
         image_wrapper._validate_animation_policy(allow_animated, max_frames, max_pixels)
 
         if file_b64 is not None:
+            if max_filesize is not None:
+                # Bound decoder allocation. Allow ASCII whitespace used by encodebytes.
+                max_encoded = 4 * ((max_filesize + 2) // 3)
+                encoded = bytearray()
+                for byte in file_b64:
+                    if byte not in b" \t\r\n\v\f":
+                        if len(encoded) == max_encoded:
+                            raise errors.ImageError_Parsing(
+                                utils.ImageErrorCodes.FILESIZE_LIMIT_EXCEEDED
+                            )
+                        encoded.append(byte)
+                file_b64 = bytes(encoded)
             with utils.b64_decode_to_file(file_b64) as decoded:
                 self._wrappedImage = image_wrapper.ImageWrapper(
                     decoded, max_filesize=max_filesize, max_dimensions=max_dimensions,

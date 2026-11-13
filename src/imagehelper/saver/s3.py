@@ -43,7 +43,7 @@ class S3Client(Protocol):
 
     def delete_objects(
         self, *, Bucket: str, Delete: dict[str, Sequence[dict[str, str]]]
-    ) -> object: ...
+    ) -> dict[str, Any]: ...
 
 
 try:
@@ -288,6 +288,8 @@ class _SaverCoreManager(_core._SaverCoreManager):
         finally:
             reader.detach()
 
+    def _log_upload(self, image: BasicImage, bucket_name: str, key: str) -> None:
+        """Notify the save logger after the caller records the uploaded object."""
         if self._saverLogger:
             self._saverLogger.log_save(
                 bucket_name=bucket_name,
@@ -378,10 +380,15 @@ class _SaverCoreManager(_core._SaverCoreManager):
                 _del_dicts: Sequence[dict[str, str]] = [
                     {"Key": target_filename},
                 ]
-                response = self.s3_client.delete_objects(  # noqa: F841
+                response = self.s3_client.delete_objects(
                     Bucket=bucket_name,
                     Delete={"Objects": _del_dicts},
                 )
+
+                if response.get("Errors"):
+                    raise errors.ImageError_S3Upload(
+                        f"S3 refused to delete {target_filename!r} from {bucket_name!r}"
+                    )
 
                 # external logging
                 if self._saverLogger:
@@ -653,6 +660,8 @@ class SaverManager(_SaverCoreManager, _core.SaverManager):
 
                 # log for removal/tracking & return
                 files_saved[size] = (target_filename, bucket_name)
+                if not dry_run:
+                    self._log_upload(_wrapped, bucket_name, target_filename)
 
             if "@archive" in target_filenames:
                 size = "@archive"
@@ -680,6 +689,8 @@ class SaverManager(_SaverCoreManager, _core.SaverManager):
 
                 # log for removal/tracking & return
                 files_saved[size] = (target_filename, bucket_name)
+                if not dry_run:
+                    self._log_upload(_wrapped, bucket_name, target_filename)
 
         except Exception as exc:
             # if we have ANY issues, we want to delete everything from amazon s3. otherwise this stuff is just hiding up there
@@ -687,8 +698,9 @@ class SaverManager(_SaverCoreManager, _core.SaverManager):
                 "Error uploading... rolling back s3 items. encounted `%s` in `saver.s3.SaverManager.files_save`",
                 exc,
             )
-            files_saved = self.files_delete(files_saved)
-            raise errors.ImageError_S3Upload("error uploading")
+            if not dry_run:
+                self.files_delete(files_saved)
+            raise errors.ImageError_S3Upload("error uploading") from exc
 
         return files_saved
 
@@ -741,6 +753,7 @@ class SaverSimpleAccess(_SaverCoreManager, _core.SaverSimpleAccess):
 
             if not dry_run:
                 self._upload(wrappedFile, bucket_name, filename, _boto3_ExtraArgs)
+                self._log_upload(wrappedFile, bucket_name, filename)
 
             # log for removal/tracking & return
             files_saved = self.simple_saves_mapping(bucket_name, filename)

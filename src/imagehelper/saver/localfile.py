@@ -1,6 +1,8 @@
 # stdlib
 import logging
 import os
+from pathlib import Path
+import tempfile
 from typing import Dict
 from typing import Optional
 
@@ -169,21 +171,50 @@ class _SaverCoreManager(_core._SaverCoreManager):
         self._saverLogger = saverLogger
         self._resizerConfig = resizerConfig
 
+    def _target_path(self, subdir: str, filename: str) -> str:
+        """Resolve a relative destination within the configured storage root."""
+        root = Path(self._saverConfig.filedir).resolve()
+        directory, name = Path(subdir), Path(filename)
+        target = root / directory / name
+        resolved = target.resolve()
+        if (
+            directory.is_absolute()
+            or name.is_absolute()
+            or ".." in directory.parts
+            or ".." in name.parts
+            or not name.parts
+            or not resolved.is_relative_to(root)
+            or resolved == root
+        ):
+            raise ValueError("Local image destination must be inside the storage root")
+        return str(target)
+
+    @staticmethod
+    def _write_file(target: str, payload: bytes) -> None:
+        """Publish a complete local file using a temporary sibling."""
+        fd, temporary = tempfile.mkstemp(dir=os.path.dirname(target))
+        try:
+            with os.fdopen(fd, _io.FileWriteArgs) as stream:
+                stream.write(payload)
+            os.replace(temporary, target)
+        finally:
+            Path(temporary).unlink(missing_ok=True)
+
     def files_delete(
         self,
         files_saved: TYPE_files_mapping,
         dry_run: bool = False,
         remove_empty_dirs: bool = True,
     ) -> TYPE_files_mapping:
-        """does not actually delete"""
+        """Delete mapped local files, or only consume the mapping in a dry run."""
         for size in list(files_saved.keys()):
             # grab the stash
             (target_filename, subdir_name) = files_saved[size]
 
-            target_dirname = os.path.join(self._saverConfig.filedir, subdir_name)
+            target_filepath = self._target_path(subdir_name, target_filename)
+            target_dirname = os.path.dirname(target_filepath)
             if not os.path.exists(target_dirname):
                 raise ValueError("Directory %s does not exist!" % target_dirname)
-            target_filepath = os.path.join(target_dirname, target_filename)
 
             # delete it
             log.debug("going to delete %s " % (target_filepath,))
@@ -200,7 +231,11 @@ class _SaverCoreManager(_core._SaverCoreManager):
                     )
 
                 # cleanup path
-                if remove_empty_dirs:
+                if (
+                    remove_empty_dirs
+                    and Path(target_dirname).resolve()
+                    != Path(self._saverConfig.filedir).resolve()
+                ):
                     if len(os.listdir(target_dirname)) == 0:
                         os.rmdir(target_dirname)
 
@@ -364,26 +399,16 @@ class SaverManager(_SaverCoreManager, _core.SaverManager):
             # and then we upload...
             for size in selected_resizes:
                 (_filename, subdir_name) = target_filenames[size]
-                target_dirname = os.path.join(self._saverConfig.filedir, subdir_name)
-                if not os.path.exists(target_dirname):
-                    os.makedirs(target_dirname)
-                target_file = os.path.join(target_dirname, _filename)
+                target_file = self._target_path(subdir_name, _filename)
+                os.makedirs(os.path.dirname(target_file), exist_ok=True)
                 log.debug("Saving %s to %s " % (_filename, target_file))
 
                 if not dry_run:
-                    # upload
-                    try:
-                        with open(target_file, _io.FileWriteArgs) as _fh:
-                            # resizerResultset.resized[size] == ResizedImage
-                            # resizerResultset.resized[size].file == _io.BytesIO
-                            _fh.write(resizerResultset.resized[size].file.getvalue())
+                    self._write_file(
+                        target_file, resizerResultset.resized[size].file.getvalue()
+                    )
 
-                    except Exception as exc:
-                        log.debug(
-                            "encountered unexpected exception `%s` in `saver.localfile.SaverManager.files_save`",
-                            exc,
-                        )
-                        raise
+                    _saves[size] = (_filename, subdir_name)
 
                     # log to external plugin too
                     if self._saverLogger:
@@ -401,16 +426,15 @@ class SaverManager(_SaverCoreManager, _core.SaverManager):
             if "@archive" in target_filenames:
                 size = "@archive"
                 (_filename, subdir_name) = target_filenames[size]
-                target_dirname = os.path.join(self._saverConfig.filedir, subdir_name)
-                if not os.path.exists(target_dirname):
-                    os.makedirs(target_dirname)
-                target_file = os.path.join(target_dirname, _filename)
+                target_file = self._target_path(subdir_name, _filename)
+                os.makedirs(os.path.dirname(target_file), exist_ok=True)
                 log.debug("Saving %s to %s " % (_filename, target_file))
 
                 if not dry_run:
                     # upload
-                    with open(target_file, _io.FileWriteArgs) as _fh:
-                        _fh.write(resizerResultset.original.file.getvalue())
+                    self._write_file(target_file, resizerResultset.original.file.getvalue())
+
+                    _saves[size] = (_filename, subdir_name)
 
                     # log to external plugin too
                     if self._saverLogger:
@@ -431,8 +455,9 @@ class SaverManager(_SaverCoreManager, _core.SaverManager):
                 "Error uploading... rolling back s3 items. unexpected exception `%s` in `saver.localfile.SaverManager.files_save`",
                 exc,
             )
-            _saves = self.files_delete(_saves)
-            raise errors.ImageError_SaverUpload("error uploading")
+            if not dry_run:
+                self.files_delete(_saves)
+            raise errors.ImageError_SaverUpload("error saving local images") from exc
 
         return _saves
 
@@ -457,16 +482,13 @@ class SaverSimpleAccess(_SaverCoreManager, _core.SaverSimpleAccess):
     ) -> TYPE_files_mapping:
         _saves = {}
         try:
-            target_dirname = os.path.join(self._saverConfig.filedir, subdir_name)
-            if not os.path.exists(target_dirname):
-                os.makedirs(target_dirname)
-            target_file = os.path.join(target_dirname, filename)
+            target_file = self._target_path(subdir_name, filename)
+            os.makedirs(os.path.dirname(target_file), exist_ok=True)
             log.debug("Saving %s to %s " % (filename, target_file))
 
             if not dry_run:
                 # upload
-                with open(target_file, _io.FileWriteArgs) as _fh:
-                    _fh.write(wrappedFile.file.getvalue())
+                self._write_file(target_file, wrappedFile.file.getvalue())
 
                 # log to external plugin too
                 if self._saverLogger:

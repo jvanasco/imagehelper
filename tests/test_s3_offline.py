@@ -41,6 +41,7 @@ def test_s3_upload_and_delete(monkeypatch: pytest.MonkeyPatch) -> None:
         stream.close()
 
     client = Mock(spec=["upload_fileobj", "delete_objects"])
+    client.delete_objects.return_value = {}
     client.upload_fileobj.side_effect = upload_fileobj
     sdk = Mock(spec=["client"])
     sdk.client.return_value = client
@@ -91,3 +92,23 @@ def test_failed_s3_upload_leaves_source_open(monkeypatch: pytest.MonkeyPatch) ->
             uploader.file_save("@public", "image.jpg", image)
         assert original.read() == b"image payload"
         assert saver_logger._saves == []
+
+
+def test_s3_delete_error_keeps_mapping(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep a failed delete in the mapping for a later retry."""
+    from imagehelper import errors
+
+    client = Mock(spec=["delete_objects"])
+    client.delete_objects.return_value = {"Errors": [{"Code": "AccessDenied"}]}
+    sdk = Mock(spec=["client"])
+    sdk.client.return_value = client
+    monkeypatch.setattr(s3, "boto3", sdk)
+    uploader = s3.SaverSimpleAccess(
+        saverConfig=newSaverConfig(),
+        saverLogger=CustomSaverLogger(),
+        resizerConfig=newResizerConfig(),
+    )
+    saved = {"image": ("image.jpg", "@public")}
+    with pytest.raises(errors.ImageError_S3Upload):
+        uploader.files_delete(saved)
+    assert saved == {"image": ("image.jpg", "@public")}
