@@ -338,7 +338,7 @@ class BasicImage(object):
                 OPTIMIZE_SUPPORT["jpegoptim"]["available"]
                 and OPTIMIZE_SUPPORT["jpegoptim"]["use"]
             ):
-                print("optimizing with jpegoptim")
+                # print("optimizing with jpegoptim")
                 _binary = OPTIMIZE_SUPPORT["jpegoptim"]["binary"] or "jpegoptim"
                 r = envoy.run("""%s --strip-all -q %s""" % (_binary, _fname_output))
                 if r.status_code != 127:
