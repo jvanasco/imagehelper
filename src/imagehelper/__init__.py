@@ -1,4 +1,4 @@
-__VERSION__ = "0.9.0"
+__VERSION__ = "1.0.0"
 
 from . import _io
 from . import errors

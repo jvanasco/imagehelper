@@ -2,6 +2,9 @@
 import cgi
 import io
 import logging
+from pathlib import Path
+import shutil
+import subprocess
 import tempfile
 from typing import Dict
 from typing import List
@@ -14,7 +17,6 @@ try:
     from PIL import Image
 except ImportError:
     raise ImportError("Image library (Pillow) is required")
-import envoy
 
 # local
 from . import _io
@@ -73,7 +75,6 @@ VALID_CONSTRAINTS = (
 
 # ------------------------------------------------------------------------------
 
-# these are set to True by imagehelper/__init__.py on import
 _OPTIMIZE_SUPPORT_DETECTED: Optional[bool] = None
 OPTIMIZE_SUPPORT: Dict = {
     "advpng": {
@@ -81,40 +82,34 @@ OPTIMIZE_SUPPORT: Dict = {
         "use": True,
         "options": {"level": 4},  # 4 is max
         "binary": None,
-        "*autodetect_args": "--help",
     },
     "gifsicle": {
         "available": None,
         "use": True,
-        "options": {"level": 3},
+        "options": {"level": 3, "interlace": None},
         "binary": None,
-        "*autodetect_args": "--help",
     },
     "jpegtran": {
         "available": None,
         "use": True,
         "options": {"progressive": True},
         "binary": None,
-        "*autodetect_args": "--help",
     },
     "jpegoptim": {
         "available": None,
         "use": True,
         "binary": None,
-        "*autodetect_args": "--help",
     },
     "optipng": {
         "available": None,
         "use": True,
         "options": {"level": 3},  # 6 would be best
         "binary": None,
-        "*autodetect_args": "--help",
     },
     "pngcrush": {
         "available": None,
         "use": True,
         "binary": None,
-        "*autodetect_args": "--help",
     },
 }
 
@@ -122,56 +117,68 @@ OPTIMIZE_SUPPORT: Dict = {
 def autodetect_support(
     test_libraries: Optional[List[str]] = None,
 ) -> None:
-    """
-    ``test_libraries`` should be a list of keys in the OPTIMIZE_SUPPORT list
-    if not supplied, all will be tested
-    this only needs to be done once per application
-
-    it tests if a program exists by invoking the `help` subcommand for
-    each shell command. this runs relatively quickly, but calls multiple
-    external programs. Python3 has `shutil.which` but this library supports
-    Python2
-
-    if you have a forking application, you should run before forking:
-
-        import imagehelper
-        imagehelper.image_wrapper.autodetect_support()
-
-    otherwise, the first invocation of .optimize() will cause this to run
-    once run, `_OPTIMIZE_SUPPORT_DETECTED` will be set, blocking further
-    autodetections
-    """
-    log.debug("autodetect_support")
-    if test_libraries is None:
-        test_libraries = sorted(OPTIMIZE_SUPPORT.keys())
-    for library in test_libraries:
-        _binary = OPTIMIZE_SUPPORT[library]["binary"] or library
-        result = envoy.run(
-            """%s %s""" % (_binary, OPTIMIZE_SUPPORT[library]["*autodetect_args"])
-        )
-        if result.status_code == 1:
-            log.debug("   available:    %s", library)
-            OPTIMIZE_SUPPORT[library]["available"] = True
-        elif result.status_code == 127:
-            log.debug("!!! unavailable: %s", library)
-            OPTIMIZE_SUPPORT[library]["available"] = False
-        elif result.status_code == 0:
-            # on ubuntu:
-            # gifsicle  - stdout
-            # optipng   - stdout
-            # jpegoptim - stderr
-            txt = result.std_out.lower() or result.std_err.lower()
-            if ("--" in txt) and (library in txt):
-                log.debug("   available:    %s", library)
-                OPTIMIZE_SUPPORT[library]["available"] = True
-            else:
-                log.debug("xxx unsupported code: %s : %s", library, result.status_code)
-        else:
-            log.debug("xxx unsupported code: %s : %s", library, result.status_code)
-            # leave None for every other code
-        OPTIMIZE_SUPPORT[library]["*autodetect-status_code"] = result.status_code
+    """Check PATH or configured binary paths for the selected optimizers."""
     global _OPTIMIZE_SUPPORT_DETECTED
-    _OPTIMIZE_SUPPORT_DETECTED = True
+
+    libraries = OPTIMIZE_SUPPORT if test_libraries is None else test_libraries
+    for library in libraries:
+        settings = OPTIMIZE_SUPPORT[library]
+        settings["available"] = shutil.which(settings["binary"] or library) is not None
+    _OPTIMIZE_SUPPORT_DETECTED = all(
+        settings["available"] is not None for settings in OPTIMIZE_SUPPORT.values()
+    )
+
+
+_OPTIMIZER_CHAINS = {
+    "jpg": ("jpegtran", "jpegoptim"),
+    "gif": ("gifsicle",),
+    "png": ("pngcrush", "optipng", "advpng"),
+}
+
+
+def _optimizer_command(name: str, source: Path, output: Path) -> list[str]:
+    """Build the argument vector for one isolated optimizer stage."""
+    settings = OPTIMIZE_SUPPORT[name]
+    binary = settings["binary"] or name
+    options = settings.get("options", {})
+    if name in ("jpegoptim", "advpng"):
+        shutil.copyfile(source, output)
+        if name == "jpegoptim":
+            return [binary, "--strip-all", "-q", str(output)]
+        return [binary, f"-{options['level']}", "-z", str(output)]
+    if name == "jpegtran":
+        flags = ["-progressive"] if options["progressive"] else []
+        return [
+            binary, "-copy", "all", "-optimize", *flags,
+            "-outfile", str(output), str(source),
+        ]
+    if name == "gifsicle":
+        interlace = options.get("interlace")
+        flags = []
+        if interlace is not None:
+            flags.append("--interlace" if interlace else "--no-interlace")
+        return [
+            binary, f"-O{options['level']}", *flags,
+            "--output", str(output), str(source),
+        ]
+    if name == "pngcrush":
+        return [binary, "-rem", "alla", "-reduce", "-q", str(source), str(output)]
+    return [binary, "-i0", f"-o{options['level']}", "-out", str(output), str(source)]
+
+
+def _validate_optimizer_output(source: Path, output: Path) -> None:
+    """Require decodable output with the same format, dimensions, and frame count."""
+    with Image.open(source) as original, Image.open(output) as candidate:
+        frames = getattr(candidate, "n_frames", 1)
+        if (
+            candidate.format != original.format
+            or candidate.size != original.size
+            or frames != getattr(original, "n_frames", 1)
+        ):
+            raise ValueError("Optimizer changed image format, dimensions, or frame count")
+        for frame in range(frames):
+            candidate.seek(frame)
+            candidate.load()
 
 
 # ==============================================================================
@@ -205,7 +212,7 @@ class BasicImage(object):
     is_optimized: Optional[bool] = None
 
     # `None` by default. If `optimize` is run, it becomes a list of external tool + status
-    optimizations: Optional[List] = None
+    optimizations: Optional[list[tuple[str, bool]]] = None
 
     def __init__(
         self,
@@ -268,183 +275,69 @@ class BasicImage(object):
             return None
         return utils.PIL_type_to_extension(self.format)
 
-    def optimize(
-        self,
-    ) -> None:
-        """this does some heavy lifting
+    def optimize(self) -> None:
+        """Run the available optimizers and keep the last valid result.
 
-        unix/mac only feature; sorry.
-
-        this function creates an infile and outfile via NamedTemporaryFile
-        it then pipes the file through lossless compression options
-
-        this will replace the self.file object
+        Failed stages leave the previous result intact. Savings are measured in
+        bytes and can be negative when the optimized image is larger.
         """
-        if self.format_standardized not in ("jpg", "png", "gif"):
+        chain = _OPTIMIZER_CHAINS.get(self.format_standardized or "")
+        if chain is None:
             return
-        log.debug("optimizing a file.  format is: %s" % self.format_standardized)
-
-        FilelikePreference = _io._FilelikePreference
-
-        # we need to write the image onto the disk with an infile and outfile
-        # this does suck.
-        self.file.seek(0)
-        fileInput = tempfile.NamedTemporaryFile()
-        if hasattr(self.file, "getvalue"):
-            fileInput.write(self.file.getvalue())
-        elif hasattr(self.file, "read"):
-            fileInput.write(self.file.read())
-        else:
-            raise ValueError(
-                "not sure what to do; this `file` object is not what I expected."
-            )
-        fileInput.seek(0)
-        fileOutput = tempfile.NamedTemporaryFile()  # keep this open for the next block
-
-        _fname_input = fileInput.name
-        _fname_output = fileOutput.name
-
-        # we need this for filesavings
-        filesize_original = utils.file_size(fileInput)
-
-        # run the autodetect
         if not _OPTIMIZE_SUPPORT_DETECTED:
             autodetect_support()
 
-        _optimized = False
-        optimizations = []
-        if self.format_standardized == "jpg":
-            if (
-                OPTIMIZE_SUPPORT["jpegtran"]["available"]
-                and OPTIMIZE_SUPPORT["jpegtran"]["use"]
-            ):
-                _binary = OPTIMIZE_SUPPORT["jpegtran"]["binary"] or "jpegtran"
-                _progressive = (
-                    "-progressive"
-                    if OPTIMIZE_SUPPORT["jpegtran"]["options"]["progressive"]
-                    else ""
-                )
-                r = envoy.run(
-                    """%s -copy all -optimize %s -outfile %s %s"""
-                    % (_binary, _progressive, _fname_output, _fname_input)
-                )
-                if r.status_code != 127:
-                    _optimized = True
-                    optimizations.append(("jpegtran", True))
+        self.optimizations = []
+        self.is_optimized = False
+        self.optimization_savings = 0
+        self.file.seek(0)
+        enabled = [
+            name for name in chain
+            if OPTIMIZE_SUPPORT[name]["available"] and OPTIMIZE_SUPPORT[name]["use"]
+        ]
+        if not enabled:
+            return
+
+        with tempfile.TemporaryDirectory(prefix="imagehelper-") as directory:
+            original = Path(directory) / "source"
+            source = original
+            try:
+                with source.open("wb") as destination:
+                    shutil.copyfileobj(self.file, destination)
+            finally:
+                self.file.seek(0)
+            original_size = source.stat().st_size
+            for name in enabled:
+                output = Path(directory) / name
+                try:
+                    subprocess.run(
+                        _optimizer_command(name, source, output),
+                        check=True,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        timeout=60,
+                    )
+                    _validate_optimizer_output(source, output)
+                except (
+                    OSError,
+                    ValueError,
+                    EOFError,
+                    Image.DecompressionBombError,
+                    subprocess.SubprocessError,
+                ) as exc:
+                    log.debug("Optimizer %s failed: %s", name, exc)
+                    self.optimizations.append((name, False))
                 else:
-                    optimizations.append(("jpegtran", False))
+                    source = output
+                    self.optimizations.append((name, True))
 
-            if (
-                OPTIMIZE_SUPPORT["jpegoptim"]["available"]
-                and OPTIMIZE_SUPPORT["jpegoptim"]["use"]
-            ):
-                # print("optimizing with jpegoptim")
-                _binary = OPTIMIZE_SUPPORT["jpegoptim"]["binary"] or "jpegoptim"
-                r = envoy.run("""%s --strip-all -q %s""" % (_binary, _fname_output))
-                if r.status_code != 127:
-                    _optimized = True
-                    optimizations.append(("jpegoptim", True))
-                else:
-                    optimizations.append(("jpegoptim", False))
-
-        elif self.format_standardized == "gif":
-            if (
-                OPTIMIZE_SUPPORT["gifsicle"]["available"]
-                and OPTIMIZE_SUPPORT["gifsicle"]["use"]
-            ):
-                _binary = OPTIMIZE_SUPPORT["gifsicle"]["binary"] or "gifsicle"
-                _gifsicle_level = OPTIMIZE_SUPPORT["gifsicle"]["options"]["level"]
-                r = envoy.run(
-                    """%s -O%d %s --output %s"""
-                    % (_binary, _gifsicle_level, _fname_input, _fname_output)
-                )
-                if r.status_code != 127:
-                    _optimized = True
-                    optimizations.append(("gifsicle", True))
-                else:
-                    optimizations.append(("gifsicle", False))
-
-        elif self.format_standardized == "png":
-            if (
-                OPTIMIZE_SUPPORT["pngcrush"]["available"]
-                and OPTIMIZE_SUPPORT["pngcrush"]["use"]
-            ):
-                _binary = OPTIMIZE_SUPPORT["pngcrush"]["binary"] or "pngcrush"
-                # envoy.run("""pngcrush -rem alla -reduce -brute -q %s %s""" % (_fname_input, _fname_output))
-                # envoy.run("""pngcrush -rem alla -reduce -q %s %s""" % (_fname_input, _fname_output))
-                r = envoy.run(
-                    """%s -rem alla -nofilecheck -bail -blacken -reduce -cc %s %s"""
-                    % (_binary, _fname_input, _fname_output)
-                )
-                if r.status_code != 127:
-                    _fname_input = _fname_output
-                    _optimized = True
-                    optimizations.append(("pngcrush", True))
-                else:
-                    optimizations.append(("pngcrush", False))
-
-            if (
-                OPTIMIZE_SUPPORT["optipng"]["available"]
-                and OPTIMIZE_SUPPORT["optipng"]["use"]
-            ):
-                _binary = OPTIMIZE_SUPPORT["optipng"]["binary"] or "optipng"
-                _optipng_level = OPTIMIZE_SUPPORT["optipng"]["options"]["level"]
-                # note that we do `--out OUTPUT --(stop) INPUT
-                r = envoy.run(
-                    """%s -i0 -o%d -out %s -- %s"""
-                    % (_binary, _optipng_level, _fname_output, _fname_input)
-                )
-                if r.status_code != 127:
-                    _fname_input = _fname_output
-                    _optimized = True
-                    optimizations.append(("optipng", True))
-                else:
-                    optimizations.append(("optipng", False))
-
-            if (
-                OPTIMIZE_SUPPORT["advpng"]["available"]
-                and OPTIMIZE_SUPPORT["advpng"]["use"]
-            ):
-                _binary = OPTIMIZE_SUPPORT["advpng"]["binary"] or "advpng"
-                _advpng_level = OPTIMIZE_SUPPORT["advpng"]["options"]["level"]
-                # note that we do `--out OUTPUT --(stop) INPUT
-                r = envoy.run(
-                    """%s -%d -z %s""" % (_binary, _advpng_level, _fname_output)
-                )
-                if r.status_code != 127:
-                    _fname_input = _fname_output
-                    _optimized = True
-                    optimizations.append(("advpng", True))
-                else:
-                    optimizations.append(("advpng", False))
-
-        # stash this onto the object
-        self.optimizations = optimizations
-
-        if not _optimized:
-            self.file.seek(0)
-            self.is_optimized = False  # nothing to optimize
-            log.debug("optimization_savings = 0 - NO OPTIMIZATIONS POSSIBLE")
-            self.optimization_savings = 0
-
-        else:
-            fileOutput.seek(0)
-            newFile = FilelikePreference()
-            newFile.write(fileOutput.read())
-            newFile.seek(0)
-            self.file = newFile
-            self.is_optimized = True
-
-            # so how much did we save?
-            filesize_optimized = utils.file_size(newFile)
-            optimization_savings = filesize_original - filesize_optimized
-
-            log.debug("optimization_savings = %s" % optimization_savings)
-            self.optimization_savings = optimization_savings
-
-        # done with these, so close
-        fileInput.close()
-        fileOutput.close()
+            if source != original:
+                result = _io._FilelikePreference()
+                result.write(source.read_bytes())
+                result.seek(0)
+                self.file = result
+                self.is_optimized = True
+                self.optimization_savings = original_size - source.stat().st_size
 
 
 class ResizedImage(BasicImage):
@@ -486,6 +379,57 @@ class FakedResize(BasicImage):
         self.height = height
 
 
+def _validate_input_limits(
+    max_filesize: Optional[int], max_dimensions: Optional[tuple[int, int]]
+) -> None:
+    """Reject negative byte limits and nonpositive dimension limits."""
+    if max_filesize is not None and max_filesize < 0:
+        raise ValueError("max_filesize must be nonnegative")
+    if max_dimensions is not None and min(max_dimensions) <= 0:
+        raise ValueError("max_dimensions must contain positive width and height")
+
+
+def _check_input_dimensions(
+    size: tuple[int, int], max_dimensions: Optional[tuple[int, int]]
+) -> None:
+    """Reject images whose width or height exceeds its configured maximum."""
+    if max_dimensions is not None and (
+        size[0] > max_dimensions[0] or size[1] > max_dimensions[1]
+    ):
+        raise errors.ImageError_Parsing(utils.ImageErrorCodes.DIMENSIONS_LIMIT_EXCEEDED)
+
+
+def _validate_animation_policy(
+    allowed: bool, max_frames: Optional[int], max_pixels: Optional[int]
+) -> None:
+    """Require positive resource limits whenever animated GIFs are enabled."""
+    if allowed and (
+        max_frames is None or max_frames < 2 or max_pixels is None or max_pixels < 1
+    ):
+        raise ValueError(
+            "Animated GIFs require max_animation_frames >= 2 "
+            "and a positive max_animation_pixels"
+        )
+
+
+def _check_animation_input(
+    fmt: Optional[str],
+    allowed: bool,
+    frames: int,
+    pixels: int,
+    max_frames: Optional[int],
+    max_pixels: Optional[int],
+) -> None:
+    """Reject disallowed animations and input exceeding either resource limit."""
+    if fmt != "GIF" or not allowed:
+        raise errors.ImageError_Parsing(utils.ImageErrorCodes.ANIMATION_NOT_ALLOWED)
+    if (
+        max_frames is None or max_pixels is None
+        or frames > max_frames or pixels > max_pixels
+    ):
+        raise errors.ImageError_Parsing(utils.ImageErrorCodes.ANIMATION_LIMIT_EXCEEDED)
+
+
 class ImageWrapper(object):
     """Our base class for image operations"""
 
@@ -506,12 +450,24 @@ class ImageWrapper(object):
         imagefile: _io.TYPES_imagefile_a,
         imagefile_name: Optional[str] = None,
         FilelikePreference: Optional[_io.TYPES_FilelikeSupported] = None,
+        *,
+        max_filesize: Optional[int] = None,
+        max_dimensions: Optional[tuple[int, int]] = None,
+        allow_animated_gif: bool = False,
+        max_animation_frames: Optional[int] = None,
+        max_animation_pixels: Optional[int] = None,
     ) -> None:
         """Copy and validate a binary image stream or CGI file upload.
 
         Rewind the input after reading and use the explicit name when provided.
-        Raise ImageError_Parsing if the input cannot be loaded as an image.
+        Byte and (width, height) limits are inclusive. Raise ImageError_Parsing
+        if a limit is exceeded or the input cannot be loaded as an image.
         """
+        _validate_input_limits(max_filesize, max_dimensions)
+        _validate_animation_policy(
+            allow_animated_gif, max_animation_frames, max_animation_pixels
+        )
+        self._max_animation_pixels = max_animation_pixels
         if imagefile is None:
             raise errors.ImageError_MissingFile(utils.ImageErrorCodes.MISSING_FILE)
 
@@ -546,7 +502,21 @@ class ImageWrapper(object):
 
             source.seek(0)
             try:
-                file_data = source.read()
+                if max_filesize is None:
+                    file_data = source.read()
+                else:
+                    # Check the encoded size before allocating a copy.
+                    source.seek(0, io.SEEK_END)
+                    if source.tell() > max_filesize:
+                        raise errors.ImageError_Parsing(
+                            utils.ImageErrorCodes.FILESIZE_LIMIT_EXCEEDED
+                        )
+                    source.seek(0)
+                    file_data = source.read(max_filesize + 1)
+                    if len(file_data) > max_filesize:
+                        raise errors.ImageError_Parsing(
+                            utils.ImageErrorCodes.FILESIZE_LIMIT_EXCEEDED
+                        )
             finally:
                 source.seek(0)
             if not isinstance(file_data, bytes):
@@ -560,6 +530,24 @@ class ImageWrapper(object):
             image_data.seek(0)
 
             image = Image.open(image_data)
+            _check_input_dimensions(image.size, max_dimensions)
+            frame_count = 1
+            canvas_size = image.size
+            canvas_pixels = image.width * image.height
+            while True:
+                try:
+                    image.seek(frame_count)
+                except EOFError:
+                    break
+                frame_count += 1
+                if image.size != canvas_size:
+                    raise errors.ImageError_Parsing(utils.ImageErrorCodes.INVALID_FILETYPE)
+                _check_animation_input(
+                    image.format, allow_animated_gif, frame_count,
+                    canvas_pixels * frame_count,
+                    max_animation_frames, max_animation_pixels,
+                )
+            image.seek(0)
             image.load()
             if image.format is None:
                 raise errors.ImageError_Parsing(utils.ImageErrorCodes.INVALID_REBUILD)
@@ -570,8 +558,8 @@ class ImageWrapper(object):
                 mode=image.mode,
                 width=image.width,
                 height=image.height,
-                is_image_animated=utils.is_image_animated(image),
-                animated_image_totalframes=utils.animated_image_totalframes(image),
+                is_image_animated=frame_count > 1,
+                animated_image_totalframes=frame_count,
             )
             self.pilObject = image
             loaded = True
@@ -588,10 +576,218 @@ class ImageWrapper(object):
                     if image_data is not None and not image_data.closed:
                         image_data.close()
 
+    def _resize_geometry(
+        self, instructions_dict: ResizerInstructions
+    ) -> tuple[tuple[int, int], Optional[Tuple[int, int, int, int]]]:
+        """Resolve the existing resize and crop geometry once per recipe."""
+        i_w, i_h = self.pilObject.size
+        crop: Optional[Tuple[int, int, int, int]] = None
+        constraint_method = "fit-within"
+        if "constraint-method" in instructions_dict:
+            constraint_method = instructions_dict["constraint-method"]
+
+        if constraint_method not in VALID_CONSTRAINTS:
+            raise ValueError("Invalid constraint_method: `%s`" % constraint_method)
+
+        if constraint_method == "passthrough:no-resize":
+            return (i_w, i_h), None
+
+        # t_ = target
+        # i_ = image / real
+
+        t_w = instructions_dict["width"]
+        t_h = instructions_dict["height"]
+
+        if (t_w is None) or (t_h is None):
+            raise ValueError("`None` is only valid for `passthrough:no-resize`")
+
+        # type hints for below switch
+        proportion: float
+        proportion_w: float
+        proportion_h: float
+
+        # notice that we only scale DOWN (ie: check that t_x < i_x
+
+        if constraint_method in ("fit-within", "fit-within:crop-to"):
+            # figure out the proportions
+            proportion_w = 1
+            proportion_h = 1
+            if t_w < i_w:
+                proportion_w = t_w / i_w
+            if t_h < i_h:
+                proportion_h = t_h / i_h
+
+            if constraint_method == "fit-within":
+                # peg to the SMALLEST proportion so the entire image fits
+                if proportion_w < proportion_h:
+                    proportion_h = proportion_w
+                elif proportion_h < proportion_w:
+                    proportion_w = proportion_h
+                # figure out the resizes!
+                t_w = int(i_w * proportion_w)
+                t_h = int(i_h * proportion_h)
+
+            elif constraint_method == "fit-within:crop-to":
+                # peg so the smallest dimension fills the canvas, then crop the rest.
+                if proportion_w > proportion_h:
+                    proportion_h = proportion_w
+                elif proportion_h > proportion_w:
+                    proportion_w = proportion_h
+
+                # note what we want to crop to
+                crop_w = t_w
+                crop_h = t_h
+
+                # figure out the resizes!
+                t_w = int(i_w * proportion_w)
+                t_h = int(i_h * proportion_h)
+
+                if (crop_w != t_w) or (crop_h != t_h):
+                    # support_hack_against_artifacting handles an issue where .thumbnail makes stuff look like shit
+                    # except we're not using .thumbnail anymore; we're using resize directly
+                    support_hack_against_artifacting = USE_THUMBNAIL
+                    if support_hack_against_artifacting:
+                        if t_w < i_w:
+                            t_w += 1
+                        if t_h < i_h:
+                            t_h += 1
+
+                    (x0, y0, x1, y1) = (0, 0, t_w, t_h)
+
+                    if t_w > crop_w:
+                        x0 = int((t_w / 2) - (crop_w / 2))
+                        x1 = x0 + crop_w
+
+                    if t_h > crop_h:
+                        y0 = int((t_h / 2) - (crop_h / 2))
+                        y1 = y0 + crop_h
+
+                    crop = (x0, y0, x1, y1)
+
+        elif constraint_method == "fit-within:ensure-width":
+            proportion = 1
+            if t_w < i_w:
+                proportion = t_w / i_w
+            t_h = int(i_h * proportion)
+
+        elif constraint_method == "fit-within:ensure-height":
+            proportion = 1
+            if t_h < i_h:
+                proportion = t_h / i_h
+            t_w = int(i_w * proportion)
+
+        elif constraint_method == "smallest:ensure-minimum":
+            # useful for things like og:image where you want at least a 200px image
+
+            # figure out the proportions
+            proportion_w = t_w / i_w
+            proportion_h = t_h / i_h
+
+            # we don't want to scale up...
+            if proportion_h > 1 or proportion_w > 1:
+                proportion_h = 1
+                proportion_w = 1
+
+            # use_scale = "h"
+            scale_factor = proportion_h
+            if proportion_w > proportion_h:
+                # use_scale = "w"
+                scale_factor = proportion_w
+
+            t_h = int(i_h * scale_factor)
+            t_w = int(i_w * scale_factor)
+
+        elif constraint_method == "exact:proportion":
+            proportion_w = 1
+            proportion_h = 1
+            if t_w < i_w:
+                proportion_w = t_w / i_w
+            if t_h < i_h:
+                proportion_h = t_h / i_h
+            if proportion_w != proportion_h:
+                raise errors.ImageError_ResizeError(
+                    "item can not be scaled to exact size"
+                )
+
+        elif constraint_method == "exact:no-resize":
+            if (t_w != i_w) or (t_h != i_h):
+                raise errors.ImageError_ResizeError("item is not exact size")
+
+        else:
+            raise errors.ImageError_ResizeError(
+                'Invalid constraint-method for size recipe: "%s"'
+                % constraint_method
+            )
+
+        return (t_w, t_h), crop
+
+    @staticmethod
+    def _transform_frame(
+        frame: Image.Image, size: tuple[int, int],
+        crop: Optional[Tuple[int, int, int, int]],
+    ) -> Image.Image:
+        """Apply the resolved geometry to a single frame."""
+        if frame.size != size:
+            if USE_THUMBNAIL:
+                frame.thumbnail(size, ANTIALIAS)
+            else:
+                frame = frame.resize(size, ANTIALIAS)
+        if crop is not None:
+            frame = frame.crop(crop)
+            frame.load()
+        return frame
+
+    def _resize_gif(
+        self,
+        size: tuple[int, int],
+        crop: Optional[Tuple[int, int, int, int]],
+        frame_count: int,
+        stream_factory: _io.TYPES_FilelikeSupported,
+    ) -> ResizedImage:
+        """Encode composited frames with independent transparent canvases."""
+        image = self.pilObject
+        frames: list[Image.Image] = []
+        durations: list[int] = []
+        loop = image.info.get("loop")
+        output = stream_factory()
+        try:
+            for index in range(frame_count):
+                image.seek(index)
+                frame = self._transform_frame(image.convert("RGBA"), size, crop)
+                # GIF has one-bit transparency. Make the threshold explicit.
+                transparent = frame.getchannel("A").point(
+                    lambda alpha: 255 if alpha < 128 else 0
+                )
+                indexed = frame.convert("RGB").quantize(colors=255)
+                indexed.paste(255, mask=transparent)
+                indexed.info["transparency"] = 255
+                frames.append(indexed)
+                durations.append(image.info.get("duration", 0))
+            options = {} if loop is None else {"loop": loop}
+            frames[0].save(
+                output, "GIF", save_all=True, append_images=frames[1:],
+                duration=durations, disposal=2, optimize=False, background=255, **options,
+            )
+            output.seek(0)
+            # Pillow can merge adjacent frames with identical resized pixels.
+            with Image.open(output) as encoded:
+                encoded_count = getattr(encoded, "n_frames", 1)
+            return ResizedImage(
+                output, format="GIF", width=frames[0].width, height=frames[0].height,
+                is_image_animated=encoded_count > 1, animated_image_totalframes=encoded_count,
+            )
+        except BaseException:
+            output.close()
+            raise
+        finally:
+            image.seek(0)
+
     def resize(
         self,
         instructions_dict: ResizerInstructions,
         FilelikePreference: Optional[_io.TYPES_FilelikeSupported] = None,
+        *,
+        _animation_budget: Optional[list[int]] = None,
     ) -> ResizedImage:
         """this does the heavy lifting
 
@@ -652,169 +848,8 @@ class ImageWrapper(object):
         if FilelikePreference is None:
             FilelikePreference = _io._FilelikePreference
 
-        # we analyze the pilObject, because `copy()` only works on the frame
-        if utils.is_image_animated(self.pilObject):
-            allow_animated = False
-            if "allow_animated" in instructions_dict:
-                allow_animated = instructions_dict["allow_animated"]
-            if not allow_animated:
-                raise errors.ImageError_InstructionsError(
-                    "Image is Animated but instructions do not allow it!"
-                )
-
-        resized_image = self.pilObject.copy()
-
-        if resized_image.palette:
-            resized_image = resized_image.convert()
-
-        constraint_method = "fit-within"
-        if "constraint-method" in instructions_dict:
-            constraint_method = instructions_dict["constraint-method"]
-
-        if constraint_method not in VALID_CONSTRAINTS:
-            raise ValueError("Invalid constraint_method: `%s`" % constraint_method)
-
-        if constraint_method != "passthrough:no-resize":
-            # t_ = target
-            # i_ = image / real
-
-            (i_w, i_h) = self.pilObject.size
-
-            t_w = instructions_dict["width"]
-            t_h = instructions_dict["height"]
-
-            if (t_w is None) or (t_h is None):
-                raise ValueError("`None` is only valid for `passthrough:no-resize`")
-
-            crop: Optional[Tuple[int, int, int, int]] = None
-            # type hints for below switch
-            proportion: float
-            proportion_w: float
-            proportion_h: float
-
-            # notice that we only scale DOWN (ie: check that t_x < i_x
-
-            if constraint_method in ("fit-within", "fit-within:crop-to"):
-                # figure out the proportions
-                proportion_w = 1
-                proportion_h = 1
-                if t_w < i_w:
-                    proportion_w = t_w / i_w
-                if t_h < i_h:
-                    proportion_h = t_h / i_h
-
-                if constraint_method == "fit-within":
-                    # peg to the SMALLEST proportion so the entire image fits
-                    if proportion_w < proportion_h:
-                        proportion_h = proportion_w
-                    elif proportion_h < proportion_w:
-                        proportion_w = proportion_h
-                    # figure out the resizes!
-                    t_w = int(i_w * proportion_w)
-                    t_h = int(i_h * proportion_h)
-
-                elif constraint_method == "fit-within:crop-to":
-                    # peg so the smallest dimension fills the canvas, then crop the rest.
-                    if proportion_w > proportion_h:
-                        proportion_h = proportion_w
-                    elif proportion_h > proportion_w:
-                        proportion_w = proportion_h
-
-                    # note what we want to crop to
-                    crop_w = t_w
-                    crop_h = t_h
-
-                    # figure out the resizes!
-                    t_w = int(i_w * proportion_w)
-                    t_h = int(i_h * proportion_h)
-
-                    if (crop_w != t_w) or (crop_h != t_h):
-                        # support_hack_against_artifacting handles an issue where .thumbnail makes stuff look like shit
-                        # except we're not using .thumbnail anymore; we're using resize directly
-                        support_hack_against_artifacting = USE_THUMBNAIL
-                        if support_hack_against_artifacting:
-                            if t_w < i_w:
-                                t_w += 1
-                            if t_h < i_h:
-                                t_h += 1
-
-                        (x0, y0, x1, y1) = (0, 0, t_w, t_h)
-
-                        if t_w > crop_w:
-                            x0 = int((t_w / 2) - (crop_w / 2))
-                            x1 = x0 + crop_w
-
-                        if t_h > crop_h:
-                            y0 = int((t_h / 2) - (crop_h / 2))
-                            y1 = y0 + crop_h
-
-                        crop = (x0, y0, x1, y1)
-
-            elif constraint_method == "fit-within:ensure-width":
-                proportion = 1
-                if t_w < i_w:
-                    proportion = t_w / i_w
-                t_h = int(i_h * proportion)
-
-            elif constraint_method == "fit-within:ensure-height":
-                proportion = 1
-                if t_h < i_h:
-                    proportion = t_h / i_h
-                t_w = int(i_w * proportion)
-
-            elif constraint_method == "smallest:ensure-minimum":
-                # useful for things like og:image where you want at least a 200px image
-
-                # figure out the proportions
-                proportion_w = t_w / i_w
-                proportion_h = t_h / i_h
-
-                # we don't want to scale up...
-                if proportion_h > 1 or proportion_w > 1:
-                    proportion_h = 1
-                    proportion_w = 1
-
-                # use_scale = "h"
-                scale_factor = proportion_h
-                if proportion_w > proportion_h:
-                    # use_scale = "w"
-                    scale_factor = proportion_w
-
-                t_h = int(i_h * scale_factor)
-                t_w = int(i_w * scale_factor)
-
-            elif constraint_method == "exact:proportion":
-                proportion_w = 1
-                proportion_h = 1
-                if t_w < i_w:
-                    proportion_w = t_w / i_w
-                if t_h < i_h:
-                    proportion_h = t_h / i_h
-                if proportion_w != proportion_h:
-                    raise errors.ImageError_ResizeError(
-                        "item can not be scaled to exact size"
-                    )
-
-            elif constraint_method == "exact:no-resize":
-                if (t_w != i_w) or (t_h != i_h):
-                    raise errors.ImageError_ResizeError("item is not exact size")
-
-            else:
-                raise errors.ImageError_ResizeError(
-                    'Invalid constraint-method for size recipe: "%s"'
-                    % constraint_method
-                )
-
-            if (i_w != t_w) or (i_h != t_h):
-                if USE_THUMBNAIL:
-                    # the thumbnail is faster, but has been looking uglier in recent versions
-                    resized_image.thumbnail((t_w, t_h), ANTIALIAS)
-                else:
-                    resized_image = resized_image.resize((t_w, t_h), ANTIALIAS)
-
-            if crop:
-                resized_image = resized_image.crop(crop)
-                resized_image.load()
+        self.pilObject.seek(0)
+        size, crop = self._resize_geometry(instructions_dict)
 
         format = "JPEG"
         if "format" in instructions_dict:
@@ -824,6 +859,36 @@ class ImageWrapper(object):
         original_format = self.get_original().format
         assert original_format is not None
         format = utils.derive_format(format, original_format)
+
+        if self.basicImage.is_image_animated:
+            if instructions_dict.get("allow_animated") is not True or format != "GIF":
+                raise errors.ImageError_InstructionsError(
+                    "Animated GIF output requires allow_animated=True and format='GIF'"
+                )
+            frame_count = self.basicImage.animated_image_totalframes
+            assert frame_count is not None
+            input_pixels = self.pilObject.width * self.pilObject.height * frame_count
+            budget = (
+                self._max_animation_pixels
+                if _animation_budget is None
+                else _animation_budget[0]
+            )
+            # Charge the largest intermediate or output canvas before allocating frames.
+            output_pixels = size[0] * size[1]
+            if crop is not None:
+                output_pixels = max(output_pixels, (crop[2] - crop[0]) * (crop[3] - crop[1]))
+            cost = output_pixels * frame_count
+            if budget is None or input_pixels + cost > budget:
+                raise errors.ImageError_ResizeError("Animated GIF pixel budget exceeded")
+            result = self._resize_gif(size, crop, frame_count, FilelikePreference)
+            if _animation_budget is not None:
+                _animation_budget[0] -= cost
+            return result
+
+        resized_image = self.pilObject.copy()
+        if resized_image.palette:
+            resized_image = resized_image.convert()
+        resized_image = self._transform_frame(resized_image, size, crop)
 
         def _get_pil_options(_format: str) -> Dict:
             pil_options: Dict = {}

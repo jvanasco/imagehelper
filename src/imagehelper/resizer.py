@@ -82,7 +82,11 @@ class ResizerConfig(object):
     selected_resizes: TYPE_selected_resizes
     optimize_original: Optional[bool] = None
     optimize_resized: bool = False
-    # original_allow_animated = None
+    max_filesize: Optional[int] = None
+    max_dimensions: Optional[tuple[int, int]] = None
+    allow_animated_gif: bool = False
+    max_animation_frames: Optional[int] = None
+    max_animation_pixels: Optional[int] = None
 
     def __init__(
         self,
@@ -91,14 +95,33 @@ class ResizerConfig(object):
         is_subclass: bool = False,
         optimize_original: Optional[bool] = None,
         optimize_resized: bool = False,
-        # original_allow_animated=None,
-    ):
+        *,
+        max_filesize: Optional[int] = None,
+        max_dimensions: Optional[tuple[int, int]] = None,
+        allow_animated_gif: bool = False,
+        max_animation_frames: Optional[int] = None,
+        max_animation_pixels: Optional[int] = None,
+    ) -> None:
+        """Configure resize recipes and optional inclusive input limits."""
+        image_wrapper._validate_input_limits(max_filesize, max_dimensions)
+        if not is_subclass or max_filesize is not None:
+            self.max_filesize = max_filesize
+        if not is_subclass or max_dimensions is not None:
+            self.max_dimensions = max_dimensions
+        if not is_subclass or allow_animated_gif:
+            self.allow_animated_gif = allow_animated_gif
+        if not is_subclass or max_animation_frames is not None:
+            self.max_animation_frames = max_animation_frames
+        if not is_subclass or max_animation_pixels is not None:
+            self.max_animation_pixels = max_animation_pixels
+        image_wrapper._validate_animation_policy(
+            self.allow_animated_gif, self.max_animation_frames, self.max_animation_pixels
+        )
         if not is_subclass:
             if resizesSchema:
                 self.resizesSchema = resizesSchema
             self.optimize_original = optimize_original
             self.optimize_resized = optimize_resized
-            # self.original_allow_animated = original_allow_animated
 
             # we want a unique list
             if selected_resizes is None:
@@ -214,30 +237,65 @@ class Resizer(object):
                 "We already have registered a file."
             )
 
-        if (imagefile is None) and (imageWrapper is None) and (file_b64 is None):
+        if sum(value is not None for value in (imagefile, imageWrapper, file_b64)) != 1:
             raise errors.ImageError_ConfigError(
-                "Must submit either imagefile /or/ imageWrapper /or/ file_b64"
+                "Submit exactly one of imagefile, imageWrapper, or file_b64"
             )
 
-        if (
-            (imagefile is not None)
-            and (imageWrapper is not None)
-            and (file_b64 is not None)
-        ):
-            raise errors.ImageError_ConfigError(
-                "Submit only imagefile /or/ imageWrapper /or/ file_b64"
-            )
+        config = self._resizerConfig
+        max_filesize = config.max_filesize if config is not None else None
+        max_dimensions = config.max_dimensions if config is not None else None
+        allow_animated = config.allow_animated_gif if config is not None else False
+        max_frames = config.max_animation_frames if config is not None else None
+        max_pixels = config.max_animation_pixels if config is not None else None
+        image_wrapper._validate_animation_policy(allow_animated, max_frames, max_pixels)
 
         if file_b64 is not None:
-            imagefile = utils.b64_decode_to_file(file_b64)
-
-        if imagefile is not None:
-            self._wrappedImage = image_wrapper.ImageWrapper(imagefile=imagefile)
+            if max_filesize is not None:
+                # Bound decoder allocation. Allow ASCII whitespace used by encodebytes.
+                max_encoded = 4 * ((max_filesize + 2) // 3)
+                encoded = bytearray()
+                for byte in file_b64:
+                    if byte not in b" \t\r\n\v\f":
+                        if len(encoded) == max_encoded:
+                            raise errors.ImageError_Parsing(
+                                utils.ImageErrorCodes.FILESIZE_LIMIT_EXCEEDED
+                            )
+                        encoded.append(byte)
+                file_b64 = bytes(encoded)
+            with utils.b64_decode_to_file(file_b64) as decoded:
+                self._wrappedImage = image_wrapper.ImageWrapper(
+                    decoded, max_filesize=max_filesize, max_dimensions=max_dimensions,
+                    allow_animated_gif=allow_animated, max_animation_frames=max_frames,
+                    max_animation_pixels=max_pixels,
+                )
+        elif imagefile is not None:
+            self._wrappedImage = image_wrapper.ImageWrapper(
+                imagefile, max_filesize=max_filesize, max_dimensions=max_dimensions,
+                allow_animated_gif=allow_animated, max_animation_frames=max_frames,
+                max_animation_pixels=max_pixels,
+            )
 
         elif imageWrapper is not None:
             if not isinstance(imageWrapper, image_wrapper.ImageWrapper):
                 raise errors.ImageError_ConfigError(
                     "imageWrapper must be of type `imaage_wrapper.ImageWrapper`"
+                )
+            original = imageWrapper.get_original()
+            if max_filesize is not None and original.file_size > max_filesize:
+                raise errors.ImageError_Parsing(
+                    utils.ImageErrorCodes.FILESIZE_LIMIT_EXCEEDED
+                )
+            image_wrapper._check_input_dimensions(
+                imageWrapper.pilObject.size, max_dimensions
+            )
+            if original.is_image_animated:
+                frames = original.animated_image_totalframes
+                assert frames is not None
+                width, height = imageWrapper.pilObject.size
+                image_wrapper._check_animation_input(
+                    original.format, allow_animated, frames, width * height * frames,
+                    max_frames, max_pixels,
                 )
             self._wrappedImage = imageWrapper
 
@@ -266,7 +324,6 @@ class Resizer(object):
         selected_resizes: Optional[TYPE_selected_resizes] = None,
         optimize_original: Optional[bool] = None,
         optimize_resized: Optional[bool] = None,
-        # original_allow_animated=None,
     ) -> ResizerResultset:
         """
         Returns a dict of resized images
@@ -338,7 +395,8 @@ class Resizer(object):
                 "Please pass in a `imagefile` if you have not set an imageFileObject yet"
             )
 
-        # we'll stash the items here
+        max_pixels = self._resizerConfig.max_animation_pixels if self._resizerConfig else None
+        animation_budget = [max_pixels] if max_pixels is not None else None
         resized = {}
         for size in selected_resizes:
             if size[0] == "@":
@@ -347,7 +405,9 @@ class Resizer(object):
                 )
 
             # ImageWrapper.resize returns a ResizedImage that has attributes `.resized_image`, `image_format`
-            resized[size] = self._wrappedImage.resize(resizesSchema[size])
+            resized[size] = self._wrappedImage.resize(
+                resizesSchema[size], _animation_budget=animation_budget
+            )
             if optimize_resized:
                 resized[size].optimize()
 

@@ -144,6 +144,49 @@ And easily upload them:
 Behind the scenes, imagehelper does all the math and uploading.
 
 
+## Limit input size
+
+Pass `max_filesize` in bytes and `max_dimensions` as `(width, height)` to
+`ResizerConfig` or directly to `ImageWrapper`. Limits are inclusive and default
+to `None`. Byte limits apply to the decoded bytes for Base64 inputs. Either
+dimension can trigger rejection before Pillow loads the pixels. Exceeding a
+limit raises `ImageError_Parsing`.
+
+## Resize animated GIFs
+
+Animated uploads are rejected by default. To accept and resize animated GIFs,
+set the upload policy and its limits on `ResizerConfig`, then opt in on each
+recipe that produces an animated GIF. Set these values in application code.
+
+```python
+from imagehelper.resizer import ResizerConfig
+
+config = ResizerConfig(
+    allow_animated_gif=True,
+    max_animation_frames=60,
+    max_animation_pixels=12_000_000,
+    max_filesize=2_000_000,
+    max_dimensions=(800, 800),
+    resizesSchema={
+        "preview": {
+            "width": 240,
+            "height": 240,
+            "constraint-method": "fit-within",
+            "format": "GIF",
+            "allow_animated": True,
+        },
+    },
+)
+```
+
+The pixel budget covers the input canvas for every frame plus the resized
+canvases for every selected output. Direct `ImageWrapper` callers can set the
+same upload policy and limits. Static GIFs use the existing static resize path.
+
+The encoder resizes composited frames, preserves playback timing and looping,
+and quantizes each frame to a GIF palette with one-bit transparency. Pillow may
+merge identical consecutive frames and combine their delays.
+
 ## Resizing Options
 
 * `fit-within`
@@ -426,123 +469,10 @@ data. imagehelper provides convenience functionality for this
         resizedImages = resizer.resize()
 
 
-## How are optimizations handled?
+## Image optimization
 
-Image optimizations are handled by piping the image through external programs.
-The idea (and settings) were borrowed from the mac app
-ImageOptim (https://github.com/pornel/ImageOptim or https://imageoptim.com/)
-
-The default image Optimizations are LOSSLESS
-
-Fine-grained control of image optimization strategies is achieved on a package
-level basis. In the future this could be handled within configuration objects.
-This strategy was chosen for 2 reasons:
-
-1. The config objects were getting complex
-2. Choosing an image optimization level is more of a "machine" concern than a
-   "program" concern.
-
-Not everyone has every program installed on their machines.
-
-`imagehelper` will attempt to autodetect what is available on the first
-invocation of `.optimize`
-
-If you are on a forking server, you can do this before the fork and save yourself
-a tiny bit of cpu cycles. yay.
-
-    import imagehelper
-    imagehelper.image_wrapper.autodetect_support()
-
-The `autodetect_support` routing will set
-
-    imagehelper.image_wrapper[ program ]['available']
-
-If you want to enable/disable them manuall, just edit
-
-    imagehelper.image_wrapper[ program ]['use']
-
-You can also set a custom binary
-
-    imagehelper.image_wrapper[ program ]['binary']
-
-Autodetection is handled by invoking each program's help command to see if it is
-installed.
-
-
-### JPEG
-
-jpegs are optimized in a two-stage process.
-
-    jpegtran is used to do an initial optimization and ensure a progressive jpeg.
-    all jpeg markers are preserved.
-    jpegoptim is used on the output of the above, in this stage all jpeg markers
-    are removed.
-
-The exact arguments are:
-
-    """jpegtran -copy all -optimize -progressive -outfile %s %s""" % (fileOutput.name, fileInput.name)
-    """jpegoptim --strip-all -q %s""" % (fileOutput.name, )
-
-### GIF
-
-Gifsicle is given the following params
-    -O3
-    --no-comments
-    --no-names
-    --same-delay
-    --same-loopcount
-    --no-warnings
-
-The `03` level can be affected by changing the package level variable to a new integer (1-3)
-
-    imagehelper.image_wrapper.OPTIMIZE_GIFSICLE_LEVEL = 3
-
-
-### PNG
-
-The package will try to use multiple png operators in sequence.
-
-You can disable any png operator by changing the package level variable to `False`
-
-    OPTIMIZE_PNGCRUSH_USE = True
-    OPTIMIZE_OPTIPNG_USE = True
-    OPTIMIZE_ADVPNG_USE = True
-
-#### pngcrush
-
-    pngcrush -rem alla -nofilecheck -bail -blacken -reduce -cc
-
-#### optipng
-
-    optipng -i0 -o3
-
-The optipng level can be set by setting the package level variable to a new integer (1-3)
-
-    OPTIMIZE_OPTIPNG_LEVEL = 3  # 6 would be best
-
-#### advpng
-
-    advpng -4 -z
-
-The advpng level can be set by setting the package level variable to a new integer (1-4)
-
-    OPTIMIZE_ADVPNG_LEVEL = 4  # 4 is max
-
-
-### what external libraries are needed to be installed
-
-None. These are all optional!  But here you go
-
-
-#### ubuntu
-
-    apt-get install advancecomp  # advpng
-    apt-get install gifsicle
-    apt-get install libjpeg-turbo-progs  # jpegtran
-    apt-get install jpegoptim
-    apt-get install optipng
-    apt-get install pngcrush
-
+See the [optimizer guide](docs/optimizers.md) for installation, tool behavior,
+configuration, tests, and benchmarks.
 
 ## ToDo
 
